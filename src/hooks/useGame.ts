@@ -6,9 +6,9 @@ import {
   drawFromDiscard,
   swapCard,
   discardCard,
-  useJackEffect,
-  useKingEffect,
-  useQueenEffect,
+  applyJackEffect,
+  applyKingEffect,
+  applyQueenEffect,
   callDame,
   endTurn,
   canCallDame,
@@ -28,8 +28,8 @@ interface UseGameReturn {
   selectHandCard: (index: number) => void;
   confirmSwap: () => void;
   discardDrawnCard: () => void;
-  useJack: (handIndex: number) => void;
-  useKing: (targetPlayerId: string, myHandIndex: number, targetHandIndex: number) => void;
+  activateJack: (handIndex: number) => void;
+  activateKing: (targetPlayerId: string, myHandIndex: number, targetHandIndex: number) => void;
   callDame: () => void;
   tryDiscardExtra: (cardId: string) => void;
   endTurn: () => void;
@@ -95,7 +95,7 @@ export function useGame(): UseGameReturn {
     // Spezialeffekte prüfen
     if (discardedCard.rank === 'Q') {
       // Dame abgelegt - Strafkarte!
-      const finalState = useQueenEffect(newState, currentPlayer.id);
+      const finalState = applyQueenEffect(newState, currentPlayer.id);
       setGameState(finalState);
       setGameMessage('Dame abgelegt! Du ziehst eine Strafkarte.');
     } else if (discardedCard.rank === 'J') {
@@ -120,7 +120,7 @@ export function useGame(): UseGameReturn {
     if (!gameState) return;
     
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-    const newState = useJackEffect(gameState, currentPlayer.id, handIndex);
+    const newState = applyJackEffect(gameState, currentPlayer.id, handIndex);
     setGameState(newState);
     setGameMessage('Du kannst jetzt diese Karte sehen.');
   }, [gameState]);
@@ -133,7 +133,7 @@ export function useGame(): UseGameReturn {
     if (!gameState) return;
     
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-    const newState = useKingEffect(
+    const newState = applyKingEffect(
       gameState,
       currentPlayer.id,
       targetPlayerId,
@@ -199,8 +199,8 @@ export function useGame(): UseGameReturn {
     selectHandCard,
     confirmSwap,
     discardDrawnCard,
-    useJack: handleUseJack,
-    useKing: handleUseKing,
+    activateJack: handleUseJack,
+    activateKing: handleUseKing,
     callDame: handleCallDame,
     tryDiscardExtra: handleTryDiscardExtra,
     endTurn: handleEndTurn,

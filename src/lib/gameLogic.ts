@@ -88,6 +88,8 @@ export function initializeGame(playerNames: string[]): GameState {
     cardsLogged: false,
     safePhase: true,
     lastAction: null,
+    roundStartPlayerIndex: 0,
+    dameCallTurnsRemaining: null,
   };
 }
 
@@ -158,7 +160,7 @@ export function discardCard(gameState: GameState, card: Card): GameState {
 }
 
 // Bube-Effekt: Eigene Karte anschauen
-export function useJackEffect(gameState: GameState, playerId: string, handIndex: number): GameState {
+export function applyJackEffect(gameState: GameState, playerId: string, handIndex: number): GameState {
   const newState = { ...gameState };
   const player = newState.players.find(p => p.id === playerId)!;
   
@@ -171,7 +173,7 @@ export function useJackEffect(gameState: GameState, playerId: string, handIndex:
 }
 
 // König-Effekt: Karten tauschen
-export function useKingEffect(
+export function applyKingEffect(
   gameState: GameState,
   playerId: string,
   targetPlayerId: string,
@@ -198,7 +200,7 @@ export function useKingEffect(
 }
 
 // Dame-Effekt: Strafkarte ziehen
-export function useQueenEffect(gameState: GameState, playerId: string): GameState {
+export function applyQueenEffect(gameState: GameState, playerId: string): GameState {
   const newState = { ...gameState };
   const player = newState.players.find(p => p.id === playerId)!;
   
@@ -216,61 +218,114 @@ export function useQueenEffect(gameState: GameState, playerId: string): GameStat
 export function callDame(gameState: GameState, playerId: string): GameState {
   const newState = { ...gameState };
   const player = newState.players.find(p => p.id === playerId)!;
-  
+  const activePlayers = newState.players.filter(p => !p.isEliminated).length;
+
   player.hasCalledDame = true;
   newState.dameCallerId = playerId;
   newState.phase = 'DAME_CALLED';
   newState.cardsLogged = true;
+  newState.dameCallTurnsRemaining = activePlayers;
   newState.lastAction = `${player.name} hat "Dame" gerufen!`;
-  
+
   return newState;
 }
 
 // Prüfen, ob Dame Call erlaubt ist
 export function canCallDame(gameState: GameState): boolean {
-  return !gameState.safePhase && gameState.phase === 'REGULAR_PLAY';
+  return (
+    !gameState.safePhase &&
+    gameState.phase === 'REGULAR_PLAY' &&
+    gameState.dameCallerId === null
+  );
 }
 
 // Zug beenden und zum nächsten Spieler
 export function endTurn(gameState: GameState): GameState {
   const newState = { ...gameState };
-  
-  // Nächster Spieler
+
+  // Nächster Spieler (überspringe Eliminierte)
   do {
     newState.currentPlayerIndex = (newState.currentPlayerIndex + 1) % newState.players.length;
   } while (newState.players[newState.currentPlayerIndex].isEliminated);
-  
-  // Prüfen, ob Runde zu Ende ist (alle Spieler waren dran)
-  const activePlayers = newState.players.filter(p => !p.isEliminated).length;
+
   newState.turnInRound++;
-  
-  if (newState.turnInRound > activePlayers) {
+
+  // Dame Call: verbleibende Züge herunterzählen
+  if (newState.phase === 'DAME_CALLED' && newState.dameCallTurnsRemaining !== null) {
+    newState.dameCallTurnsRemaining--;
+    if (newState.dameCallTurnsRemaining <= 0) {
+      // Runde sofort beenden — endRound wird vom Hook aufgerufen
+      newState.turnInRound = 1;
+      newState.round++;
+      newState.roundStartPlayerIndex = newState.currentPlayerIndex;
+      return newState;
+    }
+  }
+
+  // Normales Rundenende prüfen: wenn wir beim Startspieler der Runde ankommen
+  if (newState.currentPlayerIndex === newState.roundStartPlayerIndex && newState.turnInRound > 1) {
     newState.turnInRound = 1;
     newState.round++;
-    
+    newState.roundStartPlayerIndex = newState.currentPlayerIndex;
+
     // Nach 2 Runden ist die Safe Phase vorbei
     if (newState.round > 2) {
       newState.safePhase = false;
       newState.phase = 'REGULAR_PLAY';
     }
   }
-  
+
   return newState;
 }
 
 // Runde beenden und Punkte berechnen
 export function endRound(gameState: GameState): GameState {
   const newState = { ...gameState };
-  
+
+  // --- Dame Call Auswertung — Teil 1: Gewinner bestimmen ---
+  let callerWins = false;
+  const dameCallerId = newState.dameCallerId;
+  if (dameCallerId) {
+    // Alle Karten aufdecken
+    for (const player of newState.players) {
+      if (!player.isEliminated) {
+        player.visibleCardIndices = [0, 1, 2, 3];
+      }
+    }
+
+    const caller = newState.players.find(p => p.id === dameCallerId);
+    if (caller && !caller.isEliminated) {
+      const callerScore = calculateHandScore([...caller.hand, ...caller.penaltyCards]);
+      const otherScores = newState.players
+        .filter(p => !p.isEliminated && p.id !== dameCallerId)
+        .map(p => calculateHandScore([...p.hand, ...p.penaltyCards]));
+      const lowestScore = otherScores.length > 0 ? Math.min(...otherScores) : Infinity;
+
+      callerWins = callerScore <= lowestScore;
+      if (callerWins) {
+        // Caller gewinnt die Runde → 0 Punkte
+        caller.score = 0;
+        newState.lastAction = `${caller.name} hat "Dame" richtig gerufen! Runde gewonnen.`;
+      } else {
+        newState.lastAction = `${caller.name} lag mit "Dame" falsch! Strafkarte.`;
+      }
+    }
+  }
+
   // Punkte für jeden Spieler berechnen
   for (const player of newState.players) {
     if (player.isEliminated) continue;
-    
-    // Alle Handkarten + Strafkarten
-    const allCards = [...player.hand, ...player.penaltyCards];
-    player.score = calculateHandScore(allCards);
+
+    // Bei Dame Call wurde score evtl. schon gesetzt (caller)
+    if (dameCallerId === player.id && player.score === 0) {
+      // score bereits 0, nichts zu tun
+    } else {
+      const allCards = [...player.hand, ...player.penaltyCards];
+      player.score = calculateHandScore(allCards);
+    }
+
     player.totalScore += player.score;
-    
+
     // 50-Punkte-Reset prüfen
     if (player.totalScore === 50) {
       player.totalScore = 0;
@@ -279,41 +334,81 @@ export function endRound(gameState: GameState): GameState {
       player.isEliminated = true;
       newState.lastAction = `${player.name} ist ausgeschieden!`;
     }
-    
+
     // Strafkarten zurücksetzen
     player.penaltyCards = [];
     player.hasCalledDame = false;
   }
-  
+
+  // --- Dame Call Auswertung — Teil 2: Strafkarte nach Punkteberechnung ---
+  if (!callerWins && dameCallerId) {
+    const caller = newState.players.find(p => p.id === dameCallerId);
+    if (caller) {
+      const { card: penaltyCard, newState: updatedState } = drawFromDeck(newState);
+      if (penaltyCard) {
+        penaltyCard.isVisible = false;
+        caller.penaltyCards.push(penaltyCard);
+      }
+      if (updatedState) {
+        newState.deck = updatedState.deck;
+        newState.discardPile = updatedState.discardPile;
+      }
+    }
+  }
+
   // Prüfen, ob nur noch ein Spieler übrig ist
   const remainingPlayers = newState.players.filter(p => !p.isEliminated);
   if (remainingPlayers.length <= 1) {
     newState.phase = 'GAME_OVER';
     return newState;
   }
-  
-  // Neue Runde vorbereiten
-  newState.round++;
+
+  // Alle Karten aufdecken für die Übersicht
+  for (const player of newState.players) {
+    if (!player.isEliminated) {
+      player.visibleCardIndices = [0, 1, 2, 3];
+    }
+  }
+
+  newState.phase = 'ROUND_END';
+  return newState;
+}
+
+// Nächste Runde starten (nach ROUND_END Übersicht)
+export function startNextRound(gameState: GameState): GameState {
+  const newState = { ...gameState };
+
   newState.turnInRound = 1;
   newState.dameCallerId = null;
   newState.cardsLogged = false;
-  
+  newState.dameCallTurnsRemaining = null;
+
+  // Startspieler rotieren
+  const activePlayerIndices = newState.players
+    .map((p, i) => (!p.isEliminated ? i : -1))
+    .filter(i => i !== -1);
+  const currentStartIdx = activePlayerIndices.indexOf(newState.roundStartPlayerIndex);
+  const nextStartIdx = activePlayerIndices[(currentStartIdx + 1) % activePlayerIndices.length];
+  newState.roundStartPlayerIndex = nextStartIdx;
+  newState.currentPlayerIndex = nextStartIdx;
+
   // Neue Karten verteilen
   let deck = createDeck();
   deck = shuffleDeck(deck);
-  
+
   for (const player of newState.players) {
     if (player.isEliminated) continue;
-    
+
     player.hand = deck.splice(0, 4);
     player.visibleCardIndices = [0, 1];
+    player.score = 0;
   }
-  
+
   newState.deck = deck;
   newState.discardPile = [];
   newState.phase = newState.round > 2 ? 'REGULAR_PLAY' : 'SETUP';
   newState.safePhase = newState.round <= 2;
-  
+
   return newState;
 }
 

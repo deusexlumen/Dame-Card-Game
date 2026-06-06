@@ -46,6 +46,8 @@ export interface GameState {
   cardsLogged: boolean; // Karten des Callers sind eingeloggt
   safePhase: boolean; // Erste 2 Runden (kein Dame Call)
   lastAction: string | null;
+  roundStartPlayerIndex: number;
+  dameCallTurnsRemaining: number | null;
 }
 
 // Aktionen
@@ -77,12 +79,12 @@ export const CARD_VALUES: Record<CardRank, number> = {
   'K': 10,
 };
 
-// Farben für das UI
+// Farben für das UI — echte Spielkarten-Farben
 export const SUIT_COLORS: Record<CardSuit, string> = {
-  hearts: 'text-red-500',
-  diamonds: 'text-red-500',
-  clubs: 'text-slate-800',
-  spades: 'text-slate-800',
+  hearts: 'text-[#c41e3a]',
+  diamonds: 'text-[#c41e3a]',
+  clubs: 'text-[#1a1a2e]',
+  spades: 'text-[#1a1a2e]',
 };
 
 export const SUIT_SYMBOLS: Record<CardSuit, string> = {

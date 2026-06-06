@@ -12,6 +12,7 @@ interface PlayerHandProps {
   onCardSelectForSwap?: (index: number) => void;
   onCardSelectForJack?: (index: number) => void;
   onCardSelectForKing?: (index: number) => void;
+  onCardSelectForExtraDiscard?: (index: number) => void;
   selectedCardIndex?: number | null;
   gamePhase?: string;
   size?: 'sm' | 'md' | 'lg';
@@ -25,6 +26,7 @@ export function PlayerHand({
   onCardSelectForSwap,
   onCardSelectForJack,
   onCardSelectForKing,
+  onCardSelectForExtraDiscard,
   selectedCardIndex,
   gamePhase,
   size = 'md',
@@ -57,7 +59,7 @@ export function PlayerHand({
       </div>
 
       {/* Karten */}
-      <div className="flex gap-2">
+      <div className="flex gap-1 sm:gap-2">
         {player.hand.map((card, index) => {
           const isVisible =
             showAllCards ||
@@ -67,7 +69,7 @@ export function PlayerHand({
           const isClickable =
             isActivePlayer &&
             !player.isEliminated &&
-            (onCardClick || onCardSelectForSwap || onCardSelectForJack);
+            (onCardClick || onCardSelectForSwap || onCardSelectForJack || onCardSelectForExtraDiscard);
 
           return (
             <div key={card.id} className="relative">
@@ -83,6 +85,8 @@ export function PlayerHand({
                     onCardSelectForKing(index);
                   } else if (onCardSelectForSwap) {
                     onCardSelectForSwap(index);
+                  } else if (onCardSelectForExtraDiscard) {
+                    onCardSelectForExtraDiscard(index);
                   } else if (onCardClick) {
                     onCardClick(index);
                   }
@@ -92,8 +96,8 @@ export function PlayerHand({
               
               {/* Sichtbarkeits-Indikator */}
               {!isOpponent && player.visibleCardIndices.includes(index) && (
-                <div className="absolute -top-2 -right-2 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                  <Eye className="w-3 h-3 text-white" />
+                <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-5 sm:h-5 bg-green-500 rounded-full flex items-center justify-center">
+                  <Eye className="w-2 h-2 sm:w-3 sm:h-3 text-white" />
                 </div>
               )}
             </div>

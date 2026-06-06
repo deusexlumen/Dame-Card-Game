@@ -6,16 +6,19 @@ import {
   drawFromDiscard,
   swapCard,
   discardCard,
-  useJackEffect,
-  useKingEffect,
-  useQueenEffect,
+  applyJackEffect,
+  applyKingEffect,
+  applyQueenEffect,
   callDame,
   endTurn,
+  endRound,
+  startNextRound,
   canCallDame,
   discardExtraCard,
   getWinner,
 } from '@/lib/gameLogic';
 import { decideAIMove, type AIDifficulty } from '@/lib/aiPlayer';
+import type { AISpeed } from '@/hooks/useSettings';
 
 export interface AIPlayerInfo {
   id: string;
@@ -32,39 +35,107 @@ interface UseGameWithAIReturn {
   isAIThinking: boolean;
   currentAIDifficulty: AIDifficulty | null;
   startGame: (players: Array<{ name: string; isAI?: boolean; difficulty?: AIDifficulty }>) => void;
+  loadSavedGame: () => boolean;
+  hasSavedGame: boolean;
   drawFromDeck: () => void;
   drawFromDiscard: () => void;
   selectHandCard: (index: number) => void;
   confirmSwap: () => void;
   discardDrawnCard: () => void;
-  useJack: (handIndex: number) => void;
-  useKing: (targetPlayerId: string, myHandIndex: number, targetHandIndex: number) => void;
+  activateJack: (handIndex: number) => void;
+  activateKing: (targetPlayerId: string, myHandIndex: number, targetHandIndex: number) => void;
   callDame: () => void;
   tryDiscardExtra: (cardId: string) => void;
   endTurn: () => void;
+  startNextRound: () => void;
   resetGame: () => void;
   canCallDameNow: boolean;
+  isCurrentPlayerHuman: boolean;
 }
 
-export function useGameWithAI(): UseGameWithAIReturn {
+const SPEED_MULTIPLIERS: Record<AISpeed, number> = {
+  fast: 0.4,
+  normal: 1,
+  slow: 2,
+};
+
+const SAVE_KEY = 'dame-game-save';
+
+function saveGameState(state: GameState | null, drawn: Card | null, ai: Map<string, AIDifficulty>, msg: string) {
+  try {
+    if (!state) {
+      localStorage.removeItem(SAVE_KEY);
+      return;
+    }
+    const saveData = {
+      gameState: state,
+      drawnCard: drawn,
+      aiPlayers: Array.from(ai.entries()),
+      gameMessage: msg,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+  } catch {
+    // ignore
+  }
+}
+
+function loadGameState(): { gameState: GameState; drawnCard: Card | null; aiPlayers: Map<string, AIDifficulty>; gameMessage: string } | null {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    return {
+      gameState: data.gameState,
+      drawnCard: data.drawnCard,
+      aiPlayers: new Map(data.aiPlayers),
+      gameMessage: data.gameMessage || 'Willkommen zurück!',
+    };
+  } catch {
+    return null;
+  }
+}
+
+function hasSavedGameState(): boolean {
+  try {
+    return !!localStorage.getItem(SAVE_KEY);
+  } catch {
+    return false;
+  }
+}
+
+export function useGameWithAI(aiSpeed: AISpeed = 'normal'): UseGameWithAIReturn {
+  const speedMult = SPEED_MULTIPLIERS[aiSpeed];
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [drawnCard, setDrawnCard] = useState<Card | null>(null);
   const [selectedHandIndex, setSelectedHandIndex] = useState<number | null>(null);
   const [gameMessage, setGameMessage] = useState<string>('Willkommen bei Dame!');
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [aiPlayers, setAiPlayers] = useState<Map<string, AIDifficulty>>(new Map());
+  const [hasSavedGame, setHasSavedGame] = useState(hasSavedGameState);
   
   // Ref für KI-Züge (um State in Timeout zu aktualisieren)
   const gameStateRef = useRef(gameState);
   const drawnCardRef = useRef(drawnCard);
-  
+  const aiPlayersRef = useRef(aiPlayers);
+
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
-  
+
   useEffect(() => {
     drawnCardRef.current = drawnCard;
   }, [drawnCard]);
+
+  useEffect(() => {
+    aiPlayersRef.current = aiPlayers;
+  }, [aiPlayers]);
+
+  // Auto-Save bei State-Änderungen
+  useEffect(() => {
+    saveGameState(gameState, drawnCard, aiPlayers, gameMessage);
+    setHasSavedGame(!!gameState);
+  }, [gameState, drawnCard, aiPlayers, gameMessage]);
 
   // Spiel starten mit KI-Unterstützung
   const startGame = useCallback((players: Array<{ name: string; isAI?: boolean; difficulty?: AIDifficulty }>) => {
@@ -87,6 +158,26 @@ export function useGameWithAI(): UseGameWithAIReturn {
     setIsAIThinking(false);
   }, []);
 
+  // Gespeichertes Spiel laden
+  const loadSavedGame = useCallback(() => {
+    const saved = loadGameState();
+    if (!saved) return false;
+    
+    setGameState(saved.gameState);
+    setDrawnCard(saved.drawnCard);
+    setAiPlayers(saved.aiPlayers);
+    setGameMessage(saved.gameMessage);
+    setSelectedHandIndex(null);
+    setIsAIThinking(false);
+    
+    // Refs aktualisieren
+    gameStateRef.current = saved.gameState;
+    drawnCardRef.current = saved.drawnCard;
+    aiPlayersRef.current = saved.aiPlayers;
+    
+    return true;
+  }, []);
+
   // KI-Zug ausführen
   const executeAIMove = useCallback((playerId: string, difficulty: AIDifficulty) => {
     const currentState = gameStateRef.current;
@@ -104,17 +195,20 @@ export function useGameWithAI(): UseGameWithAIReturn {
           break;
         case 'SWAP_CARD':
           if (decision.payload) {
-            setSelectedHandIndex(decision.payload.handIndex);
-            setTimeout(() => confirmSwap(), 300);
+            setTimeout(() => {
+              confirmSwap(decision.payload.handIndex);
+              setTimeout(() => endTurnAfterAI(), Math.round(500 * speedMult));
+            }, Math.round(300 * speedMult));
           }
           break;
         case 'DISCARD_DRAWN_CARD':
           discardDrawnCard();
+          setTimeout(() => endTurnAfterAI(), Math.round(500 * speedMult));
           break;
         case 'USE_JACK':
           if (decision.payload) {
             handleUseJack(decision.payload.handIndex);
-            setTimeout(() => endTurnAfterAI(), 500);
+            setTimeout(() => endTurnAfterAI(), Math.round(500 * speedMult));
           }
           break;
         case 'USE_KING':
@@ -124,17 +218,18 @@ export function useGameWithAI(): UseGameWithAIReturn {
               decision.payload.myHandIndex,
               decision.payload.targetHandIndex
             );
-            setTimeout(() => endTurnAfterAI(), 500);
+            setTimeout(() => endTurnAfterAI(), Math.round(500 * speedMult));
           }
           break;
         case 'CALL_DAME':
           handleCallDame();
+          setTimeout(() => endTurnAfterAI(), Math.round(500 * speedMult));
           break;
         case 'END_TURN':
           endTurnAfterAI();
           break;
       }
-    }, decision.delay);
+    }, Math.round(decision.delay * speedMult));
   }, []);
 
   // KI-Zug beenden und nächsten prüfen
@@ -142,32 +237,51 @@ export function useGameWithAI(): UseGameWithAIReturn {
     handleEndTurn();
   }, []);
 
-  // Prüfe ob aktueller Spieler KI ist und führe Zug aus
+  // KI Post-Draw: wenn gezogene Karte gesetzt und KI am Zug
   useEffect(() => {
-    if (!gameState || isAIThinking) return;
-    
+    if (!gameState || !drawnCard) return;
+
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     const aiDifficulty = aiPlayers.get(currentPlayer.id);
-    
+
     if (aiDifficulty && !currentPlayer.isEliminated) {
       setIsAIThinking(true);
-      setGameMessage(`${currentPlayer.name} denkt...`);
-      
       executeAIMove(currentPlayer.id, aiDifficulty);
-      
-      // Reset thinking status nach Verzögerung
-      const delay = aiDifficulty === 'easy' ? 2000 : aiDifficulty === 'medium' ? 1500 : 1200;
+
+      const delay = Math.round((aiDifficulty === 'easy' ? 2000 : aiDifficulty === 'medium' ? 1500 : 1200) * speedMult);
       setTimeout(() => {
         setIsAIThinking(false);
       }, delay);
     }
-  }, [gameState?.currentPlayerIndex, gameState?.phase]);
+  }, [drawnCard]);
+
+  // Prüfe ob aktueller Spieler KI ist und führe Zug aus
+  useEffect(() => {
+    if (!gameState || isAIThinking) return;
+
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    const aiDifficulty = aiPlayers.get(currentPlayer.id);
+
+    if (aiDifficulty && !currentPlayer.isEliminated) {
+      setIsAIThinking(true);
+      setGameMessage(`${currentPlayer.name} denkt...`);
+
+      executeAIMove(currentPlayer.id, aiDifficulty);
+
+      // Reset thinking status nach Verzögerung
+      const delay = Math.round((aiDifficulty === 'easy' ? 2000 : aiDifficulty === 'medium' ? 1500 : 1200) * speedMult);
+      setTimeout(() => {
+        setIsAIThinking(false);
+      }, delay);
+    }
+  }, [gameState?.currentPlayerIndex, gameState?.phase, isAIThinking]);
 
   const handleDrawFromDeck = useCallback(() => {
     if (!gameStateRef.current) return;
     
     const { card, newState } = drawFromDeck(gameStateRef.current);
     if (card) {
+      gameStateRef.current = newState;
       setDrawnCard(card);
       setGameState(newState);
       
@@ -185,6 +299,7 @@ export function useGameWithAI(): UseGameWithAIReturn {
     
     const { card, newState } = drawFromDiscard(gameStateRef.current);
     if (card) {
+      gameStateRef.current = newState;
       setDrawnCard(card);
       setGameState(newState);
       
@@ -201,26 +316,28 @@ export function useGameWithAI(): UseGameWithAIReturn {
     setSelectedHandIndex(index);
   }, []);
 
-  const confirmSwap = useCallback(() => {
-    if (!gameStateRef.current || !drawnCardRef.current || selectedHandIndex === null) return;
-    
+  const confirmSwap = useCallback((forcedHandIndex?: number) => {
+    const handIndex = forcedHandIndex !== undefined ? forcedHandIndex : selectedHandIndex;
+    if (!gameStateRef.current || !drawnCardRef.current || handIndex === null) return;
+
     const currentPlayer = gameStateRef.current.players[gameStateRef.current.currentPlayerIndex];
     const { discardedCard, newState } = swapCard(
       gameStateRef.current,
       currentPlayer.id,
-      selectedHandIndex,
+      handIndex,
       drawnCardRef.current
     );
     
+    gameStateRef.current = newState;
     setGameState(newState);
     setDrawnCard(null);
     setSelectedHandIndex(null);
-    
+
     const isAI = aiPlayers.has(currentPlayer.id);
     
     // Spezialeffekte prüfen
     if (discardedCard.rank === 'Q') {
-      const finalState = useQueenEffect(newState, currentPlayer.id);
+      const finalState = applyQueenEffect(newState, currentPlayer.id);
       setGameState(finalState);
       if (!isAI) {
         setGameMessage('Dame abgelegt! Du ziehst eine Strafkarte.');
@@ -242,8 +359,9 @@ export function useGameWithAI(): UseGameWithAIReturn {
 
   const discardDrawnCard = useCallback(() => {
     if (!gameStateRef.current || !drawnCardRef.current) return;
-    
+
     const newState = discardCard(gameStateRef.current, drawnCardRef.current);
+    gameStateRef.current = newState;
     setGameState(newState);
     setDrawnCard(null);
     
@@ -259,7 +377,8 @@ export function useGameWithAI(): UseGameWithAIReturn {
     if (!gameStateRef.current) return;
     
     const currentPlayer = gameStateRef.current.players[gameStateRef.current.currentPlayerIndex];
-    const newState = useJackEffect(gameStateRef.current, currentPlayer.id, handIndex);
+    const newState = applyJackEffect(gameStateRef.current, currentPlayer.id, handIndex);
+    gameStateRef.current = newState;
     setGameState(newState);
     
     const isAI = aiPlayers.has(currentPlayer.id);
@@ -276,13 +395,14 @@ export function useGameWithAI(): UseGameWithAIReturn {
     if (!gameStateRef.current) return;
     
     const currentPlayer = gameStateRef.current.players[gameStateRef.current.currentPlayerIndex];
-    const newState = useKingEffect(
+    const newState = applyKingEffect(
       gameStateRef.current,
       currentPlayer.id,
       targetPlayerId,
       myHandIndex,
       targetHandIndex
     );
+    gameStateRef.current = newState;
     setGameState(newState);
     
     const isAI = aiPlayers.has(currentPlayer.id);
@@ -296,6 +416,7 @@ export function useGameWithAI(): UseGameWithAIReturn {
     
     const currentPlayer = gameStateRef.current.players[gameStateRef.current.currentPlayerIndex];
     const newState = callDame(gameStateRef.current, currentPlayer.id);
+    gameStateRef.current = newState;
     setGameState(newState);
     setGameMessage(`${currentPlayer.name} hat Dame gerufen! Letzte Runde!`);
   }, []);
@@ -305,6 +426,7 @@ export function useGameWithAI(): UseGameWithAIReturn {
     
     const currentPlayer = gameStateRef.current.players[gameStateRef.current.currentPlayerIndex];
     const { success, newState } = discardExtraCard(gameStateRef.current, currentPlayer.id, cardId);
+    gameStateRef.current = newState;
     setGameState(newState);
     
     const isAI = aiPlayers.has(currentPlayer.id);
@@ -319,17 +441,44 @@ export function useGameWithAI(): UseGameWithAIReturn {
 
   const handleEndTurn = useCallback(() => {
     if (!gameStateRef.current) return;
-    
+
+    const prevRound = gameStateRef.current.round;
     const newState = endTurn(gameStateRef.current);
-    setGameState(newState);
-    
-    const nextPlayer = newState.players[newState.currentPlayerIndex];
-    const isAI = aiPlayers.has(nextPlayer.id);
-    
-    if (!isAI) {
-      setGameMessage(`${nextPlayer.name} ist am Zug.`);
+
+    // Wenn Runde gewechselt, endRound ausführen
+    if (newState.turnInRound === 1 && newState.round > prevRound) {
+      const roundEndState = endRound(newState);
+      setGameState(roundEndState);
+
+      const nextPlayer = roundEndState.players[roundEndState.currentPlayerIndex];
+      const isAI = aiPlayersRef.current.has(nextPlayer.id);
+      if (!isAI) {
+        if (roundEndState.phase === 'GAME_OVER') {
+          setGameMessage('Spiel beendet!');
+        } else {
+          setGameMessage(`Runde ${roundEndState.round} beginnt! ${nextPlayer.name} startet.`);
+        }
+      }
+    } else {
+      setGameState(newState);
+      const nextPlayer = newState.players[newState.currentPlayerIndex];
+      const isAI = aiPlayersRef.current.has(nextPlayer.id);
+      if (!isAI) {
+        setGameMessage(`${nextPlayer.name} ist am Zug.`);
+      }
     }
-  }, [aiPlayers]);
+  }, []);
+
+  const handleStartNextRound = useCallback(() => {
+    if (!gameStateRef.current) return;
+    const newState = startNextRound(gameStateRef.current);
+    gameStateRef.current = newState;
+    setGameState(newState);
+    setGameMessage(`Runde ${newState.round} beginnt!`);
+    drawnCardRef.current = null;
+    setDrawnCard(null);
+    setSelectedHandIndex(null);
+  }, []);
 
   const resetGame = useCallback(() => {
     setGameState(null);
@@ -346,6 +495,7 @@ export function useGameWithAI(): UseGameWithAIReturn {
   // Aktuelle KI-Schwierigkeit ermitteln
   const currentPlayer = gameState?.players[gameState.currentPlayerIndex];
   const currentAIDifficulty = currentPlayer ? aiPlayers.get(currentPlayer.id) || null : null;
+  const isCurrentPlayerHuman = currentPlayer ? !aiPlayers.has(currentPlayer.id) : false;
 
   return {
     gameState,
@@ -355,17 +505,21 @@ export function useGameWithAI(): UseGameWithAIReturn {
     winner,
     isAIThinking,
     currentAIDifficulty,
+    isCurrentPlayerHuman,
     startGame,
+    loadSavedGame,
+    hasSavedGame,
     drawFromDeck: handleDrawFromDeck,
     drawFromDiscard: handleDrawFromDiscard,
     selectHandCard,
     confirmSwap,
     discardDrawnCard,
-    useJack: handleUseJack,
-    useKing: handleUseKing,
+    activateJack: handleUseJack,
+    activateKing: handleUseKing,
     callDame: handleCallDame,
     tryDiscardExtra: handleTryDiscardExtra,
     endTurn: handleEndTurn,
+    startNextRound: handleStartNextRound,
     resetGame,
     canCallDameNow,
   };
