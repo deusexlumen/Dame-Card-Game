@@ -3,6 +3,5 @@ node_modules/
 dist/
 .playwright-mcp/
 dame-*.png
-pnpm-lock.yaml
 .tmp/
 .worktrees/
