@@ -205,3 +205,6 @@ MIT
 ---
 
 > Gebaut mit ❤️, ☕ und viel grünem Phosphor-Glow — viel Spaß beim Spielen!
+## Offene Konzeptfragen — Finale Entscheidungen
+
+Siehe [`CONCEPT_DECISIONS.md`](./CONCEPT_DECISIONS.md) für die verbindliche Festlegung von Echtzeit-Reaktion, Strafkarten-Anzahl, Sichtbarkeit der Dame, Mitwerfen und Rundenabschluss.
