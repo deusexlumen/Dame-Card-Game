@@ -280,7 +280,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                 <li>Genau 50 Punkte = Reset auf 0!</li>
                 <li>Bube: Eigene oder gegnerische Karte anschauen</li>
                 <li>König: Mit einem Gegner tauschen</li>
-                <li>Dame: Strafkarte beim Ablegen!</li>
+                <li>Dame: Strafkarte beim Ablegen; offene Dame muss vom nächsten Spieler genommen werden</li>
               </ul>
             </div>
             <div className="bg-[hsl(var(--terminal-cyan)/0.08)] border border-[hsl(var(--terminal-cyan)/0.2)] p-3 rounded-lg">
@@ -328,6 +328,14 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
   const topDiscardCard = gameState.discardPile.length > 0 
     ? gameState.discardPile[gameState.discardPile.length - 1] 
     : null;
+
+  const mustTakeQueen =
+    topDiscardCard?.rank === 'Q' &&
+    !gameState.safePhase &&
+    gameState.phase !== 'DAME_CALLED' &&
+    gameState.phase !== 'ROUND_END' &&
+    gameState.phase !== 'GAME_OVER' &&
+    !drawnCard;
 
   // Wenn menschlicher Spieler eliminiert wurde, zeige Zuschauer-Modus
   if (isHumanEliminated) {
@@ -447,7 +455,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
             count={gameState.deck.length}
             label="Ziehstapel"
             onClick={() => { playCardDraw(); drawFromDeck(); }}
-            isClickable={isHumanTurn && !drawnCard && !isAIThinking}
+            isClickable={isHumanTurn && !drawnCard && !isAIThinking && !mustTakeQueen}
             size="md"
           />
 
@@ -1038,7 +1046,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
               <ul className="list-disc list-inside text-[hsl(var(--terminal-green)/0.85)] space-y-1">
                 <li><strong>Bube (J):</strong> Schaue eine verdeckte Karte an — deine eigene oder die eines Gegners</li>
                 <li><strong>König (K):</strong> Schaue eine gegnerische Karte kurz an und tausche dann blind eine deiner Karten damit</li>
-                <li><strong>Dame (Q):</strong> Wenn du eine Dame ablegst, ziehst du selbst eine Strafkarte.</li>
+                <li><strong>Dame (Q):</strong> Wenn du eine Dame ablegst, ziehst du selbst eine Strafkarte. Liegt eine Dame oben auf dem Ablagestapel, muss der nächste Spieler sie ziehen.</li>
               </ul>
             </div>
 

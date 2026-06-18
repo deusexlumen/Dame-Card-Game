@@ -104,6 +104,20 @@ describe('decideAIMove — Pre-Draw', () => {
     const move = decideAIMove(state, 'p1', 'hard');
     expect(move.action).toBe('DRAW_FROM_DISCARD');
   });
+
+  it('medium/hard: nutzt Extra-Ablegen bei passender Karte', () => {
+    const state = makeState({
+      discardPile: [{ id: 'd1', suit: 'hearts', rank: '10', value: 10, isVisible: true }],
+    });
+    const moveMedium = decideAIMove(state, 'p1', 'medium');
+    expect(moveMedium.action).toBe('DISCARD_EXTRA_CARD');
+    if (moveMedium.action === 'DISCARD_EXTRA_CARD') {
+      expect(moveMedium.payload.cardId).toBe('c2'); // passende 10 in der Hand
+    }
+
+    const moveHard = decideAIMove(state, 'p1', 'hard');
+    expect(moveHard.action).toBe('DISCARD_EXTRA_CARD');
+  });
 });
 
 describe('decideAIMove — Post-Draw', () => {

@@ -29,7 +29,7 @@ Visuell folgt DAME einer **Terminal-/Cybernetic-Archive-Ästhetik**: schwarzer H
 | 🤖 **KI-Gegner** | Drei Schwierigkeitsgrade: Einfach, Mittel, Schwer |
 | 👁️ **Bube (J)** | Schau dir eine eigene *oder* gegnerische verdeckte Karte an |
 | 👑 **König (K)** | Deck eine gegnerische Karte kurz auf und tausche sie gezielt mit einer eigenen |
-| 🃏 **Dame (Q)** | Beim Ablegen ziehst du eine Strafkarte; andere Spieler können die offene Dame aufnehmen |
+| 🃏 **Dame (Q)** | Beim Ablegen ziehst du eine Strafkarte; der nächste Spieler muss eine offene Dame vom Ablagestapel ziehen |
 | 📢 **Dame-Ansage** | Beende die Runde frühzeitig — liegt der Caller falsch, startet er die nächste Runde mit **5 Karten** |
 | ⚡ **Extra-Ablegen** | Wenn du eine Karte mit gleichem Wert wie die oberste Ablagekarte besitzt, kannst du sie direkt ablegen |
 | 🎯 **50-Punkte-Schwelle** | Wer über 50 Punkte kommt, scheidet aus; genau 50 Punkte setzen den Score auf 0 zurück |
@@ -60,7 +60,7 @@ Sammle so wenige Punkte wie möglich. Wer **mehr als 50 Punkte** besitzt, scheid
 ### Sonderkarten
 | Karte | Wert | Effekt |
 |-------|------|--------|
-| **Dame (Q)** | 0 | Beim Ablegen ziehst du eine Strafkarte. |
+| **Dame (Q)** | 0 | Beim Ablegen ziehst du eine Strafkarte. Liegt eine Dame oben auf dem Ablagestapel, muss der nächste Spieler sie ziehen. |
 | **Bube (J)** | 10 | Schaue eine beliebige verdeckte Karte an (eigene oder gegnerische). |
 | **König (K)** | 10 | Deck eine gegnerische Karte auf und tausche sie gezielt mit einer deiner Karten. |
 | **Ass (A)** | 1 | Kein Effekt. |

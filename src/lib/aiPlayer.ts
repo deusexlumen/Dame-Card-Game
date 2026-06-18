@@ -8,6 +8,7 @@ export type AIActionType =
   | 'DRAW_FROM_DISCARD'
   | 'SWAP_CARD'
   | 'DISCARD_DRAWN_CARD'
+  | 'DISCARD_EXTRA_CARD'
   | 'USE_JACK'
   | 'USE_KING'
   | 'CALL_DAME'
@@ -19,6 +20,7 @@ export type AIDecision =
   | { action: 'DRAW_FROM_DISCARD' }
   | { action: 'SWAP_CARD'; payload: { handIndex: number } }
   | { action: 'DISCARD_DRAWN_CARD' }
+  | { action: 'DISCARD_EXTRA_CARD'; payload: { cardId: string } }
   | { action: 'USE_JACK'; payload: { targetPlayerId: string; handIndex: number } }
   | { action: 'USE_KING'; payload: { targetPlayerId: string; myHandIndex: number; targetHandIndex: number } }
   | { action: 'CALL_DAME' }
@@ -44,6 +46,32 @@ function evaluateHand(player: Player): number {
     }
   });
   return estimatedScore;
+}
+
+// Hilfsfunktion: Findet eine passende Extra-Ablegen-Karte (gleicher Rank wie Ablage)
+function findExtraDiscardCardId(player: Player, topCardRank: string, minEstimatedValue = 0): string | null {
+  const matchingIndices = player.hand
+    .map((card, index) => (card.rank === topCardRank ? index : -1))
+    .filter((index) => index !== -1);
+
+  if (matchingIndices.length === 0) return null;
+
+  // Wähle die schlechteste passende Karte (höchster geschätzter Wert)
+  let worstIndex = matchingIndices[0];
+  let worstValue = -1;
+
+  for (const index of matchingIndices) {
+    const isVisible = player.visibleCardIndices.includes(index);
+    const estimatedValue = isVisible ? player.hand[index].value : 5;
+    if (estimatedValue > worstValue) {
+      worstValue = estimatedValue;
+      worstIndex = index;
+    }
+  }
+
+  if (worstValue < minEstimatedValue) return null;
+
+  return player.hand[worstIndex].id;
 }
 
 // Hilfsfunktion: Finde den Index der schlechtesten Karte in der Hand
@@ -72,12 +100,22 @@ function makeEasyMove(
   playerId: string
 ): AIDecision {
   const currentPlayerIndex = gameState.players.findIndex(p => p.id === playerId);
-  
+  const player = gameState.players[currentPlayerIndex];
+
   // Prüfe, ob wir dran sind
   if (gameState.currentPlayerIndex !== currentPlayerIndex) {
     return { action: 'WAIT' };
   }
-  
+
+  // Extra-Ablegen: Einfache KI nutzt es manchmal, wenn eine passende Karte vorhanden ist
+  if (gameState.discardPile.length > 0 && Math.random() > 0.5) {
+    const topCard = gameState.discardPile[gameState.discardPile.length - 1];
+    const extraCardId = findExtraDiscardCardId(player, topCard.rank, 0);
+    if (extraCardId) {
+      return { action: 'DISCARD_EXTRA_CARD', payload: { cardId: extraCardId } };
+    }
+  }
+
   // Phase 1: Karte ziehen
   // Einfache KI: 50/50 zwischen Deck und Ablagestapel (wenn verfügbar)
   if (gameState.discardPile.length > 0 && Math.random() > 0.5) {
@@ -117,24 +155,31 @@ function makeMediumMove(
   playerId: string
 ): AIDecision {
   const currentPlayerIndex = gameState.players.findIndex(p => p.id === playerId);
-  
+  const player = gameState.players[currentPlayerIndex];
+
   if (gameState.currentPlayerIndex !== currentPlayerIndex) {
     return { action: 'WAIT' };
   }
-  
+
   // Prüfe Ablagestapel
   if (gameState.discardPile.length > 0) {
     const topCard = gameState.discardPile[gameState.discardPile.length - 1];
-    
+
+    // Extra-Ablegen: Wenn wir eine passende Karte haben, nutze die Gelegenheit
+    const extraCardId = findExtraDiscardCardId(player, topCard.rank, 3);
+    if (extraCardId && topCard.rank !== 'Q') {
+      return { action: 'DISCARD_EXTRA_CARD', payload: { cardId: extraCardId } };
+    }
+
     // Nimm von Ablagestapel wenn:
     // 1. Karte ist gut (niedriger Wert) UND nicht Dame
     // 2. Oder wir haben eine sehr schlechte Karte zum Tauschen
-    if ((isGoodCard(topCard) && topCard.rank !== 'Q') || 
+    if ((isGoodCard(topCard) && topCard.rank !== 'Q') ||
         (topCard.value <= 5 && topCard.rank !== 'Q')) {
       return { action: 'DRAW_FROM_DISCARD' };
     }
   }
-  
+
   return { action: 'DRAW_FROM_DECK' };
 }
 
@@ -202,35 +247,41 @@ function makeHardMove(
 ): AIDecision {
   const player = gameState.players.find(p => p.id === playerId)!;
   const currentPlayerIndex = gameState.players.findIndex(p => p.id === playerId);
-  
+
   if (gameState.currentPlayerIndex !== currentPlayerIndex) {
     return { action: 'WAIT' };
   }
-  
+
   // Berechne aktuellen geschätzten Punktestand
   const estimatedScore = evaluateHand(player);
-  
+
   // Prüfe Ablagestapel sehr sorgfältig
   if (gameState.discardPile.length > 0) {
     const topCard = gameState.discardPile[gameState.discardPile.length - 1];
-    
+
+    // Extra-Ablegen: Strategisch nutzen, wenn eine passende Karte schlecht ist
+    const extraCardId = findExtraDiscardCardId(player, topCard.rank, 4);
+    if (extraCardId && topCard.rank !== 'Q') {
+      return { action: 'DISCARD_EXTRA_CARD', payload: { cardId: extraCardId } };
+    }
+
     // Strategie: Nimm von Ablagestapel wenn...
     // 1. Sehr gute Karte (Ass, 2, 3) und nicht Dame
     if (topCard.value <= 3 && topCard.rank !== 'Q') {
       return { action: 'DRAW_FROM_DISCARD' };
     }
-    
+
     // 2. Unsere Hand ist schlecht und die Karte ist okay
     if (estimatedScore > 20 && topCard.value <= 6 && topCard.rank !== 'Q') {
       return { action: 'DRAW_FROM_DISCARD' };
     }
-    
+
     // 3. Es ist ein Bube oder König (Spezialkarten sind wertvoll)
     if (topCard.rank === 'J' || topCard.rank === 'K') {
       return { action: 'DRAW_FROM_DISCARD' };
     }
   }
-  
+
   // Standard: Ziehe vom Deck
   return { action: 'DRAW_FROM_DECK' };
 }
