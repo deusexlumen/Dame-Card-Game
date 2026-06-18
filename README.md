@@ -186,15 +186,20 @@ Die Tests decken ab:
 
 ---
 
-## 🌍 Deployment
+## Offene Konzeptfragen — Finale Entscheidungen
 
-DAME wird als statische Single-Page-Application ausgeliefert:
+Siehe [`CONCEPT_DECISIONS.md`](./CONCEPT_DECISIONS.md) für die verbindliche Festlegung von Echtzeit-Reaktion, Strafkarten-Anzahl, Sichtbarkeit der Dame, Mitwerfen und Rundenabschluss.
 
-1. `pnpm build` erzeugt den `dist/`-Ordner.
-2. Lade den Inhalt von `dist/` auf deinen Static-Hosting-Anbieter hoch (z. B. Netlify, Vercel, GitHub Pages, Cloudflare Pages).
-3. In `vite.config.ts` ist `base: './'` gesetzt — die Assets verwenden relative Pfade. Wenn du das Spiel unter einem Unterpfad bereitstellst, passe `base` entsprechend an.
+## Spielstatistiken
 
-**Kein Server-Side-Rendering, keine API, keine Datenbank nötig.**
+Das Spiel speichert lokale Statistiken im Browser (`localStorage`): gespielte Spiele, Siegquote, Runden, beste Runde sowie Dame-Ansagen. Über den Start-Dialog können sie eingesehen und zurückgesetzt werden.
+
+## Deployment
+
+Das Projekt wird automatisch auf GitHub Pages deployt, sobald Änderungen in den `main`-Branch gepusht werden.  
+`vite.config.ts` verwendet dafür `base: '/Dame-Card-Game/'`.
+
+Live-URL: https://deusexlumen.github.io/Dame-Card-Game/
 
 ---
 
@@ -205,10 +210,3 @@ MIT
 ---
 
 > Gebaut mit ❤️, ☕ und viel grünem Phosphor-Glow — viel Spaß beim Spielen!
-## Offene Konzeptfragen — Finale Entscheidungen
-
-Siehe [`CONCEPT_DECISIONS.md`](./CONCEPT_DECISIONS.md) für die verbindliche Festlegung von Echtzeit-Reaktion, Strafkarten-Anzahl, Sichtbarkeit der Dame, Mitwerfen und Rundenabschluss.
-
-## Spielstatistiken
-
-Das Spiel speichert lokale Statistiken im Browser (`localStorage`): gespielte Spiele, Siegquote, Runden, beste Runde sowie Dame-Ansagen. Über den Start-Dialog können sie eingesehen und zurückgesetzt werden.

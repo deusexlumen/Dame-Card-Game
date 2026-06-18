@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 import { inspectAttr } from 'kimi-plugin-inspect-react';
 
 export default defineConfig(({ mode }) => ({
-  base: './',
+  base: '/Dame-Card-Game/',
   plugins: [mode !== 'production' ? inspectAttr() : null, react()].filter(Boolean),
   resolve: {
     alias: {
