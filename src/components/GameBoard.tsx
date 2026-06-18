@@ -403,14 +403,14 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
   return (
     <div className="min-h-screen felt-texture relative p-2 sm:p-4">
       {/* Header */}
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-          <h1 className="text-xl sm:text-2xl font-bold text-[hsl(var(--terminal-green))]">Dame</h1>
-          <div className="bg-[hsl(var(--terminal-green)/0.15)] border border-[hsl(var(--terminal-green)/0.25)] px-2 sm:px-3 py-1 rounded-full text-[hsl(var(--terminal-green))] text-xs sm:text-sm">
+      <div className="flex justify-between items-start sm:items-center mb-3 sm:mb-4 gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap">
+          <h1 className="text-lg sm:text-2xl font-bold text-[hsl(var(--terminal-green))]">Dame</h1>
+          <div className="bg-[hsl(var(--terminal-green)/0.15)] border border-[hsl(var(--terminal-green)/0.25)] px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[hsl(var(--terminal-green))] text-[10px] sm:text-sm">
             Runde {gameState.round}
           </div>
           {gameState.safePhase && (
-            <div className="bg-yellow-500/80 px-2 sm:px-3 py-1 rounded-full text-white text-xs sm:text-sm">
+            <div className="bg-yellow-500/80 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-white text-[10px] sm:text-sm">
               Safe Phase
             </div>
           )}
@@ -419,7 +419,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              className="bg-purple-500/80 px-2 sm:px-3 py-1 rounded-full text-white text-xs sm:text-sm flex items-center gap-2"
+              className="bg-purple-500/80 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-white text-[10px] sm:text-sm flex items-center gap-1.5"
             >
               <motion.div
                 animate={{ rotate: [0, 15, -15, 0] }}
@@ -431,18 +431,18 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
             </motion.div>
           )}
         </div>
-        <div className="flex gap-1 sm:gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowTutorial(true)} aria-label="Anleitung öffnen" className="text-xs sm:text-sm">
-            <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+        <div className="flex gap-1 sm:gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={() => setShowTutorial(true)} aria-label="Anleitung öffnen" className="h-9 w-9 sm:h-10 sm:w-10 p-0">
+            <Eye className="w-4 h-4 sm:w-5 sm:h-5" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowSettings(true)} aria-label="Einstellungen öffnen" className="text-xs sm:text-sm">
-            <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
+          <Button variant="outline" size="sm" onClick={() => setShowSettings(true)} aria-label="Einstellungen öffnen" className="h-9 w-9 sm:h-10 sm:w-10 p-0">
+            <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
           </Button>
-          <Button variant="outline" size="sm" onClick={handleReset} aria-label="Spiel neustarten" className="text-xs sm:text-sm">
-            <RotateCcw className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-            Neustart
+          <Button variant="outline" size="sm" onClick={handleReset} aria-label="Spiel neustarten" className="h-9 px-2 sm:h-10 sm:px-3 text-[10px] sm:text-sm">
+            <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 mr-1" />
+            <span className="hidden sm:inline">Neustart</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={onBackToMenu} aria-label="Zurück zum Menü" className="text-xs sm:text-sm">
+          <Button variant="outline" size="sm" onClick={onBackToMenu} aria-label="Zurück zum Menü" className="h-9 px-2 sm:h-10 sm:px-3 text-[10px] sm:text-sm">
             Menü
           </Button>
         </div>
@@ -506,15 +506,15 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
           />
 
           {/* Spiel-Info */}
-          <div className="bg-[hsl(var(--terminal-green)/0.1)] border border-[hsl(var(--terminal-green)/0.2)] backdrop-blur-sm rounded-xl p-3 sm:p-4 text-center min-w-[140px] sm:min-w-[180px]">
-            <p className="text-[hsl(var(--terminal-green)/0.8)] text-xs sm:text-sm mb-1">Aktueller Spieler</p>
-            <p className="text-[hsl(var(--terminal-green))] text-base sm:text-lg font-bold mb-1">{currentPlayer.name}</p>
-            <div role="status" aria-live="polite" aria-atomic="true" className="text-yellow-300 text-xs">
+          <div className="bg-[hsl(var(--terminal-green)/0.1)] border border-[hsl(var(--terminal-green)/0.2)] backdrop-blur-sm rounded-xl p-2 sm:p-4 text-center min-w-[110px] sm:min-w-[180px] max-w-[45%]">
+            <p className="text-[hsl(var(--terminal-green)/0.8)] text-[10px] sm:text-sm mb-0.5 sm:mb-1">Aktueller Spieler</p>
+            <p className="text-[hsl(var(--terminal-green))] text-sm sm:text-lg font-bold mb-0.5 sm:mb-1 truncate">{currentPlayer.name}</p>
+            <div role="status" aria-live="polite" aria-atomic="true" className="text-yellow-300 text-[10px] sm:text-xs leading-tight">
               {gameMessage}
             </div>
             {currentAIDifficulty && (
               <div className={cn(
-                "mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs",
+                "mt-1 sm:mt-2 inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs",
                 "bg-[hsl(var(--terminal-dark)/0.5)]",
                 DIFFICULTY_COLORS[currentAIDifficulty]
               )}>
@@ -567,33 +567,33 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                   onClick={() => setShowJackEffect(true)}
                   disabled={drawnCard.rank !== 'J'}
                   variant={drawnCard.rank === 'J' ? 'default' : 'outline'}
-                  size="sm"
-                  className="text-xs sm:text-sm"
+                  size="default"
+                  className="h-11 px-3 text-xs sm:text-sm"
                 >
-                  <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                  <Eye className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5" />
                   Bube
                 </Button>
                 <Button
                   onClick={() => setShowKingEffect(true)}
                   disabled={drawnCard.rank !== 'K'}
                   variant={drawnCard.rank === 'K' ? 'default' : 'outline'}
-                  size="sm"
-                  className="text-xs sm:text-sm"
+                  size="default"
+                  className="h-11 px-3 text-xs sm:text-sm"
                 >
-                  <Crown className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                  <Crown className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5" />
                   König
                 </Button>
                 <Button
                   onClick={() => { playCardPlace(); discardDrawnCard(); }}
                   variant="secondary"
-                  size="sm"
-                  className="text-xs sm:text-sm"
+                  size="default"
+                  className="h-11 px-3 text-xs sm:text-sm"
                 >
                   Ablegen
                 </Button>
               </>
             )}
-            
+
             {canCallDameNow && !drawnCard && (
               <motion.div
                 animate={{
@@ -609,19 +609,19 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                 <Button
                   onClick={() => { playDameCall(); callDame(); endTurn(); }}
                   variant="destructive"
-                  size="sm"
-                  className="text-xs sm:text-sm"
+                  size="default"
+                  className="h-11 px-3 text-xs sm:text-sm"
                 >
-                  <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5" />
                   Dame rufen!
                 </Button>
               </motion.div>
             )}
-            
+
             {!drawnCard && (
-              <Button onClick={() => { playCardPlace(); endTurn(); }} size="sm" className="text-xs sm:text-sm">
+              <Button onClick={() => { playCardPlace(); endTurn(); }} size="default" className="h-11 px-4 text-xs sm:text-sm">
                 Zug beenden
-                <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1" />
+                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 ml-1.5" />
               </Button>
             )}
           </div>
@@ -656,9 +656,9 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
           <motion.div
             initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50"
+            className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-sm"
           >
-            <Button onClick={() => { playCardPlace(); confirmSwap(); }} size="lg" className="shadow-xl text-sm sm:text-base">
+            <Button onClick={() => { playCardPlace(); confirmSwap(); }} size="lg" className="w-full h-12 shadow-xl text-sm sm:text-base">
               Tauschen bestätigen
             </Button>
           </motion.div>
@@ -667,7 +667,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
 
       {/* Bube-Effekt Dialog */}
       <Dialog open={showJackEffect} onOpenChange={setShowJackEffect}>
-        <DialogContent className="sm:max-w-3xl bg-[hsl(var(--terminal-panel))] border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))]">
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto bg-[hsl(var(--terminal-panel))] border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))]">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2">
               <Eye className="w-5 h-5" />
@@ -720,7 +720,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
           setKingPeekedCard(null);
         }
       }}>
-        <DialogContent className="max-w-2xl bg-[hsl(var(--terminal-panel))] border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))]">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-[hsl(var(--terminal-panel))] border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))]">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2">
               <Crown className="w-5 h-5" />

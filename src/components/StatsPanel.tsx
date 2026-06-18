@@ -26,11 +26,11 @@ export function StatsPanel({ stats, onReset }: StatsPanelProps) {
           Statistiken
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Spielstatistiken</DialogTitle>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-4 py-4 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 py-4 text-sm">
           <div className="rounded border p-3">
             <div className="text-muted-foreground">Spiele</div>
             <div className="text-2xl font-bold">{stats.gamesPlayed}</div>
@@ -59,7 +59,8 @@ export function StatsPanel({ stats, onReset }: StatsPanelProps) {
         {onReset && (
           <Button
             variant="destructive"
-            size="sm"
+            size="default"
+            className="w-full h-11"
             onClick={() => {
               if (window.confirm('Alle Statistiken wirklich zurücksetzen?')) {
                 onReset?.();

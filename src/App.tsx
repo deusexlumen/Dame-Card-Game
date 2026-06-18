@@ -244,28 +244,28 @@ function App() {
                     <Input
                       value={player.name}
                       onChange={(e) => updatePlayerName(index, e.target.value)}
-                      className="flex-1 h-8 text-sm font-mono bg-[hsl(var(--terminal-dark))] border-[hsl(var(--terminal-green)/0.25)] text-[hsl(var(--terminal-green))] focus-visible:ring-[hsl(var(--terminal-green)/0.5)]"
+                      className="flex-1 h-10 text-sm font-mono bg-[hsl(var(--terminal-dark))] border-[hsl(var(--terminal-green)/0.25)] text-[hsl(var(--terminal-green))] focus-visible:ring-[hsl(var(--terminal-green)/0.5)]"
                     />
                     {players.length > 2 && (
                       <button
                         onClick={() => removePlayer(index)}
-                        className="text-[hsl(var(--terminal-red))] hover:text-[hsl(var(--terminal-red)/0.7)] transition-colors"
+                        className="h-10 w-10 flex items-center justify-center rounded-sm text-[hsl(var(--terminal-red))] hover:text-[hsl(var(--terminal-red)/0.7)] hover:bg-[hsl(var(--terminal-red)/0.1)] transition-colors"
                         aria-label="Spieler entfernen"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-5 h-5" />
                       </button>
                     )}
                   </div>
                   
                   {/* KI-Schwierigkeit */}
                   {player.isAI && (
-                    <div className="flex gap-1">
+                    <div className="flex gap-1.5">
                       {(Object.keys(DIFFICULTY_CONFIG) as AIDifficulty[]).map((diff) => (
                         <button
                           key={diff}
                           onClick={() => updateAIDifficulty(index, diff)}
                           className={cn(
-                            "flex-1 py-1 px-2 rounded-sm text-[10px] font-mono font-medium uppercase tracking-wider transition-all border",
+                            "flex-1 min-h-9 py-2 px-2 rounded-sm text-xs font-mono font-medium uppercase tracking-wider transition-all border",
                             player.difficulty === diff
                               ? cn(DIFFICULTY_CONFIG[diff].color, "border-transparent")
                               : "bg-[hsl(var(--terminal-dark))] text-[hsl(var(--terminal-green)/0.7)] border-[hsl(var(--terminal-green)/0.2)] hover:border-[hsl(var(--terminal-green)/0.4)]"
@@ -287,8 +287,7 @@ function App() {
                 <Button 
                   onClick={addHumanPlayer} 
                   variant="outline" 
-                  className="flex-1 font-mono border-[hsl(var(--terminal-green)/0.4)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)] hover:text-[hsl(var(--terminal-green))]"
-                  size="sm"
+                  className="flex-1 h-11 font-mono border-[hsl(var(--terminal-green)/0.4)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)] hover:text-[hsl(var(--terminal-green))]"
                 >
                   <User className="w-4 h-4 mr-1" />
                   Mensch
@@ -296,8 +295,7 @@ function App() {
                 <Button 
                   onClick={addAIPlayer} 
                   variant="outline" 
-                  className="flex-1 font-mono border-[hsl(var(--terminal-cyan)/0.4)] text-[hsl(var(--terminal-cyan))] hover:bg-[hsl(var(--terminal-cyan)/0.1)] hover:text-[hsl(var(--terminal-cyan))]"
-                  size="sm"
+                  className="flex-1 h-11 font-mono border-[hsl(var(--terminal-cyan)/0.4)] text-[hsl(var(--terminal-cyan))] hover:bg-[hsl(var(--terminal-cyan)/0.1)] hover:text-[hsl(var(--terminal-cyan))]"
                 >
                   <Bot className="w-4 h-4 mr-1" />
                   KI
@@ -320,7 +318,7 @@ function App() {
               <Button
                 onClick={() => setGameMode('rules')}
                 variant="outline"
-                className="w-full font-mono border-[hsl(var(--terminal-green)/0.4)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)] hover:text-[hsl(var(--terminal-green))]"
+                className="w-full h-11 font-mono border-[hsl(var(--terminal-green)/0.4)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)] hover:text-[hsl(var(--terminal-green))]"
               >
                 <BookOpen className="w-4 h-4 mr-2" />
                 Regeln

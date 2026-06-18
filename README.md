@@ -136,7 +136,7 @@ Abgedeckt werden:
 
 ## 📸 Screenshot
 
-> _[Hier könnte ein Screenshot des Spieltischs stehen — füge einfach `dame-screenshot.png` im Root hinzu und aktualisiere diesen Abschnitt.]_
+![DAME Spieltisch](./docs/screenshot.png)
 
 ---
 
