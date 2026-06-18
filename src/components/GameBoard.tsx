@@ -8,6 +8,7 @@ import { PlayerHand } from './PlayerHand';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/lib/i18n';
 import { 
   Play, 
   RotateCcw, 
@@ -48,12 +49,14 @@ const DIFFICULTY_COLORS: Record<AIDifficulty, string> = {
 export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
   const { stats, clear, recordRound, recordGame } = useGameStats();
   const { settings, toggleSound, toggleAnimations, toggleMusic, setAiSpeed } = useSettings();
+  const { t } = useI18n();
 
   const {
     gameState,
     drawnCard,
     selectedHandIndex,
     gameMessage,
+    messageKey,
     winner,
     isAIThinking,
     currentAIDifficulty,
@@ -82,7 +85,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
     setGlobalSettings(settings);
   }, [settings]);
 
-  // Hintergrundmusik steuern
+  // {t('settings.music')} steuern
   useEffect(() => {
     if (gameState && settings.musicEnabled) {
       startBackgroundMusic();
@@ -161,7 +164,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
           break;
         case 'z':
         case 'e':
-          // Zug beenden
+          // {t('game.endTurn')}
           e.preventDefault();
           if (!drawnCard) {
             playCardPlace();
@@ -188,61 +191,38 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
 
   // Strafkarten-Sound
   useEffect(() => {
-    if (gameMessage?.includes('Strafkarte')) {
+    if (messageKey === 'game.queenDiscarded' || messageKey === 'game.extraDiscardFail') {
       playPenaltySound();
-      toast.error('Strafkarte erhalten!', {
+      toast.error(t('game.penaltyCardReceived'), {
         description: gameMessage,
         duration: 3000,
       });
     }
-  }, [gameMessage]);
+  }, [messageKey, gameMessage, t]);
 
   // Toast-Benachrichtigungen für wichtige Ereignisse
   useEffect(() => {
-    if (gameMessage?.includes('Dame')) {
-      if (gameMessage.includes('falsch')) {
-        toast.error('Dame-Call falsch!', {
+    switch (messageKey) {
+      case 'game.extraDiscardSuccess':
+        toast.success(t('game.extraDiscardSuccess'), {
           description: gameMessage,
-          duration: 4000,
+          duration: 3000,
         });
-      } else if (gameMessage.includes('richtig')) {
-        toast.success('Dame-Call richtig!', {
-          description: gameMessage,
-          duration: 4000,
+        break;
+      case 'game.jackDiscarded':
+        toast.info(t('game.jackEffectActivated'), {
+          description: t('game.jackEffectHint'),
+          duration: 3000,
         });
-      }
+        break;
+      case 'game.kingDiscarded':
+        toast.info(t('game.kingEffectActivated'), {
+          description: t('game.kingEffectHint'),
+          duration: 3000,
+        });
+        break;
     }
-    if (gameMessage?.includes('ausgeschieden')) {
-      toast.warning('Spieler ausgeschieden!', {
-        description: gameMessage,
-        duration: 4000,
-      });
-    }
-    if (gameMessage?.includes('Runde beendet')) {
-      toast.info('Runde beendet!', {
-        description: gameMessage,
-        duration: 4000,
-      });
-    }
-    if (gameMessage?.includes('Extra-Karte')) {
-      toast.success('Extra-Karte abgelegt!', {
-        description: gameMessage,
-        duration: 3000,
-      });
-    }
-    if (gameMessage?.includes('Bube-Effekt')) {
-      toast.info('Bube-Effekt aktiviert', {
-        description: 'Du kannst eine deiner Karten anschauen.',
-        duration: 3000,
-      });
-    }
-    if (gameMessage?.includes('König-Effekt')) {
-      toast.info('König-Effekt aktiviert', {
-        description: 'Tausche eine Karte mit einem Gegner.',
-        duration: 3000,
-      });
-    }
-  }, [gameMessage]);
+  }, [messageKey, gameMessage, t]);
 
   // Spiel starten: zeige zuerst die eigenen Karten zum Merken
   const handleStart = () => {
@@ -277,31 +257,31 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
       <Dialog open={showStartDialog} onOpenChange={setShowStartDialog}>
         <DialogContent className="sm:max-w-md bg-[hsl(var(--terminal-panel))] border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))]">
           <DialogHeader>
-            <DialogTitle className="text-2xl text-center">Dame</DialogTitle>
+            <DialogTitle className="text-2xl text-center">{t('app.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-center text-[hsl(var(--terminal-green)/0.85)]">
-              Ein spannendes Kartenspiel mit Bluff und Strategie!
+              {t('game.startDialogSubtitle')}
             </p>
             <div className="bg-[hsl(var(--terminal-panel))] border border-[hsl(var(--terminal-green)/0.2)] p-4 rounded-lg text-sm space-y-2">
-              <p className="text-[hsl(var(--terminal-green))]"><strong>Regeln:</strong></p>
+              <p className="text-[hsl(var(--terminal-green))]"><strong>{t('game.startDialogRules')}:</strong></p>
               <ul className="list-disc list-inside space-y-1 text-[hsl(var(--terminal-green)/0.85)]">
-                <li>Jeder hat 4 verdeckte Karten (sieht nur 2)</li>
-                <li>Ziel: Möglichst wenige Punkte sammeln</li>
-                <li>Über 50 Punkte = Ausgeschieden</li>
-                <li>Genau 50 Punkte = Reset auf 0!</li>
-                <li>Bube: Eigene oder gegnerische Karte anschauen</li>
-                <li>König: Mit einem Gegner tauschen</li>
-                <li>Dame: Strafkarte beim Ablegen; offene Dame muss vom nächsten Spieler genommen werden</li>
+                <li>{t('game.startDialogRuleList.cards')}</li>
+                <li>{t('game.startDialogRuleList.goal')}</li>
+                <li>{t('game.startDialogRuleList.over50')}</li>
+                <li>{t('game.startDialogRuleList.exact50')}</li>
+                <li>{t('game.startDialogRuleList.jack')}</li>
+                <li>{t('game.startDialogRuleList.king')}</li>
+                <li>{t('game.startDialogRuleList.queen')}</li>
               </ul>
             </div>
             <div className="bg-[hsl(var(--terminal-cyan)/0.08)] border border-[hsl(var(--terminal-cyan)/0.2)] p-3 rounded-lg">
               <p className="text-[hsl(var(--terminal-cyan))] font-medium flex items-center gap-2">
                 <Bot className="w-4 h-4" />
-                KI-Gegner
+                {t('game.aiOpponents')}
               </p>
               <p className="text-[hsl(var(--terminal-green)/0.85)] text-sm">
-                {players.filter(p => p.isAI).length} KI-Gegner mit verschiedenen Schwierigkeitsgraden!
+                {t('game.aiOpponentsDescription', { count: players.filter(p => p.isAI).length })}
               </p>
             </div>
             <div className="flex justify-center">
@@ -318,7 +298,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                 className="w-full"
               >
                 <RotateCcw className="w-4 h-4 mr-2" />
-                Spiel fortsetzen
+                {t('game.continueGame')}
               </Button>
             )}
             <Button
@@ -327,11 +307,11 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
               className="w-full"
             >
               <Eye className="w-4 h-4 mr-2" />
-              Anleitung
+              {t('game.tutorial')}
             </Button>
             <Button onClick={handleStart} className="w-full">
               <Play className="w-4 h-4 mr-2" />
-              Neues Spiel
+              {t('menu.newGame')}
             </Button>
           </div>
         </DialogContent>
@@ -346,10 +326,10 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
       <div className="min-h-screen terminal-grid p-4 flex flex-col items-center justify-center">
         <div className="max-w-2xl w-full bg-[hsl(var(--terminal-panel))] border border-[hsl(var(--terminal-green)/0.3)] rounded-xl p-6 sm:p-8 text-center space-y-6">
           <h2 className="text-2xl sm:text-3xl font-bold text-[hsl(var(--terminal-green))]">
-            Merke dir deine Karten
+            {t('game.peekTitle')}
           </h2>
           <p className="text-[hsl(var(--terminal-green)/0.85)]">
-            Du darfst dir 2 Karten anschauen. Sobald du bereit bist, werden sie wieder verdeckt.
+            {t('game.peekDescription')}
           </p>
           <div className="flex justify-center">
             <PlayerHand
@@ -363,7 +343,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
           </div>
           <Button onClick={handleReady} size="lg" className="w-full sm:w-auto">
             <Play className="w-5 h-5 mr-2" />
-            Bereit
+            {t('game.ready')}
           </Button>
         </div>
       </div>
@@ -389,11 +369,11 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
       <div className="min-h-screen terminal-grid p-4">
         <div className="flex flex-col items-center justify-center h-screen">
           <div className="text-6xl mb-4">👀</div>
-          <h2 className="text-3xl font-bold text-[hsl(var(--terminal-green))] mb-2">Du bist ausgeschieden!</h2>
-          <p className="text-[hsl(var(--terminal-green)/0.7)] mb-6">Schau zu, wie die KI-Gegner weiterspielen...</p>
+          <h2 className="text-3xl font-bold text-[hsl(var(--terminal-green))] mb-2">{t('game.youAreEliminated')}</h2>
+          <p className="text-[hsl(var(--terminal-green)/0.7)] mb-6">{t('game.eliminatedWatch')}</p>
           <Button onClick={handleReset}>
             <RotateCcw className="w-4 h-4 mr-2" />
-            Neues Spiel
+            {t('menu.newGame')}
           </Button>
         </div>
       </div>
@@ -405,13 +385,13 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
       {/* Header */}
       <div className="flex justify-between items-start sm:items-center mb-3 sm:mb-4 gap-2">
         <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap">
-          <h1 className="text-lg sm:text-2xl font-bold text-[hsl(var(--terminal-green))]">Dame</h1>
+          <h1 className="text-lg sm:text-2xl font-bold text-[hsl(var(--terminal-green))]">{t('app.title')}</h1>
           <div className="bg-[hsl(var(--terminal-green)/0.15)] border border-[hsl(var(--terminal-green)/0.25)] px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[hsl(var(--terminal-green))] text-[10px] sm:text-sm">
-            Runde {gameState.round}
+            {t('game.round', { round: gameState.round })}
           </div>
           {gameState.safePhase && (
             <div className="bg-yellow-500/80 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-white text-[10px] sm:text-sm">
-              Safe Phase
+              {t('game.safePhase')}
             </div>
           )}
           {isAIThinking && (
@@ -427,23 +407,23 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
               >
                 <Bot className="w-3 h-3" />
               </motion.div>
-              KI denkt...
+              {t('game.aiThinking')}
             </motion.div>
           )}
         </div>
         <div className="flex gap-1 sm:gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={() => setShowTutorial(true)} aria-label="Anleitung öffnen" className="h-9 w-9 sm:h-10 sm:w-10 p-0">
+          <Button variant="outline" size="sm" onClick={() => setShowTutorial(true)} aria-label={t('game.tutorial')} className="h-9 w-9 sm:h-10 sm:w-10 p-0">
             <Eye className="w-4 h-4 sm:w-5 sm:h-5" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowSettings(true)} aria-label="Einstellungen öffnen" className="h-9 w-9 sm:h-10 sm:w-10 p-0">
+          <Button variant="outline" size="sm" onClick={() => setShowSettings(true)} aria-label={t('menu.settings')} className="h-9 w-9 sm:h-10 sm:w-10 p-0">
             <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
           </Button>
-          <Button variant="outline" size="sm" onClick={handleReset} aria-label="Spiel neustarten" className="h-9 px-2 sm:h-10 sm:px-3 text-[10px] sm:text-sm">
+          <Button variant="outline" size="sm" onClick={handleReset} aria-label={t('game.restart')} className="h-9 px-2 sm:h-10 sm:px-3 text-[10px] sm:text-sm">
             <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 mr-1" />
-            <span className="hidden sm:inline">Neustart</span>
+            <span className="hidden sm:inline">{t('game.restart')}</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={onBackToMenu} aria-label="Zurück zum Menü" className="h-9 px-2 sm:h-10 sm:px-3 text-[10px] sm:text-sm">
-            Menü
+          <Button variant="outline" size="sm" onClick={onBackToMenu} aria-label={t('game.backToMenu')} className="h-9 px-2 sm:h-10 sm:px-3 text-[10px] sm:text-sm">
+            {t('game.backToMenu')}
           </Button>
         </div>
       </div>
@@ -496,10 +476,10 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
 
         {/* Mitte - Spielstapel */}
         <div className="flex justify-center items-center gap-4 sm:gap-8 mb-4 sm:mb-6">
-          {/* Ziehstapel */}
+          {/* {t('game.drawPile')} */}
           <CardStack
             count={gameState.deck.length}
-            label="Ziehstapel"
+            label={t('game.drawPile')}
             onClick={() => { playCardDraw(); drawFromDeck(); }}
             isClickable={isHumanTurn && !drawnCard && !isAIThinking && !mustTakeQueen}
             size="md"
@@ -507,7 +487,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
 
           {/* Spiel-Info */}
           <div className="bg-[hsl(var(--terminal-green)/0.1)] border border-[hsl(var(--terminal-green)/0.2)] backdrop-blur-sm rounded-xl p-2 sm:p-4 text-center min-w-[110px] sm:min-w-[180px] max-w-[45%]">
-            <p className="text-[hsl(var(--terminal-green)/0.8)] text-[10px] sm:text-sm mb-0.5 sm:mb-1">Aktueller Spieler</p>
+            <p className="text-[hsl(var(--terminal-green)/0.8)] text-[10px] sm:text-sm mb-0.5 sm:mb-1">{t('game.currentPlayer')}</p>
             <p className="text-[hsl(var(--terminal-green))] text-sm sm:text-lg font-bold mb-0.5 sm:mb-1 truncate">{currentPlayer.name}</p>
             <div role="status" aria-live="polite" aria-atomic="true" className="text-yellow-300 text-[10px] sm:text-xs leading-tight">
               {gameMessage}
@@ -519,17 +499,17 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                 DIFFICULTY_COLORS[currentAIDifficulty]
               )}>
                 <Bot className="w-3 h-3" />
-                {currentAIDifficulty === 'easy' && 'Einfach'}
-                {currentAIDifficulty === 'medium' && 'Mittel'}
-                {currentAIDifficulty === 'hard' && 'Schwer'}
+                {currentAIDifficulty === 'easy' && t('menu.difficulty.easy')}
+                {currentAIDifficulty === 'medium' && t('menu.difficulty.medium')}
+                {currentAIDifficulty === 'hard' && t('menu.difficulty.hard')}
               </div>
             )}
           </div>
 
-          {/* Ablagestapel */}
+          {/* {t('game.discardPile')} */}
           <CardStack
             count={gameState.discardPile.length}
-            label="Ablagestapel"
+            label={t('game.discardPile')}
             topCard={topDiscardCard}
             onClick={() => { playCardDraw(); drawFromDiscard(); }}
             isClickable={isHumanTurn && !drawnCard && !!topDiscardCard && !isAIThinking}
@@ -537,7 +517,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
           />
         </div>
 
-        {/* Gezogene Karte (falls vorhanden) */}
+        {/* {t('game.drawnCard')} (falls vorhanden) */}
         <AnimatePresence>
           {drawnCard && isHumanTurn && (
             <motion.div
@@ -549,7 +529,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
               className="flex justify-center mb-4"
             >
               <div className="bg-[hsl(var(--terminal-green)/0.15)] border border-[hsl(var(--terminal-green)/0.25)] backdrop-blur-sm rounded-xl p-3 sm:p-4">
-                <p className="text-[hsl(var(--terminal-green))] text-center mb-2 text-sm sm:text-base">Gezogene Karte</p>
+                <p className="text-[hsl(var(--terminal-green))] text-center mb-2 text-sm sm:text-base">{t('game.drawnCard')}</p>
                 <div className="flex justify-center">
                   <CardComponent card={drawnCard} isVisible={true} size="md" animate={false} />
                 </div>
@@ -571,7 +551,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                   className="h-11 px-3 text-xs sm:text-sm"
                 >
                   <Eye className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5" />
-                  Bube
+                  {t('game.jack')}
                 </Button>
                 <Button
                   onClick={() => setShowKingEffect(true)}
@@ -581,7 +561,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                   className="h-11 px-3 text-xs sm:text-sm"
                 >
                   <Crown className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5" />
-                  König
+                  {t('game.king')}
                 </Button>
                 <Button
                   onClick={() => { playCardPlace(); discardDrawnCard(); }}
@@ -589,7 +569,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                   size="default"
                   className="h-11 px-3 text-xs sm:text-sm"
                 >
-                  Ablegen
+                  {t('game.discard')}
                 </Button>
               </>
             )}
@@ -613,14 +593,14 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                   className="h-11 px-3 text-xs sm:text-sm"
                 >
                   <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5" />
-                  Dame rufen!
+                  {t('game.callDame')}
                 </Button>
               </motion.div>
             )}
 
             {!drawnCard && (
               <Button onClick={() => { playCardPlace(); endTurn(); }} size="default" className="h-11 px-4 text-xs sm:text-sm">
-                Zug beenden
+                {t('game.endTurn')}
                 <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 ml-1.5" />
               </Button>
             )}
@@ -659,7 +639,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
             className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-sm"
           >
             <Button onClick={() => { playCardPlace(); confirmSwap(); }} size="lg" className="w-full h-12 shadow-xl text-sm sm:text-base">
-              Tauschen bestätigen
+              {t('game.swapConfirm')}
             </Button>
           </motion.div>
         )}
@@ -671,11 +651,11 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2">
               <Eye className="w-5 h-5" />
-              Bube-Effekt
+              {t('game.jackEffect')}
             </DialogTitle>
           </DialogHeader>
           <p className="text-[hsl(var(--terminal-green)/0.85)] mb-4">
-            Wähle eine verdeckte Karte (eigene oder gegnerische), um sie anzuschauen:
+            {t('game.jackEffectDescription')}
           </p>
           <div className="space-y-4 max-h-[60vh] overflow-y-auto">
             {gameState.players.map((player) => {
@@ -687,7 +667,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
               return (
                 <div key={player.id} className="space-y-1">
                   <p className="text-[hsl(var(--terminal-cyan))] text-sm font-medium">
-                    {player.id === humanPlayer?.id ? 'Deine Karten' : `Karten von ${player.name}`}
+                    {player.id === humanPlayer?.id ? t('game.yourCards') : t('game.opponentCards', { name: player.name })}
                   </p>
                   <div className="flex justify-center">
                     <PlayerHand
@@ -724,16 +704,16 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2">
               <Crown className="w-5 h-5" />
-              König-Effekt
+              {t('game.kingEffect')}
             </DialogTitle>
           </DialogHeader>
           <p className="text-[hsl(var(--terminal-green)/0.85)] mb-4">
-            Wähle eine deiner Karten, einen Gegner und dessen Karte. Du siehst die gegnerische Karte vor dem Tausch.
+            {t('game.kingEffectDescription')}
           </p>
 
           {/* Eigene Karten */}
           <div className="mb-4">
-            <p className="text-sm font-medium mb-2 text-[hsl(var(--terminal-cyan))]">Deine Karten:</p>
+            <p className="text-sm font-medium mb-2 text-[hsl(var(--terminal-cyan))]">{t('game.yourCards')}</p>
             <div className="flex justify-center">
               <PlayerHand
                 player={gameState.players[humanPlayerIndex >= 0 ? humanPlayerIndex : 0]}
@@ -750,7 +730,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
           {/* Gegner auswählen */}
           {selectedHandIndex !== null && (
             <div className="mb-4">
-              <p className="text-sm font-medium mb-2 text-[hsl(var(--terminal-cyan))]">Wähle einen Gegner:</p>
+              <p className="text-sm font-medium mb-2 text-[hsl(var(--terminal-cyan))]">{t('game.chooseOpponent')}</p>
               <div className="flex gap-2 flex-wrap">
                 {gameState.players.filter((_, idx) => idx !== humanPlayerIndex).map((player) => (
                   <Button
@@ -777,7 +757,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
           {/* Gegner-Karte auswählen */}
           {selectedHandIndex !== null && kingTargetPlayer && (
             <div className="mb-4">
-              <p className="text-sm font-medium mb-2 text-[hsl(var(--terminal-cyan))]">Wähle eine Karte des Gegners:</p>
+              <p className="text-sm font-medium mb-2 text-[hsl(var(--terminal-cyan))]">{t('game.chooseOpponentCard')}</p>
               <div className="flex justify-center">
                 <PlayerHand
                   player={gameState.players.find(p => p.id === kingTargetPlayer)!}
@@ -795,9 +775,9 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
               </div>
               {kingPeekedCard && (
                 <p className="text-center text-[hsl(var(--terminal-amber))] text-sm mt-2">
-                  Du erhältst:{' '}
+                  {t('game.youReceive')}{' '}
                   <span
-                    aria-label={`Gesehene Karte: ${kingPeekedCard.rank} ${kingPeekedCard.suit === 'hearts' ? 'Herzen' : kingPeekedCard.suit === 'diamonds' ? 'Karo' : kingPeekedCard.suit === 'clubs' ? 'Kreuz' : 'Pik'}`}
+                    aria-label={t('game.memoryIndicator')}
                   >
                     {kingPeekedCard.rank}{kingPeekedCard.suit === 'hearts' ? '♥' : kingPeekedCard.suit === 'diamonds' ? '♦' : kingPeekedCard.suit === 'clubs' ? '♣' : '♠'}
                   </span>
@@ -806,7 +786,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
             </div>
           )}
 
-          {/* Tauschen bestätigen oder abbrechen */}
+          {/* {t('game.swapConfirm')} oder abbrechen */}
           {selectedHandIndex !== null && kingTargetPlayer && kingTargetCardIndex !== null && (
             <div className="flex gap-2 mt-4">
               <Button
@@ -819,7 +799,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                 }}
                 className="flex-1 border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)]"
               >
-                Abbrechen
+                {t('game.cancel')}
               </Button>
               <Button
                 onClick={() => {
@@ -832,7 +812,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                 }}
                 className="flex-1 bg-[hsl(var(--terminal-green))] text-black hover:bg-[hsl(var(--terminal-green)/0.85)]"
               >
-                Tauschen
+                {t('game.swap')}
               </Button>
             </div>
           )}
@@ -844,7 +824,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
         <DialogContent className="bg-[hsl(var(--terminal-panel))] border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))]">
           <DialogHeader>
             <DialogTitle className="text-center text-2xl">
-              {winner ? `${winner.name} gewinnt!` : 'Spiel beendet!'}
+              {winner ? t('game.gameOverWinner', { name: winner.name }) : t('game.gameOver')}
             </DialogTitle>
           </DialogHeader>
           <div className="text-center">
@@ -864,7 +844,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
               transition={{ delay: 0.4 }}
               className="text-[hsl(var(--terminal-green)/0.85)] mb-4"
             >
-              {winner && `Punktestand: ${winner.totalScore}`}
+              {winner && t('game.score', { score: winner.totalScore })}
             </motion.p>
             <motion.div
               initial={{ opacity: 0 }}
@@ -873,7 +853,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
             >
               <Button onClick={handleReset} className="w-full">
                 <RotateCcw className="w-4 h-4 mr-2" />
-                Neues Spiel
+                {t('menu.newGame')}
               </Button>
             </motion.div>
           </div>
@@ -885,7 +865,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-[hsl(var(--terminal-panel))] border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))]">
           <DialogHeader>
             <DialogTitle className="text-center text-2xl">
-              Runde {gameState?.round} beendet!
+              {t('game.roundEnded', { round: gameState?.round })}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-6">
@@ -902,11 +882,11 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                   <div className="flex items-center gap-3">
                     <span className="text-white font-bold">{player.name}</span>
                     <span className="text-yellow-300 text-sm">
-                      +{player.score} Punkte
+                      +{player.score} {t('game.points')}
                     </span>
                   </div>
                   <span className="text-white/80 font-mono">
-                    Gesamt: {player.totalScore}
+                    {t('game.total', { score: player.totalScore })}
                   </span>
                 </div>
                 <div className="flex gap-2 justify-center">
@@ -940,14 +920,14 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
             {gameState?.players.filter(p => p.isEliminated).map((player) => (
               <div key={player.id} className="bg-red-500/10 rounded-xl p-4 text-center">
                 <span className="text-red-400 font-bold">{player.name}</span>
-                <span className="text-red-400 ml-2">ist ausgeschieden!</span>
+                <span className="text-red-400 ml-2">{t('game.isEliminated', { name: player.name })}</span>
               </div>
             ))}
 
             {/* Weiter-Button */}
             <Button onClick={startNextRound} className="w-full" size="lg">
               <ChevronRight className="w-5 h-5 mr-2" />
-              Nächste Runde
+              {t('game.nextRound')}
             </Button>
           </div>
         </DialogContent>
@@ -959,7 +939,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2">
               <Settings className="w-5 h-5" />
-              Einstellungen
+              {t('settings.title')}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -972,8 +952,8 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                   <VolumeX className="w-5 h-5 text-[hsl(var(--terminal-green)/0.5)]" />
                 )}
                 <div>
-                  <p className="font-medium text-sm text-[hsl(var(--terminal-green))]">Sound-Effekte</p>
-                  <p className="text-xs text-[hsl(var(--terminal-green)/0.6)]">Karten, Gewinn, Strafen</p>
+                  <p className="font-medium text-sm text-[hsl(var(--terminal-green))]">{t('settings.sound')}</p>
+                  <p className="text-xs text-[hsl(var(--terminal-green)/0.6)]">{t('settings.soundDescription')}</p>
                 </div>
               </div>
               <Button
@@ -983,7 +963,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                 aria-pressed={settings.soundEnabled}
                 className={!settings.soundEnabled ? 'border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)]' : ''}
               >
-                {settings.soundEnabled ? 'An' : 'Aus'}
+                {settings.soundEnabled ? t('settings.on') : t('settings.off')}
               </Button>
             </div>
 
@@ -992,8 +972,8 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
               <div className="flex items-center gap-3">
                 <Music className={cn('w-5 h-5', settings.musicEnabled ? 'text-[hsl(var(--terminal-cyan))]' : 'text-[hsl(var(--terminal-green)/0.5)]')} />
                 <div>
-                  <p className="font-medium text-sm text-[hsl(var(--terminal-green))]">Hintergrundmusik</p>
-                  <p className="text-xs text-[hsl(var(--terminal-green)/0.6)]">Ambient Casino-Sounds</p>
+                  <p className="font-medium text-sm text-[hsl(var(--terminal-green))]">{t('settings.music')}</p>
+                  <p className="text-xs text-[hsl(var(--terminal-green)/0.6)]">{t('settings.musicDescription')}</p>
                 </div>
               </div>
               <Button
@@ -1003,7 +983,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                 aria-pressed={settings.musicEnabled}
                 className={!settings.musicEnabled ? 'border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)]' : ''}
               >
-                {settings.musicEnabled ? 'An' : 'Aus'}
+                {settings.musicEnabled ? t('settings.on') : t('settings.off')}
               </Button>
             </div>
 
@@ -1012,8 +992,8 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
               <div className="flex items-center gap-3">
                 <Sparkles className={cn('w-5 h-5', settings.animationsEnabled ? 'text-[hsl(var(--terminal-amber))]' : 'text-[hsl(var(--terminal-green)/0.5)]')} />
                 <div>
-                  <p className="font-medium text-sm text-[hsl(var(--terminal-green))]">Animationen</p>
-                  <p className="text-xs text-[hsl(var(--terminal-green)/0.6)]">Karten-Bewegungen, Effekte</p>
+                  <p className="font-medium text-sm text-[hsl(var(--terminal-green))]">{t('settings.animations')}</p>
+                  <p className="text-xs text-[hsl(var(--terminal-green)/0.6)]">{t('settings.animationsDescription')}</p>
                 </div>
               </div>
               <Button
@@ -1023,17 +1003,17 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                 aria-pressed={settings.animationsEnabled}
                 className={!settings.animationsEnabled ? 'border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)]' : ''}
               >
-                {settings.animationsEnabled ? 'An' : 'Aus'}
+                {settings.animationsEnabled ? t('settings.on') : t('settings.off')}
               </Button>
             </div>
 
-            {/* KI-Geschwindigkeit */}
+            {/* {t('settings.aiSpeed')} */}
             <div className="p-3 bg-[hsl(var(--terminal-dark)/0.5)] border border-[hsl(var(--terminal-green)/0.15)] rounded-lg">
               <div className="flex items-center gap-3 mb-2">
                 <Bot className={cn('w-5 h-5', settings.aiSpeed === 'fast' ? 'text-[hsl(var(--terminal-green))]' : settings.aiSpeed === 'slow' ? 'text-[hsl(var(--terminal-red))]' : 'text-[hsl(var(--terminal-cyan))]')} />
                 <div>
-                  <p className="font-medium text-sm text-[hsl(var(--terminal-green))]">KI-Geschwindigkeit</p>
-                  <p className="text-xs text-[hsl(var(--terminal-green)/0.6)]">Wartezeit auf KI-Züge</p>
+                  <p className="font-medium text-sm text-[hsl(var(--terminal-green))]">{t('settings.aiSpeed')}</p>
+                  <p className="text-xs text-[hsl(var(--terminal-green)/0.6)]">{t('settings.aiSpeedDescription')}</p>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -1049,9 +1029,9 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                     )}
                     onClick={() => setAiSpeed(speed)}
                   >
-                    {speed === 'fast' && 'Schnell'}
-                    {speed === 'normal' && 'Normal'}
-                    {speed === 'slow' && 'Langsam'}
+                    {speed === 'fast' && t('settings.speedFast')}
+                    {speed === 'normal' && t('settings.speedNormal')}
+                    {speed === 'slow' && t('settings.speedSlow')}
                   </Button>
                 ))}
               </div>
@@ -1064,62 +1044,62 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
       <Dialog open={showTutorial} onOpenChange={setShowTutorial}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto bg-[hsl(var(--terminal-panel))] border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))]">
           <DialogHeader>
-            <DialogTitle className="text-2xl text-center">Wie spielt man Dame?</DialogTitle>
+            <DialogTitle className="text-2xl text-center">{t('game.tutorialTitle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 text-sm">
             <div className="bg-[hsl(var(--terminal-dark)/0.5)] border border-[hsl(var(--terminal-cyan)/0.2)] p-4 rounded-lg">
-              <p className="font-bold text-[hsl(var(--terminal-cyan))] mb-1">🎯 Ziel des Spiels</p>
-              <p className="text-[hsl(var(--terminal-green)/0.85)]">Sammle so wenige Punkte wie möglich. Wer über 50 Punkte kommt, scheidet aus. Wer genau 50 Punkte erreicht, fällt auf 0 zurück!</p>
+              <p className="font-bold text-[hsl(var(--terminal-cyan))] mb-1">{t('game.tutorialObjectiveTitle')}</p>
+              <p className="text-[hsl(var(--terminal-green)/0.85)]">{t('game.tutorialObjective')}</p>
             </div>
 
             <div className="bg-[hsl(var(--terminal-dark)/0.5)] border border-[hsl(var(--terminal-green)/0.2)] p-4 rounded-lg">
-              <p className="font-bold text-[hsl(var(--terminal-green))] mb-1">🃏 Kartenverteilung</p>
-              <p className="text-[hsl(var(--terminal-green)/0.85)]">Jeder Spieler bekommt 4 verdeckte Karten. Du siehst nur die ersten 2 Karten. Die anderen beiden bleiben verdeckt — merk sie dir!</p>
+              <p className="font-bold text-[hsl(var(--terminal-green))] mb-1">{t('game.tutorialSetupTitle')}</p>
+              <p className="text-[hsl(var(--terminal-green)/0.85)]">{t('game.tutorialSetup')}</p>
             </div>
 
             <div className="bg-[hsl(var(--terminal-dark)/0.5)] border border-[hsl(var(--terminal-amber)/0.2)] p-4 rounded-lg">
-              <p className="font-bold text-[hsl(var(--terminal-amber))] mb-1">🎮 Dein Zug</p>
+              <p className="font-bold text-[hsl(var(--terminal-amber))] mb-1">{t('game.tutorialStepsTitle')}</p>
               <ul className="list-disc list-inside text-[hsl(var(--terminal-green)/0.85)] space-y-1">
-                <li>Ziehe vom <strong>Ziehstapel</strong> oder vom <strong>Ablagestapel</strong></li>
-                <li>Tausche die gezogene Karte mit einer deiner Hand-Karten</li>
-                <li>Oder lege die gezogene Karte direkt ab</li>
-                <li>Beende deinen Zug</li>
+                <li><span dangerouslySetInnerHTML={{ __html: t('game.tutorialSteps.draw') }} /></li>
+                <li><span dangerouslySetInnerHTML={{ __html: t('game.tutorialSteps.swap') }} /></li>
+                <li><span dangerouslySetInnerHTML={{ __html: t('game.tutorialSteps.discard') }} /></li>
+                <li><span dangerouslySetInnerHTML={{ __html: t('game.tutorialSteps.end') }} /></li>
               </ul>
             </div>
 
             <div className="bg-[hsl(var(--terminal-dark)/0.5)] border border-[hsl(var(--terminal-cyan)/0.2)] p-4 rounded-lg">
-              <p className="font-bold text-[hsl(var(--terminal-cyan))] mb-1">👑 Sonderkarten</p>
+              <p className="font-bold text-[hsl(var(--terminal-cyan))] mb-1">👑 {t('game.tutorialSpecialCards')}</p>
               <ul className="list-disc list-inside text-[hsl(var(--terminal-green)/0.85)] space-y-1">
-                <li><strong>Bube (J):</strong> Schaue eine verdeckte Karte an — deine eigene oder die eines Gegners</li>
-                <li><strong>König (K):</strong> Schaue eine gegnerische Karte kurz an und tausche dann blind eine deiner Karten damit</li>
-                <li><strong>Dame (Q):</strong> Wenn du eine Dame ablegst, ziehst du selbst eine Strafkarte. Liegt eine Dame oben auf dem Ablagestapel, muss der nächste Spieler sie ziehen.</li>
+                <li><span dangerouslySetInnerHTML={{ __html: t('game.tutorialJack') }} /></li>
+                <li><span dangerouslySetInnerHTML={{ __html: t('game.tutorialKing') }} /></li>
+                <li><span dangerouslySetInnerHTML={{ __html: t('game.tutorialQueen') }} /></li>
               </ul>
             </div>
 
             <div className="bg-[hsl(var(--terminal-dark)/0.5)] border border-[hsl(var(--terminal-red)/0.2)] p-4 rounded-lg">
-              <p className="font-bold text-[hsl(var(--terminal-red))] mb-1">📢 Dame Call</p>
-              <p className="text-[hsl(var(--terminal-green)/0.85)]">Ab Runde 3 kannst du „Dame" rufen, wenn du glaubst, die wenigsten Punkte zu haben. Liegst du falsch, startest du die nächste Runde mit 5 Karten als Strafe!</p>
+              <p className="font-bold text-[hsl(var(--terminal-red))] mb-1">{t('game.tutorialDameCallTitle')}</p>
+              <p className="text-[hsl(var(--terminal-green)/0.85)]">{t('game.tutorialDameCall')}</p>
             </div>
 
             <div className="bg-[hsl(var(--terminal-dark)/0.5)] border border-[hsl(var(--terminal-amber)/0.2)] p-4 rounded-lg">
-              <p className="font-bold text-[hsl(var(--terminal-amber))] mb-1">🚀 Extra-Ablegen</p>
-              <p className="text-[hsl(var(--terminal-green)/0.85)]">Wenn die oberste Ablagekarte z.B. eine 7 ist und du auch eine 7 in der Hand hast, kannst du diese direkt ablegen — ohne zu ziehen!</p>
+              <p className="font-bold text-[hsl(var(--terminal-amber))] mb-1">{t('game.tutorialExtraDiscardTitle')}</p>
+              <p className="text-[hsl(var(--terminal-green)/0.85)]">{t('game.tutorialExtraDiscard')}</p>
             </div>
 
             <div className="bg-[hsl(var(--terminal-dark)/0.5)] border border-[hsl(var(--terminal-green)/0.2)] p-4 rounded-lg">
-              <p className="font-bold text-[hsl(var(--terminal-green))] mb-1">⌨️ Tastenkürzel</p>
+              <p className="font-bold text-[hsl(var(--terminal-green))] mb-1">⌨️ {t('game.tutorialShortcuts')}</p>
               <ul className="list-disc list-inside text-[hsl(var(--terminal-green)/0.85)] space-y-1">
-                <li><strong>Leertaste</strong> — Ziehen oder Ablegen</li>
-                <li><strong>1-4</strong> — Karte auswählen</li>
-                <li><strong>Enter</strong> — Tausch bestätigen</li>
-                <li><strong>D</strong> — Dame rufen</li>
-                <li><strong>Z / E</strong> — Zug beenden</li>
-                <li><strong>Escape</strong> — Offenen Dialog schließen</li>
+                <li><span dangerouslySetInnerHTML={{ __html: t('game.shortcutDraw') }} /></li>
+                <li><span dangerouslySetInnerHTML={{ __html: t('game.shortcutSelect') }} /></li>
+                <li><span dangerouslySetInnerHTML={{ __html: t('game.shortcutConfirm') }} /></li>
+                <li><span dangerouslySetInnerHTML={{ __html: t('game.shortcutCallDame') }} /></li>
+                <li><span dangerouslySetInnerHTML={{ __html: t('game.shortcutEndTurn') }} /></li>
+                <li><span dangerouslySetInnerHTML={{ __html: t('game.shortcutClose') }} /></li>
               </ul>
             </div>
 
             <Button onClick={() => setShowTutorial(false)} className="w-full bg-[hsl(var(--terminal-green))] text-black hover:bg-[hsl(var(--terminal-green)/0.85)]">
-              Alles klar!
+              {t('game.gotIt')}
             </Button>
           </div>
         </DialogContent>

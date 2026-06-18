@@ -1,6 +1,7 @@
 import type { Player, GamePhase } from '@/types/game';
 import { CardComponent } from './Card';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/lib/i18n';
 import { Eye } from 'lucide-react';
 
 interface PlayerHandProps {
@@ -34,6 +35,7 @@ export function PlayerHand({
   peekedIndices = [],
   peekPhase = false,
 }: PlayerHandProps) {
+  const { t } = useI18n();
   // Gegner-Karten immer verdeckt zeigen, auch wenn der Gegner am Zug ist
   const isOpponent = !isCurrentPlayer;
 
@@ -52,7 +54,7 @@ export function PlayerHand({
           {player.name}
         </div>
         <div className="text-xs font-mono text-[hsl(var(--terminal-green)/0.8)]">
-          {player.totalScore} pts
+          {player.totalScore} {t('game.points')}
         </div>
         {player.isEliminated && (
           <span className="text-[hsl(var(--terminal-red))] text-xs font-mono font-bold terminal-glow">OUT</span>
@@ -115,7 +117,7 @@ export function PlayerHand({
       {/* Strafkarten-Anzeige */}
       {player.penaltyCards.length > 0 && (
         <div className="flex items-center gap-2 text-[hsl(var(--terminal-red))] text-xs font-mono">
-          <span>Strafkarten: {player.penaltyCards.length}</span>
+          <span>{t('game.penaltyCards')}: {player.penaltyCards.length}</span>
         </div>
       )}
     </div>

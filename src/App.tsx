@@ -12,9 +12,11 @@ import {
   User,
   Brain,
   Zap,
-  Target
+  Target,
+  Globe
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/lib/i18n';
 import type { AIDifficulty } from '@/lib/aiPlayer';
 
 type GameMode = 'menu' | 'game' | 'rules' | 'stats';
@@ -25,43 +27,40 @@ interface PlayerConfig {
   difficulty?: AIDifficulty;
 }
 
-const DIFFICULTY_CONFIG: Record<AIDifficulty, { label: string; icon: React.ReactNode; color: string; description: string }> = {
+const DIFFICULTY_CONFIG: Record<AIDifficulty, { icon: React.ReactNode; color: string; descriptionKey: string }> = {
   easy: { 
-    label: 'Einfach', 
     icon: <Zap className="w-4 h-4" />, 
     color: 'bg-[hsl(var(--terminal-green))] text-black',
-    description: 'Zufällige Züge, wenig Strategie'
+    descriptionKey: 'Zufällige Züge, wenig Strategie'
   },
   medium: { 
-    label: 'Mittel', 
     icon: <Brain className="w-4 h-4" />, 
     color: 'bg-[hsl(var(--terminal-amber))] text-black',
-    description: 'Grundlegende Strategie, schlechte Karten vermeiden'
+    descriptionKey: 'Grundlegende Strategie, schlechte Karten vermeiden'
   },
   hard: { 
-    label: 'Schwer', 
     icon: <Target className="w-4 h-4" />, 
     color: 'bg-[hsl(var(--terminal-red))] text-black',
-    description: 'Fortgeschrittene Strategie, Bluff, Risikobewertung'
+    descriptionKey: 'Fortgeschrittene Strategie, Bluff, Risikobewertung'
   },
 };
 
 function App() {
+  const { t, language, setLanguage } = useI18n();
   const [gameMode, setGameMode] = useState<GameMode>('menu');
   const [players, setPlayers] = useState<PlayerConfig[]>([
     { name: 'Spieler 1', isAI: false },
     { name: 'KI-Gegner', isAI: true, difficulty: 'medium' }
   ]);
-// App.tsx - Dame Kartenspiel mit KI-Gegnern
 
-  // Spieler hinzufügen (menschlich)
+  // Add human player
   const addHumanPlayer = () => {
     if (players.length < 6) {
-      setPlayers([...players, { name: `Spieler ${players.filter(p => !p.isAI).length + 1}`, isAI: false }]);
+      setPlayers([...players, { name: `${t('menu.player')} ${players.filter(p => !p.isAI).length + 1}`, isAI: false }]);
     }
   };
 
-  // KI-Spieler hinzufügen
+  // Add AI player
   const addAIPlayer = () => {
     if (players.length < 6) {
       const aiCount = players.filter(p => p.isAI).length;
@@ -73,40 +72,40 @@ function App() {
     }
   };
 
-  // Spieler entfernen
+  // Remove player
   const removePlayer = (index: number) => {
     if (players.length > 2) {
       setPlayers(players.filter((_, i) => i !== index));
     }
   };
 
-  // Spieler-Namen ändern
+  // Update player name
   const updatePlayerName = (index: number, name: string) => {
     const newPlayers = [...players];
     newPlayers[index].name = name;
     setPlayers(newPlayers);
   };
 
-  // KI-Schwierigkeit ändern
+  // Update AI difficulty
   const updateAIDifficulty = (index: number, difficulty: AIDifficulty) => {
     const newPlayers = [...players];
     newPlayers[index].difficulty = difficulty;
     setPlayers(newPlayers);
   };
 
-  // Spiel starten
+  // Start game
   const startGame = () => {
     if (players.length >= 2) {
       setGameMode('game');
     }
   };
 
-  // Zurück zum Menü
+  // Back to menu
   const backToMenu = () => {
     setGameMode('menu');
   };
 
-  // Regeln anzeigen
+  // Rules page
   if (gameMode === 'rules') {
     return (
       <div className="min-h-screen terminal-grid relative flex items-center justify-center p-4">
@@ -115,79 +114,51 @@ function App() {
             <CardHeader>
               <CardTitle className="text-2xl text-center flex items-center justify-center gap-2 font-mono terminal-glow">
                 <BookOpen className="w-7 h-7" />
-                Spielregeln
+                {t('rules.title')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6 text-sm font-mono">
               <section>
-                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Ziel des Spiels</h3>
-                <p className="text-[hsl(var(--terminal-green)/0.85)]">
-                  Sammle möglichst wenige Punkte! Wer über 50 Punkte kommt, scheidet aus. 
-                  Aber Achtung: Wer genau 50 Punkte erreicht, fällt auf 0 zurück!
-                </p>
+                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">{t('rules.title')}</h3>
+                <p className="text-[hsl(var(--terminal-green)/0.85)]">{t('rules.intro')}</p>
               </section>
 
               <section>
-                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Spielablauf</h3>
+                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Setup</h3>
                 <ul className="list-disc list-inside space-y-2 text-[hsl(var(--terminal-green)/0.85)]">
-                  <li>Jeder Spieler bekommt 4 verdeckte Karten</li>
-                  <li>Du darfst dir nur 2 deiner Karten anschauen</li>
-                  <li>Ziehe eine Karte vom Ziehstapel oder Ablagestapel</li>
-                  <li>Tausche die gezogene Karte mit einer deiner Handkarten</li>
-                  <li>Die abgelegte Karte kommt auf den Ablagestapel</li>
+                  <li>{t('rules.setup')}</li>
+                  <li>{t('rules.turn')}</li>
+                  <li>{t('rules.extraDiscard')}</li>
                 </ul>
               </section>
 
               <section>
-                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Besondere Karten</h3>
+                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Special cards</h3>
                 <div className="space-y-3">
                   <div className="bg-[hsl(var(--terminal-amber)/0.08)] border border-[hsl(var(--terminal-amber)/0.25)] p-3 rounded-sm">
-                    <p className="font-bold text-[hsl(var(--terminal-amber))]">Bube (10 Punkte)</p>
-                    <p className="text-[hsl(var(--terminal-green)/0.85)]">Wenn abgelegt: Du darfst dir eine verdeckte Karte anschauen.</p>
+                    <p className="font-bold text-[hsl(var(--terminal-amber))]">{t('rules.jack')}</p>
                   </div>
                   <div className="bg-[hsl(var(--terminal-cyan)/0.08)] border border-[hsl(var(--terminal-cyan)/0.25)] p-3 rounded-sm">
-                    <p className="font-bold text-[hsl(var(--terminal-cyan))]">König (10 Punkte)</p>
-                    <p className="text-[hsl(var(--terminal-green)/0.85)]">Wenn abgelegt: Tausche blind eine deiner Karten mit einem Gegner.</p>
+                    <p className="font-bold text-[hsl(var(--terminal-cyan))]">{t('rules.king')}</p>
                   </div>
                   <div className="bg-[hsl(var(--terminal-red)/0.08)] border border-[hsl(var(--terminal-red)/0.25)] p-3 rounded-sm">
-                    <p className="font-bold text-[hsl(var(--terminal-red))]">Dame (0 Punkte)</p>
-                    <p className="text-[hsl(var(--terminal-green)/0.85)]">Wenn abgelegt: Du musst eine Strafkarte ziehen! Die Dame ist verflucht...</p>
+                    <p className="font-bold text-[hsl(var(--terminal-red))]">{t('rules.queen')}</p>
                   </div>
                 </div>
               </section>
 
               <section>
                 <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Dame Call</h3>
-                <p className="text-[hsl(var(--terminal-green)/0.85)]">
-                  Ab Runde 3 kannst du "Dame" rufen, wenn du glaubst, die wenigsten Punkte zu haben. 
-                  Nach einer letzten Runde werden alle Karten aufgedeckt. Wenn du recht hattest, 
-                  gewinnst du die Runde. Wenn nicht, bekommst du eine Strafkarte!
-                </p>
+                <p className="text-[hsl(var(--terminal-green)/0.85)]">{t('rules.dameCall')}</p>
               </section>
 
               <section>
-                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">KI-Gegner</h3>
-                <div className="space-y-2 text-[hsl(var(--terminal-green)/0.85)]">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-sm bg-[hsl(var(--terminal-green))]"></span>
-                    <span className="font-medium">Einfach:</span>
-                    <span className="text-[hsl(var(--terminal-green)/0.7)] text-xs">Zufällige Züge, wenig Strategie</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-sm bg-[hsl(var(--terminal-amber))]"></span>
-                    <span className="font-medium">Mittel:</span>
-                    <span className="text-[hsl(var(--terminal-green)/0.7)] text-xs">Grundlegende Strategie, schlechte Karten vermeiden</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-sm bg-[hsl(var(--terminal-red))]"></span>
-                    <span className="font-medium">Schwer:</span>
-                    <span className="text-[hsl(var(--terminal-green)/0.7)] text-xs">Fortgeschrittene Strategie mit Bluff und Risikobewertung</span>
-                  </div>
-                </div>
+                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Points</h3>
+                <p className="text-[hsl(var(--terminal-green)/0.85)]">{t('rules.points')}</p>
               </section>
 
               <Button onClick={backToMenu} className="w-full font-mono bg-[hsl(var(--terminal-green))] text-black hover:bg-[hsl(var(--terminal-green)/0.85)]">
-                Zurück zum Menü
+                {t('rules.close')}
               </Button>
             </CardContent>
           </Card>
@@ -196,22 +167,22 @@ function App() {
     );
   }
 
-  // Spiel
+  // Game
   if (gameMode === 'game') {
     return <GameBoard players={players} onBackToMenu={backToMenu} />;
   }
 
-  // Hauptmenü
+  // Main menu
   return (
     <div className="min-h-screen terminal-grid relative flex items-center justify-center p-4">
       <div className="max-w-lg w-full">
         {/* Logo */}
         <div className="text-center mb-8">
           <h1 className="text-6xl font-mono font-bold text-[hsl(var(--terminal-green))] mb-2 tracking-widest terminal-glow">
-            DAME
+            {t('app.title')}
           </h1>
           <p className="text-[hsl(var(--terminal-green)/0.7)] font-mono text-sm uppercase tracking-[0.3em]">
-            Kartenspiel mit Bluff und Strategie
+            {t('app.subtitle')}
           </p>
         </div>
 
@@ -219,11 +190,11 @@ function App() {
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2 font-mono text-[hsl(var(--terminal-green))]">
               <Users className="w-5 h-5" />
-              Spieler ({players.length}/6)
+              {t('menu.players')} ({players.length}/6)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Spieler-Liste */}
+            {/* Player list */}
             <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
               {players.map((player, index) => (
                 <div
@@ -250,14 +221,14 @@ function App() {
                       <button
                         onClick={() => removePlayer(index)}
                         className="h-10 w-10 flex items-center justify-center rounded-sm text-[hsl(var(--terminal-red))] hover:text-[hsl(var(--terminal-red)/0.7)] hover:bg-[hsl(var(--terminal-red)/0.1)] transition-colors"
-                        aria-label="Spieler entfernen"
+                        aria-label={t('rules.close')}
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>
                     )}
                   </div>
                   
-                  {/* KI-Schwierigkeit */}
+                  {/* AI difficulty */}
                   {player.isAI && (
                     <div className="flex gap-1.5">
                       {(Object.keys(DIFFICULTY_CONFIG) as AIDifficulty[]).map((diff) => (
@@ -270,9 +241,9 @@ function App() {
                               ? cn(DIFFICULTY_CONFIG[diff].color, "border-transparent")
                               : "bg-[hsl(var(--terminal-dark))] text-[hsl(var(--terminal-green)/0.7)] border-[hsl(var(--terminal-green)/0.2)] hover:border-[hsl(var(--terminal-green)/0.4)]"
                           )}
-                          title={DIFFICULTY_CONFIG[diff].description}
+                          title={DIFFICULTY_CONFIG[diff].descriptionKey}
                         >
-                          {DIFFICULTY_CONFIG[diff].label}
+                          {t(`menu.difficulty.${diff}`)}
                         </button>
                       ))}
                     </div>
@@ -281,7 +252,7 @@ function App() {
               ))}
             </div>
 
-            {/* Spieler hinzufügen */}
+            {/* Add player */}
             {players.length < 6 && (
               <div className="flex gap-2">
                 <Button 
@@ -290,7 +261,7 @@ function App() {
                   className="flex-1 h-11 font-mono border-[hsl(var(--terminal-green)/0.4)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)] hover:text-[hsl(var(--terminal-green))]"
                 >
                   <User className="w-4 h-4 mr-1" />
-                  Mensch
+                  {t('menu.addHuman')}
                 </Button>
                 <Button 
                   onClick={addAIPlayer} 
@@ -298,12 +269,12 @@ function App() {
                   className="flex-1 h-11 font-mono border-[hsl(var(--terminal-cyan)/0.4)] text-[hsl(var(--terminal-cyan))] hover:bg-[hsl(var(--terminal-cyan)/0.1)] hover:text-[hsl(var(--terminal-cyan))]"
                 >
                   <Bot className="w-4 h-4 mr-1" />
-                  KI
+                  {t('menu.addAI')}
                 </Button>
               </div>
             )}
 
-            {/* Aktionen */}
+            {/* Actions */}
             <div className="space-y-2 pt-4">
               <Button
                 onClick={startGame}
@@ -312,7 +283,7 @@ function App() {
                 disabled={players.length < 2}
               >
                 <Play className="w-5 h-5 mr-2" />
-                Spiel starten
+                {t('menu.startGame')}
               </Button>
               
               <Button
@@ -321,16 +292,30 @@ function App() {
                 className="w-full h-11 font-mono border-[hsl(var(--terminal-green)/0.4)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)] hover:text-[hsl(var(--terminal-green))]"
               >
                 <BookOpen className="w-4 h-4 mr-2" />
-                Regeln
+                {t('menu.rules')}
               </Button>
             </div>
           </CardContent>
         </Card>
 
         {/* Footer */}
-        <p className="text-center text-[hsl(var(--terminal-green)/0.5)] text-xs font-mono mt-8 uppercase tracking-wider">
-          Ein Spiel für 2-6 Spieler • Mit KI-Gegnern!
-        </p>
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Globe className="w-4 h-4 text-[hsl(var(--terminal-green)/0.7)]" />
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as 'de' | 'en')}
+              className="h-9 px-3 rounded-sm bg-[hsl(var(--terminal-panel))] border border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))] text-sm font-mono focus:outline-none focus:ring-1 focus:ring-[hsl(var(--terminal-green)/0.5)]"
+              aria-label={t('menu.language')}
+            >
+              <option value="de">Deutsch</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <p className="text-center text-[hsl(var(--terminal-green)/0.5)] text-xs font-mono uppercase tracking-wider">
+            {t('app.tagline')}
+          </p>
+        </div>
       </div>
     </div>
   );

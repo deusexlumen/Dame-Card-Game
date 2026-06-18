@@ -19,6 +19,7 @@ import {
   peekCard,
 } from '@/lib/gameLogic';
 import { decideAIMove, type AIDifficulty } from '@/lib/aiPlayer';
+import { useI18n } from '@/lib/i18n';
 import type { AISpeed } from '@/hooks/useSettings';
 
 export interface AIPlayerInfo {
@@ -37,6 +38,7 @@ interface UseGameWithAIReturn {
   drawnCard: Card | null;
   selectedHandIndex: number | null;
   gameMessage: string;
+  messageKey: string;
   winner: Player | null;
   isAIThinking: boolean;
   currentAIDifficulty: AIDifficulty | null;
@@ -72,7 +74,13 @@ const VALID_SUITS: CardSuit[] = ['hearts', 'diamonds', 'clubs', 'spades'];
 const VALID_RANKS: CardRank[] = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 const VALID_PHASES: GamePhase[] = ['SETUP', 'FIRST_TURN', 'REGULAR_PLAY', 'DAME_CALLED', 'ROUND_END', 'GAME_OVER'];
 
-function saveGameState(state: GameState | null, drawn: Card | null, ai: Map<string, AIDifficulty>, msg: string) {
+function saveGameState(
+  state: GameState | null,
+  drawn: Card | null,
+  ai: Map<string, AIDifficulty>,
+  msg: string,
+  msgKey: string
+) {
   try {
     if (!state) {
       localStorage.removeItem(SAVE_KEY);
@@ -83,6 +91,7 @@ function saveGameState(state: GameState | null, drawn: Card | null, ai: Map<stri
       drawnCard: drawn,
       aiPlayers: Array.from(ai.entries()),
       gameMessage: msg,
+      messageKey: msgKey,
       timestamp: Date.now(),
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
@@ -186,6 +195,7 @@ function isValidSaveData(data: unknown): data is {
   drawnCard: Card | null;
   aiPlayers: Array<[string, AIDifficulty]>;
   gameMessage: string;
+  messageKey?: string;
   timestamp: number;
 } {
   if (typeof data !== 'object' || data === null) return false;
@@ -197,11 +207,14 @@ function isValidSaveData(data: unknown): data is {
     return false;
   }
   if (typeof save.gameMessage !== 'string') return false;
+  if (save.messageKey !== undefined && typeof save.messageKey !== 'string') return false;
   if (typeof save.timestamp !== 'number') return false;
   return true;
 }
 
-function loadGameState(): { gameState: GameState; drawnCard: Card | null; aiPlayers: Map<string, AIDifficulty>; gameMessage: string } | null {
+function loadGameState():
+  | { gameState: GameState; drawnCard: Card | null; aiPlayers: Map<string, AIDifficulty>; gameMessage: string; messageKey: string }
+  | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
@@ -215,6 +228,7 @@ function loadGameState(): { gameState: GameState; drawnCard: Card | null; aiPlay
       drawnCard: data.drawnCard,
       aiPlayers: new Map(data.aiPlayers),
       gameMessage: data.gameMessage || 'Willkommen zurück!',
+      messageKey: data.messageKey || 'game.continueGame',
     };
   } catch {
     return null;
@@ -236,10 +250,13 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     speedMultRef.current = speedMult;
   }, [speedMult]);
 
+  const { t } = useI18n();
+
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [drawnCard, setDrawnCard] = useState<Card | null>(null);
   const [selectedHandIndex, setSelectedHandIndex] = useState<number | null>(null);
-  const [gameMessage, setGameMessage] = useState<string>('Willkommen bei Dame!');
+  const [gameMessage, setGameMessage] = useState<string>(t('game.welcome'));
+  const [messageKey, setMessageKey] = useState<string>('game.welcome');
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [aiPlayers, setAiPlayers] = useState<Map<string, AIDifficulty>>(new Map());
   const [hasSavedGame, setHasSavedGame] = useState(hasSavedGameState);
@@ -250,6 +267,14 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
   const aiPlayersRef = useRef(aiPlayers);
   const aiTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const isAIMovingRef = useRef(false);
+
+  const setMessage = useCallback(
+    (key: string, vars?: Record<string, string | number>) => {
+      setMessageKey(key);
+      setGameMessage(t(key, vars));
+    },
+    [t]
+  );
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -276,8 +301,8 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
 
   // Auto-Save bei State-Änderungen
   useEffect(() => {
-    saveGameState(gameState, drawnCard, aiPlayers, gameMessage);
-  }, [gameState, drawnCard, aiPlayers, gameMessage]);
+    saveGameState(gameState, drawnCard, aiPlayers, gameMessage, messageKey);
+  }, [gameState, drawnCard, aiPlayers, gameMessage, messageKey]);
 
   // Spiel starten mit KI-Unterstützung
   const startGame = useCallback((players: Array<{ name: string; isAI?: boolean; difficulty?: AIDifficulty }>) => {
@@ -297,10 +322,10 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     setGameState(newGame);
     setDrawnCard(null);
     setSelectedHandIndex(null);
-    setGameMessage('Spiel gestartet! Ziehe eine Karte.');
+    setMessage('game.gameStarted');
     setIsAIThinking(false);
     setHasSavedGame(true);
-  }, [clearAITimeouts]);
+  }, [clearAITimeouts, setMessage]);
 
   // Gespeichertes Spiel laden
   const loadSavedGame = useCallback(() => {
@@ -314,7 +339,7 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     setGameState(saved.gameState);
     setDrawnCard(saved.drawnCard);
     setAiPlayers(saved.aiPlayers);
-    setGameMessage(saved.gameMessage);
+    setMessage(saved.messageKey);
     setSelectedHandIndex(null);
     setIsAIThinking(false);
     setHasSavedGame(true);
@@ -325,7 +350,7 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     aiPlayersRef.current = saved.aiPlayers;
 
     return true;
-  }, [clearAITimeouts]);
+  }, [clearAITimeouts, setMessage]);
 
   const handleDrawFromDeck = useCallback(() => {
     if (!gameStateRef.current) return;
@@ -340,10 +365,10 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
       const isAI = aiPlayersRef.current.has(currentPlayer.id);
 
       if (!isAI) {
-        setGameMessage(`Du hast ${card.rank} gezogen. Was möchtest du tun?`);
+        setMessage('game.drawnCardPrompt', { rank: card.rank });
       }
     }
-  }, []);
+  }, [setMessage]);
 
   const handleDrawFromDiscard = useCallback(() => {
     if (!gameStateRef.current) return;
@@ -358,10 +383,10 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
       const isAI = aiPlayersRef.current.has(currentPlayer.id);
 
       if (!isAI) {
-        setGameMessage(`Du nimmst ${card.rank} vom Ablagestapel.`);
+        setMessage('game.drawnFromDiscard', { rank: card.rank });
       }
     }
-  }, []);
+  }, [setMessage]);
 
   const selectHandCard = useCallback((index: number) => {
     setSelectedHandIndex(index);
@@ -391,22 +416,22 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
       const finalState = applyQueenEffect(newState, currentPlayer.id);
       setGameState(finalState);
       if (!isAI) {
-        setGameMessage('Dame abgelegt! Du ziehst eine Strafkarte.');
+        setMessage('game.queenDiscarded');
       }
     } else if (discardedCard.rank === 'J') {
       if (!isAI) {
-        setGameMessage('Bube abgelegt! Wähle eine Karte zum Anschauen.');
+        setMessage('game.jackDiscarded');
       }
     } else if (discardedCard.rank === 'K') {
       if (!isAI) {
-        setGameMessage('König abgelegt! Wähle einen Spieler zum Tauschen.');
+        setMessage('game.kingDiscarded');
       }
     } else {
       if (!isAI) {
-        setGameMessage(`Du hast ${discardedCard.rank} abgelegt.`);
+        setMessage('game.cardDiscarded', { rank: discardedCard.rank });
       }
     }
-  }, [selectedHandIndex]);
+  }, [selectedHandIndex, setMessage]);
 
   const discardDrawnCard = useCallback(() => {
     if (!gameStateRef.current || !drawnCardRef.current) return;
@@ -420,9 +445,9 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     const isAI = aiPlayersRef.current.has(currentPlayer.id);
 
     if (!isAI) {
-      setGameMessage('Karte abgelegt.');
+      setMessage('game.cardDiscardedGeneric');
     }
-  }, []);
+  }, [setMessage]);
 
   const handleUseJack = useCallback((targetPlayerId: string, handIndex: number) => {
     if (!gameStateRef.current || !drawnCardRef.current) return;
@@ -442,9 +467,9 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
 
     const isAI = aiPlayersRef.current.has(currentPlayer.id);
     if (!isAI) {
-      setGameMessage('Du kannst jetzt diese Karte sehen.');
+      setMessage('game.cardSeen');
     }
-  }, []);
+  }, [setMessage]);
 
   const handleUseKing = useCallback((
     targetPlayerId: string,
@@ -474,9 +499,9 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
 
     const isAI = aiPlayersRef.current.has(currentPlayer.id);
     if (!isAI) {
-      setGameMessage('Karten getauscht!');
+      setMessage('game.swapped');
     }
-  }, []);
+  }, [setMessage]);
 
   const peekKingTarget = useCallback((targetPlayerId: string, targetHandIndex: number): Card | null => {
     if (!gameStateRef.current) return null;
@@ -495,8 +520,8 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     const newState = callDame(gameStateRef.current, currentPlayer.id);
     gameStateRef.current = newState;
     setGameState(newState);
-    setGameMessage(`${currentPlayer.name} hat Dame gerufen! Letzte Runde!`);
-  }, []);
+    setMessage('game.dameCalled', { name: currentPlayer.name });
+  }, [setMessage]);
 
   const handleTryDiscardExtra = useCallback((cardId: string): boolean => {
     if (!gameStateRef.current) return false;
@@ -509,9 +534,9 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     const isAI = aiPlayersRef.current.has(currentPlayer.id);
     if (!isAI) {
       if (success) {
-        setGameMessage('Extra-Karte abgelegt!');
+        setMessage('game.extraDiscardSuccess');
       } else {
-        setGameMessage('Falsche Karte! Strafkarte gezogen.');
+        setMessage('game.extraDiscardFail');
       }
     }
 
@@ -524,13 +549,13 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
         const endState = endTurn(dameState);
         gameStateRef.current = endState;
         setGameState(endState);
-        setGameMessage(`${currentPlayer.name} hat keine Karten mehr und ruft Dame!`);
+        setMessage('game.autoDameCall', { name: currentPlayer.name });
         return true;
       }
     }
 
     return false;
-  }, []);
+  }, [setMessage]);
 
   const handleEndTurn = useCallback(() => {
     if (!gameStateRef.current) return;
@@ -571,9 +596,9 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
       const isAI = aiPlayersRef.current.has(nextPlayer.id);
       if (!isAI) {
         if (roundEndState.phase === 'GAME_OVER') {
-          setGameMessage('Spiel beendet!');
+          setMessage('game.gameOver');
         } else {
-          setGameMessage(`Runde ${roundEndState.round} beginnt! ${nextPlayer.name} startet.`);
+          setMessage('game.roundStarts', { round: roundEndState.round, name: nextPlayer.name });
         }
       }
     } else {
@@ -581,21 +606,21 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
       const nextPlayer = newState.players[newState.currentPlayerIndex];
       const isAI = aiPlayersRef.current.has(nextPlayer.id);
       if (!isAI) {
-        setGameMessage(`${nextPlayer.name} ist am Zug.`);
+        setMessage('game.yourTurn', { name: nextPlayer.name });
       }
     }
-  }, [statsActions]);
+  }, [statsActions, setMessage]);
 
   const handleStartNextRound = useCallback(() => {
     if (!gameStateRef.current) return;
     const newState = startNextRound(gameStateRef.current);
     gameStateRef.current = newState;
     setGameState(newState);
-    setGameMessage(`Runde ${newState.round} beginnt!`);
+    setMessage('game.roundStarts', { round: newState.round, name: newState.players[newState.currentPlayerIndex].name });
     drawnCardRef.current = null;
     setDrawnCard(null);
     setSelectedHandIndex(null);
-  }, []);
+  }, [setMessage]);
 
   const resetGame = useCallback(() => {
     clearAITimeouts();
@@ -603,11 +628,11 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     setGameState(null);
     setDrawnCard(null);
     setSelectedHandIndex(null);
-    setGameMessage('Willkommen bei Dame!');
+    setMessage('game.welcome');
     setIsAIThinking(false);
     setAiPlayers(new Map());
     setHasSavedGame(false);
-  }, [clearAITimeouts]);
+  }, [clearAITimeouts, setMessage]);
 
   // KI-Zug beenden und nächsten prüfen
   const endTurnAfterAI = useCallback(() => {
@@ -733,10 +758,10 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
       didStart = true;
       setIsAIThinking(true);
       if (mustTakeQueen) {
-        setGameMessage(`${currentPlayer.name} muss die offene Dame nehmen...`);
+        setMessage('game.aiMustTakeQueen', { name: currentPlayer.name });
         handleDrawFromDiscard();
       } else {
-        setGameMessage(`${currentPlayer.name} denkt...`);
+        setMessage('game.aiThinking', { name: currentPlayer.name });
         executeAIMove(currentPlayer.id, aiDifficulty);
       }
     }, 0);
@@ -748,7 +773,7 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
         setIsAIThinking(false);
       }
     };
-  }, [gameState, aiPlayers, executeAIMove, speedMult, handleDrawFromDiscard, drawnCard]);
+  }, [gameState, aiPlayers, executeAIMove, speedMult, handleDrawFromDiscard, drawnCard, setMessage]);
 
   // Zwangszug: menschlicher Spieler muss eine offene Dame vom Ablagestapel nehmen
   useEffect(() => {
@@ -770,12 +795,12 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     }
 
     const id = setTimeout(() => {
-      setGameMessage('Du musst die offene Dame nehmen!');
+      setMessage('game.mustTakeQueen');
       handleDrawFromDiscard();
     }, Math.round(400 * speedMult));
 
     return () => clearTimeout(id);
-  }, [gameState, drawnCard, aiPlayers, speedMult, handleDrawFromDiscard]);
+  }, [gameState, drawnCard, aiPlayers, speedMult, handleDrawFromDiscard, setMessage]);
 
   // Timeouts beim Unmount bereinigen
   useEffect(() => {
@@ -797,6 +822,7 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     drawnCard,
     selectedHandIndex,
     gameMessage,
+    messageKey,
     winner,
     isAIThinking,
     currentAIDifficulty,

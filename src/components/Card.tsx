@@ -3,6 +3,7 @@ import type { Card as CardType } from '@/types/game';
 import { SUIT_COLORS, SUIT_SYMBOLS } from '@/types/game';
 import { cn } from '@/lib/utils';
 import { isAnimationsEnabled } from '@/lib/settings';
+import { useI18n } from '@/lib/i18n';
 
 /** Gemeinsame Barrierefreiheits-Props für klickbare Karten. */
 function getCardClickProps(
@@ -47,6 +48,7 @@ function CardBack({
   isClickable?: boolean;
   onClick?: () => void;
 }) {
+  const { t } = useI18n();
   const sizeClasses = {
     sm: 'w-10 h-14 text-[8px]',
     md: 'w-16 h-[5.5rem] text-xs',
@@ -67,7 +69,7 @@ function CardBack({
         isClickable && 'cursor-pointer hover:brightness-125'
       )}
       onClick={isClickable ? onClick : undefined}
-      {...getCardClickProps(isClickable, onClick)}
+      {...getCardClickProps(isClickable, onClick, t('game.selectCard'))}
     >
       {/* Leuchtende Ecken als Orientierungshilfen */}
       <div className="absolute top-0.5 left-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
@@ -97,6 +99,7 @@ export function CardComponent({
   index = 0,
   layoutId,
 }: CardProps) {
+  const { t } = useI18n();
   const animationsOn = isAnimationsEnabled();
   const sizeClasses = {
     sm: 'w-10 h-14 text-[8px]',
@@ -166,7 +169,7 @@ export function CardComponent({
           isClickable && 'cursor-pointer hover:brightness-110 hover:-translate-y-0.5'
         )}
         onClick={isClickable ? onClick : undefined}
-        {...getCardClickProps(isClickable, onClick)}
+        {...getCardClickProps(isClickable, onClick, t('game.selectCard'))}
       >
         {/* Äußerer Rahmen */}
         <div className="absolute inset-0.5 border border-[hsl(var(--terminal-green)/0.15)] rounded-sm pointer-events-none" />
@@ -207,7 +210,7 @@ export function CardComponent({
           isSelected && 'ring-2 ring-[hsl(var(--terminal-amber))]'
         )}
         onClick={isClickable ? onClick : undefined}
-        {...getCardClickProps(isClickable, onClick)}
+        {...getCardClickProps(isClickable, onClick, t('game.selectCard'))}
         whileHover={isClickable ? { scale: 1.08, rotateY: 10 } : {}}
         whileTap={isClickable ? { scale: 0.95 } : {}}
         style={{ transformStyle: 'preserve-3d' }}
@@ -258,7 +261,7 @@ export function CardComponent({
         isSelected && 'ring-2 ring-[hsl(var(--terminal-amber))]'
       )}
       onClick={isClickable ? onClick : undefined}
-      {...getCardClickProps(isClickable, onClick)}
+      {...getCardClickProps(isClickable, onClick, t('game.selectCard'))}
       whileHover={
         isClickable
           ? {
@@ -311,6 +314,7 @@ export function CardStack({
   topCard = null,
   size = 'md',
 }: CardStackProps) {
+  const { t } = useI18n();
   const animationsOn = isAnimationsEnabled();
   const sizeClasses = {
     sm: 'w-10 h-14',
@@ -352,7 +356,7 @@ export function CardStack({
         <div
           className={cn('relative', sizeClasses[size], isClickable && 'cursor-pointer hover:scale-105')}
           onClick={isClickable ? onClick : undefined}
-          {...getCardClickProps(isClickable, onClick, 'Stapel auswählen')}
+          {...getCardClickProps(isClickable, onClick, t('game.selectStack'))}
         >
           {count > 0 && (
             <>
@@ -383,7 +387,7 @@ export function CardStack({
       <motion.div
         className={cn('relative', sizeClasses[size])}
         onClick={isClickable ? onClick : undefined}
-        {...getCardClickProps(isClickable, onClick, 'Stapel auswählen')}
+        {...getCardClickProps(isClickable, onClick, t('game.selectStack'))}
         whileHover={isClickable ? { scale: 1.05 } : {}}
         whileTap={isClickable ? { scale: 0.95 } : {}}
       >
