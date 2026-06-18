@@ -142,4 +142,8 @@ Abgedeckt werden:
 
 ## 📝 Lizenz
 
-MIT — gebaut mit ❤️, ☕ und viel grünem Phosphor-Glow.
+**Alle Rechte vorbehalten.**  
+Der Quellcode, das Design, die Spielmechanik und alle Assets dieses Projekts sind proprietär.  
+Eine Nutzung, Vervielfältigung, Verbreitung oder Modifikation ohne ausdrückliche Genehmigung ist nicht gestattet.
+
+> Gebaut mit ❤️, ☕ und viel grünem Phosphor-Glow.
