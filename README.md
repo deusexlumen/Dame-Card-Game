@@ -40,7 +40,7 @@ Visuell fühlt sich DAME wie ein **Terminal eines archivierten Cyber-Systems** a
 | 🎮 **2–6 Spieler** | Mensch vs. Mensch oder mit KI-Gegnern |
 | 🤖 **3 KI-Stufen** | Einfach, Mittel, Schwer — mit unterschiedlichen Aggressions- und Bluff-Strategien |
 | 👁️ **Bube (J)** | Eigene oder gegnerische Karte anschauen |
-| 👑 **König (K)** | Gegnerische Karte kurz aufdecken und gezielt tauschen |
+| 👑 **König (K)** | Gegnerische Karte kurz aufdecken und gezielt tauschen — danach bleiben beide verdeckt |
 | 🃏 **Dame (Q)** | Strafkarte beim Ablegen — und Zwangszug für den nächsten Spieler |
 | ⚡ **Extra-Ablegen** | Passende Karten direkt mit ablegen |
 | 📢 **Dame-Ansage** | Frühzeitig die Runde beenden — aber Vorsicht bei falschem Call |
@@ -77,11 +77,11 @@ Fertig! Der Server läuft meist unter `http://localhost:5173/Dame-Card-Game/`.
 
 1. **Aufbau:** 4 verdeckte Karten pro Spieler, 2 davon kurz anschauen.
 2. **Zug:** Ziehe vom Zieh- oder Ablagestapel. Entscheide: behalten, tauschen oder ablegen.
-3. **Extra-Ablegen:** Hast du eine Karte mit gleichem Wert wie die oberste Ablagekarte, darfst du sie sofort ablegen.
+3. **Extra-Ablegen:** Hast du eine Karte mit gleichem Wert wie die oberste Ablagekarte, darfst du sie sofort ablegen. Danach kannst du weitere Züge machen — hast du danach aber keine Karten mehr, wird **automatisch Dame gerufen**.
 4. **Sonderkarten:**
    - **Dame (Q)** → Strafkarte beim Ablegen; offene Dame muss vom nächsten Spieler genommen werden.
    - **Bube (J)** → Beliebige verdeckte Karte anschauen.
-   - **König (K)** → Gegnerische Karte anschauen und gezielt tauschen.
+   - **König (K)** → Gegnerische Karte kurz anschauen und gezielt tauschen. **Nach dem Tausch bleiben beide Karten verdeckt.**
 5. **Dame-Ansage:** Wer glaubt, die wenigsten Punkte zu haben, ruft „Dame". Liegt er falsch, startet er die nächste Runde mit **5 statt 4 Karten**.
 
 Die vollständigen Konzept-Entscheidungen findest du in [`CONCEPT_DECISIONS.md`](./CONCEPT_DECISIONS.md).

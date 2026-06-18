@@ -40,7 +40,7 @@ Visually DAME feels like the **terminal of an archived cyber system**: black bac
 | 🎮 **2–6 players** | Human vs. human or with AI opponents |
 | 🤖 **3 AI levels** | Easy, Medium, Hard — with different aggression and bluffing strategies |
 | 👁️ **Jack (J)** | Look at your own or an opponent's card |
-| 👑 **King (K)** | Briefly reveal an opponent's card and swap it deliberately |
+| 👑 **King (K)** | Briefly reveal an opponent's card and swap it deliberately — both cards stay face-down |
 | 🃏 **Queen (Q)** | Penalty card when discarded; open Queen forces the next player to take it |
 | ⚡ **Extra discard** | Discard matching cards immediately |
 | 📢 **Dame call** | End the round early — but beware of a wrong call |
@@ -77,11 +77,11 @@ Done! The server usually runs at `http://localhost:5173/Dame-Card-Game/`.
 
 1. **Setup:** 4 face-down cards per player, 2 of which may be peeked at.
 2. **Turn:** Draw from the draw or discard pile. Decide: keep, swap, or discard.
-3. **Extra discard:** If you have a card with the same value as the top discard card, you may discard it immediately.
+3. **Extra discard:** If you have a card with the same value as the top discard card, you may discard it immediately. You can still take further actions afterwards — but if you have no cards left after it, **Dame is called automatically**.
 4. **Special cards:**
    - **Queen (Q)** → Penalty card when discarded; an open Queen must be taken by the next player.
    - **Jack (J)** → Look at any face-down card.
-   - **King (K)** → Reveal an opponent's card and swap it deliberately.
+   - **King (K)** → Briefly reveal an opponent's card and swap it deliberately. **After the swap both cards remain face-down.**
 5. **Dame call:** Whoever believes they have the lowest points calls "Dame". If wrong, they start the next round with **5 instead of 4 cards**.
 
 The complete design decisions are documented in [`CONCEPT_DECISIONS.md`](./CONCEPT_DECISIONS.md) (German).
