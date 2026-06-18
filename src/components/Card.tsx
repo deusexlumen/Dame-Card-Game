@@ -4,6 +4,26 @@ import { SUIT_COLORS, SUIT_SYMBOLS } from '@/types/game';
 import { cn } from '@/lib/utils';
 import { isAnimationsEnabled } from '@/lib/settings';
 
+/** Gemeinsame Barrierefreiheits-Props für klickbare Karten. */
+function getCardClickProps(
+  isClickable: boolean | undefined,
+  onClick: (() => void) | undefined,
+  label = 'Karte auswählen'
+) {
+  if (!isClickable || !onClick) return {};
+  return {
+    role: 'button' as const,
+    tabIndex: 0 as const,
+    onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onClick();
+      }
+    },
+    'aria-label': label,
+  };
+}
+
 interface CardProps {
   card: CardType;
   isVisible?: boolean;
@@ -14,6 +34,56 @@ interface CardProps {
   animate?: boolean;
   index?: number;
   layoutId?: string;
+}
+
+function CardBack({
+  size,
+  isSelected,
+  isClickable,
+  onClick,
+}: {
+  size: 'sm' | 'md' | 'lg';
+  isSelected?: boolean;
+  isClickable?: boolean;
+  onClick?: () => void;
+}) {
+  const sizeClasses = {
+    sm: 'w-10 h-14 text-[8px]',
+    md: 'w-16 h-[5.5rem] text-xs',
+    lg: 'w-24 h-[8.5rem] text-sm',
+  };
+
+  const content = (
+    <div
+      className={cn(
+        sizeClasses[size],
+        'rounded-md border border-[hsl(var(--terminal-green)/0.4)]',
+        'circuit-pattern terminal-scanlines',
+        'flex items-center justify-center',
+        'terminal-border-glow',
+        'relative overflow-hidden',
+        'select-none',
+        isSelected && 'ring-2 ring-[hsl(var(--terminal-amber))]',
+        isClickable && 'cursor-pointer hover:brightness-125'
+      )}
+      onClick={isClickable ? onClick : undefined}
+      {...getCardClickProps(isClickable, onClick)}
+    >
+      {/* Leuchtende Ecken als Orientierungshilfen */}
+      <div className="absolute top-0.5 left-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
+      <div className="absolute top-0.5 right-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
+      <div className="absolute bottom-0.5 left-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
+      <div className="absolute bottom-0.5 right-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
+
+      {/* Zentrales System-Symbol */}
+      <div className="relative w-1/2 h-1/2 border border-[hsl(var(--terminal-green)/0.3)] rounded-sm flex items-center justify-center">
+        <div className="w-2/3 h-2/3 border border-[hsl(var(--terminal-green)/0.2)] rotate-45" />
+        <div className="absolute w-1.5 h-1.5 bg-[hsl(var(--terminal-green)/0.8)] rounded-full animate-pulse" />
+      </div>
+    </div>
+  );
+
+  return content;
 }
 
 export function CardComponent({
@@ -29,9 +99,15 @@ export function CardComponent({
 }: CardProps) {
   const animationsOn = isAnimationsEnabled();
   const sizeClasses = {
-    sm: 'w-10 h-14 text-xs',
-    md: 'w-16 h-22 text-base',
-    lg: 'w-24 h-34 text-xl',
+    sm: 'w-10 h-14 text-[8px]',
+    md: 'w-16 h-[5.5rem] text-xs',
+    lg: 'w-24 h-[8.5rem] text-sm',
+  };
+
+  const symbolSizeClasses = {
+    sm: 'text-base',
+    md: 'text-2xl',
+    lg: 'text-4xl',
   };
 
   const springTransition = {
@@ -64,27 +140,12 @@ export function CardComponent({
   if (!animationsOn) {
     if (!isVisible) {
       return (
-        <div
-          className={cn(
-            sizeClasses[size],
-            'rounded-lg border border-slate-600 bg-gradient-to-br from-blue-700 via-blue-800 to-slate-900',
-            'flex items-center justify-center shadow-lg',
-            'relative overflow-hidden',
-            isSelected && 'ring-4 ring-yellow-400',
-            isClickable && 'cursor-pointer hover:scale-105'
-          )}
-          onClick={isClickable ? onClick : undefined}
-        >
-          {/* Kartenrücken-Muster */}
-          <div className="absolute inset-0 opacity-20">
-            <div className="absolute inset-0" style={{
-              backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.1) 4px, rgba(255,255,255,0.1) 8px)',
-            }} />
-          </div>
-          <div className="w-3/4 h-3/4 border border-blue-400/40 rounded flex items-center justify-center relative">
-            <span className="text-blue-300/60 text-2xl">♠</span>
-          </div>
-        </div>
+        <CardBack
+          size={size}
+          isSelected={isSelected}
+          isClickable={isClickable}
+          onClick={onClick}
+        />
       );
     }
 
@@ -95,25 +156,36 @@ export function CardComponent({
       <div
         className={cn(
           sizeClasses[size],
-          'rounded-lg border border-slate-300 bg-white',
+          'rounded-md border border-[hsl(var(--terminal-green)/0.4)]',
+          'bg-[hsl(var(--terminal-panel))] terminal-scanlines',
           'flex flex-col items-center justify-between p-1',
-          'shadow-[0_2px_8px_rgba(0,0,0,0.15)]',
+          'terminal-border-glow',
           'select-none',
-          'relative overflow-hidden',
-          isSelected && 'ring-4 ring-yellow-400',
-          isClickable && 'cursor-pointer hover:scale-105 hover:-translate-y-1'
+          'relative overflow-hidden font-mono',
+          isSelected && 'ring-2 ring-[hsl(var(--terminal-amber))]',
+          isClickable && 'cursor-pointer hover:brightness-110 hover:-translate-y-0.5'
         )}
         onClick={isClickable ? onClick : undefined}
+        {...getCardClickProps(isClickable, onClick)}
       >
-        {/* Innerer Rahmen */}
-        <div className="absolute inset-0.5 border border-slate-200 rounded-md pointer-events-none" />
-        <div className={cn('self-start leading-none font-bold z-10', suitColor)}>
+        {/* Äußerer Rahmen */}
+        <div className="absolute inset-0.5 border border-[hsl(var(--terminal-green)/0.15)] rounded-sm pointer-events-none" />
+
+        {/* Scanlines */}
+        <div className="absolute inset-0 opacity-30 pointer-events-none terminal-scanlines-static" />
+
+        {/* Obere linke Ecke: Rank */}
+        <div className={cn('self-start leading-none font-bold z-10 tracking-tighter', suitColor)}>
           {card.rank}
         </div>
-        <div className={cn('text-3xl z-10', suitColor)}>
+
+        {/* Zentrales geometrisches Symbol */}
+        <div className={cn(symbolSizeClasses[size], 'z-10 drop-shadow-[0_0_6px_currentColor]', suitColor)}>
           {suitSymbol}
         </div>
-        <div className={cn('self-end leading-none font-bold rotate-180 z-10', suitColor)}>
+
+        {/* Untere rechte Ecke: Rank (gedreht) */}
+        <div className={cn('self-end leading-none font-bold rotate-180 z-10 tracking-tighter', suitColor)}>
           {card.rank}
         </div>
       </div>
@@ -127,24 +199,28 @@ export function CardComponent({
         layoutId={layoutId}
         className={cn(
           sizeClasses[size],
-          'rounded-lg border border-slate-600 bg-gradient-to-br from-blue-700 via-blue-800 to-slate-900',
-          'flex items-center justify-center shadow-lg',
+          'rounded-md border border-[hsl(var(--terminal-green)/0.4)]',
+          'circuit-pattern terminal-scanlines',
+          'flex items-center justify-center',
+          'terminal-border-glow',
           'relative overflow-hidden',
-          isSelected && 'ring-4 ring-yellow-400'
+          isSelected && 'ring-2 ring-[hsl(var(--terminal-amber))]'
         )}
         onClick={isClickable ? onClick : undefined}
-        whileHover={isClickable ? { scale: 1.08, rotateY: 10, boxShadow: '0 10px 25px rgba(0,0,0,0.3)' } : {}}
+        {...getCardClickProps(isClickable, onClick)}
+        whileHover={isClickable ? { scale: 1.08, rotateY: 10 } : {}}
         whileTap={isClickable ? { scale: 0.95 } : {}}
         style={{ transformStyle: 'preserve-3d' }}
       >
-        {/* Kartenrücken-Muster */}
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute inset-0" style={{
-            backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.1) 4px, rgba(255,255,255,0.1) 8px)',
-          }} />
-        </div>
-        <div className="w-3/4 h-3/4 border border-blue-400/40 rounded flex items-center justify-center relative">
-          <span className="text-blue-300/60 text-2xl">♠</span>
+        {/* Leuchtende Ecken als Orientierungshilfen */}
+        <div className="absolute top-0.5 left-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
+        <div className="absolute top-0.5 right-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
+        <div className="absolute bottom-0.5 left-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
+        <div className="absolute bottom-0.5 right-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
+
+        <div className="relative w-1/2 h-1/2 border border-[hsl(var(--terminal-green)/0.3)] rounded-sm flex items-center justify-center">
+          <div className="w-2/3 h-2/3 border border-[hsl(var(--terminal-green)/0.2)] rotate-45" />
+          <div className="absolute w-1.5 h-1.5 bg-[hsl(var(--terminal-green)/0.8)] rounded-full animate-pulse" />
         </div>
       </motion.div>
     );
@@ -154,11 +230,11 @@ export function CardComponent({
   const suitSymbol = SUIT_SYMBOLS[card.suit];
 
   const selectedAnimation = {
-    scale: [1, 1.05, 1],
+    scale: [1, 1.03, 1],
     boxShadow: [
-      '0 2px 8px rgba(0,0,0,0.15)',
-      '0 0 20px rgba(250,204,21,0.6)',
-      '0 2px 8px rgba(0,0,0,0.15)',
+      '0 0 8px hsl(var(--terminal-green) / 0.2)',
+      '0 0 20px hsl(var(--terminal-amber) / 0.5)',
+      '0 0 8px hsl(var(--terminal-green) / 0.2)',
     ],
     transition: {
       duration: 1.5,
@@ -173,21 +249,22 @@ export function CardComponent({
       layoutId={layoutId}
       className={cn(
         sizeClasses[size],
-        'rounded-lg border border-slate-300 bg-white',
+        'rounded-md border border-[hsl(var(--terminal-green)/0.4)]',
+        'bg-[hsl(var(--terminal-panel))] terminal-scanlines',
         'flex flex-col items-center justify-between p-1',
-        'shadow-[0_2px_8px_rgba(0,0,0,0.15)]',
+        'terminal-border-glow',
         'select-none',
-        'relative overflow-hidden',
-        isSelected && 'ring-4 ring-yellow-400'
+        'relative overflow-hidden font-mono',
+        isSelected && 'ring-2 ring-[hsl(var(--terminal-amber))]'
       )}
       onClick={isClickable ? onClick : undefined}
+      {...getCardClickProps(isClickable, onClick)}
       whileHover={
         isClickable
           ? {
               scale: 1.08,
-              y: -5,
+              y: -3,
               rotateX: -5,
-              boxShadow: '0 15px 30px rgba(0,0,0,0.25)',
               transition: hoverSpring,
             }
           : {}
@@ -196,15 +273,21 @@ export function CardComponent({
       animate={isSelected ? selectedAnimation : entranceAnimation.animate}
       style={{ transformStyle: 'preserve-3d' }}
     >
-      {/* Innerer Rahmen */}
-      <div className="absolute inset-0.5 border border-slate-200 rounded-md pointer-events-none" />
-      <div className={cn('self-start leading-none font-bold z-10', suitColor)}>
+      {/* Äußerer Rahmen */}
+      <div className="absolute inset-0.5 border border-[hsl(var(--terminal-green)/0.15)] rounded-sm pointer-events-none" />
+
+      {/* Obere linke Ecke: Rank */}
+      <div className={cn('self-start leading-none font-bold z-10 tracking-tighter', suitColor)}>
         {card.rank}
       </div>
-      <div className={cn('text-3xl z-10', suitColor)}>
+
+      {/* Zentrales geometrisches Symbol */}
+      <div className={cn(symbolSizeClasses[size], 'z-10 drop-shadow-[0_0_6px_currentColor]', suitColor)}>
         {suitSymbol}
       </div>
-      <div className={cn('self-end leading-none font-bold rotate-180 z-10', suitColor)}>
+
+      {/* Untere rechte Ecke: Rank (gedreht) */}
+      <div className={cn('self-end leading-none font-bold rotate-180 z-10 tracking-tighter', suitColor)}>
         {card.rank}
       </div>
     </motion.div>
@@ -231,9 +314,37 @@ export function CardStack({
   const animationsOn = isAnimationsEnabled();
   const sizeClasses = {
     sm: 'w-10 h-14',
-    md: 'w-16 h-22',
-    lg: 'w-24 h-34',
+    md: 'w-16 h-[5.5rem]',
+    lg: 'w-24 h-[8.5rem]',
   };
+
+  const stackBack = (
+    <div
+      className={cn(
+        sizeClasses[size],
+        'rounded-md border border-[hsl(var(--terminal-green)/0.4)]',
+        'circuit-pattern terminal-scanlines',
+        'flex items-center justify-center',
+        'terminal-border-glow',
+        'relative overflow-hidden',
+        isClickable && 'cursor-pointer hover:brightness-110'
+      )}
+    >
+      <div className="absolute top-0.5 left-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
+      <div className="absolute top-0.5 right-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
+      <div className="absolute bottom-0.5 left-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
+      <div className="absolute bottom-0.5 right-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
+
+      <div className="relative w-1/2 h-1/2 border border-[hsl(var(--terminal-green)/0.3)] rounded-sm flex items-center justify-center">
+        <div className="w-2/3 h-2/3 border border-[hsl(var(--terminal-green)/0.2)] rotate-45" />
+        <div className="absolute w-1.5 h-1.5 bg-[hsl(var(--terminal-green)/0.8)] rounded-full animate-pulse" />
+      </div>
+
+      <span className="absolute bottom-1 right-1 text-[10px] font-mono text-[hsl(var(--terminal-green)/0.8)] z-10">
+        {count}
+      </span>
+    </div>
+  );
 
   if (!animationsOn) {
     return (
@@ -241,34 +352,24 @@ export function CardStack({
         <div
           className={cn('relative', sizeClasses[size], isClickable && 'cursor-pointer hover:scale-105')}
           onClick={isClickable ? onClick : undefined}
+          {...getCardClickProps(isClickable, onClick, 'Stapel auswählen')}
         >
           {count > 0 && (
             <>
-              <div className="absolute -top-1 -left-1 w-full h-full rounded-lg bg-slate-400 shadow-md" />
-              <div className="absolute -top-0.5 -left-0.5 w-full h-full rounded-lg bg-slate-500 shadow-md" />
+              <div className="absolute -top-1 -left-1 w-full h-full rounded-md bg-[hsl(var(--terminal-green)/0.15)] shadow-md border border-[hsl(var(--terminal-green)/0.2)]" />
+              <div className="absolute -top-0.5 -left-0.5 w-full h-full rounded-md bg-[hsl(var(--terminal-panel))] shadow-md border border-[hsl(var(--terminal-green)/0.25)]" />
             </>
           )}
           <div className="relative">
             {topCard ? (
               <CardComponent card={topCard} isVisible={true} size={size} />
             ) : (
-              <div
-                className={cn(
-                  sizeClasses[size],
-                  'rounded-lg border border-slate-600 bg-gradient-to-br from-blue-700 via-blue-800 to-slate-900',
-                  'flex items-center justify-center relative overflow-hidden'
-                )}
-              >
-                <div className="absolute inset-0 opacity-20" style={{
-                  backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.1) 4px, rgba(255,255,255,0.1) 8px)',
-                }} />
-                <span className="text-white/70 text-sm font-bold relative z-10">{count}</span>
-              </div>
+              stackBack
             )}
           </div>
         </div>
         {label && (
-          <span className="text-sm text-slate-600 font-medium">{label}</span>
+          <span className="text-xs font-mono text-[hsl(var(--terminal-green)/0.8)] uppercase tracking-wider">{label}</span>
         )}
       </div>
     );
@@ -282,18 +383,19 @@ export function CardStack({
       <motion.div
         className={cn('relative', sizeClasses[size])}
         onClick={isClickable ? onClick : undefined}
+        {...getCardClickProps(isClickable, onClick, 'Stapel auswählen')}
         whileHover={isClickable ? { scale: 1.05 } : {}}
         whileTap={isClickable ? { scale: 0.95 } : {}}
       >
         {count > 0 && (
           <>
             <motion.div
-              className="absolute -top-1 -left-1 w-full h-full rounded-lg bg-slate-400 shadow-md"
+              className="absolute -top-1 -left-1 w-full h-full rounded-md bg-[hsl(var(--terminal-green)/0.15)] shadow-md border border-[hsl(var(--terminal-green)/0.2)]"
               animate={{ y: [0, -2, 0] }}
               transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' as const }}
             />
             <motion.div
-              className="absolute -top-0.5 -left-0.5 w-full h-full rounded-lg bg-slate-500 shadow-md"
+              className="absolute -top-0.5 -left-0.5 w-full h-full rounded-md bg-[hsl(var(--terminal-panel))] shadow-md border border-[hsl(var(--terminal-green)/0.25)]"
               animate={{ y: [0, -1, 0] }}
               transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' as const, delay: 0.2 }}
             />
@@ -306,29 +408,34 @@ export function CardStack({
             <motion.div
               className={cn(
                 sizeClasses[size],
-                'rounded-lg border border-slate-600 bg-gradient-to-br from-blue-700 via-blue-800 to-slate-900',
-                'flex items-center justify-center relative overflow-hidden',
+                'rounded-md border border-[hsl(var(--terminal-green)/0.4)]',
+                'circuit-pattern terminal-scanlines',
+                'flex items-center justify-center',
+                'terminal-border-glow',
+                'relative overflow-hidden',
                 isClickable && 'cursor-pointer'
               )}
-              whileHover={
-                isClickable
-                  ? {
-                      boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
-                      scale: 1.05,
-                    }
-                  : {}
-              }
+              whileHover={isClickable ? { scale: 1.05 } : {}}
             >
-              <div className="absolute inset-0 opacity-20" style={{
-                backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.1) 4px, rgba(255,255,255,0.1) 8px)',
-              }} />
-              <span className="text-white/70 text-sm font-bold relative z-10">{count}</span>
+              <div className="absolute top-0.5 left-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
+              <div className="absolute top-0.5 right-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
+              <div className="absolute bottom-0.5 left-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
+              <div className="absolute bottom-0.5 right-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
+
+              <div className="relative w-1/2 h-1/2 border border-[hsl(var(--terminal-green)/0.3)] rounded-sm flex items-center justify-center">
+                <div className="w-2/3 h-2/3 border border-[hsl(var(--terminal-green)/0.2)] rotate-45" />
+                <div className="absolute w-1.5 h-1.5 bg-[hsl(var(--terminal-green)/0.8)] rounded-full animate-pulse" />
+              </div>
+
+              <span className="absolute bottom-1 right-1 text-[10px] font-mono text-[hsl(var(--terminal-green)/0.8)] z-10">
+                {count}
+              </span>
             </motion.div>
           )}
         </div>
       </motion.div>
       {label && (
-        <span className="text-sm text-slate-600 font-medium">{label}</span>
+        <span className="text-xs font-mono text-[hsl(var(--terminal-green)/0.8)] uppercase tracking-wider">{label}</span>
       )}
     </motion.div>
   );

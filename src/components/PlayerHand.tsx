@@ -1,8 +1,7 @@
-import { useState } from 'react';
-import type { Player } from '@/types/game';
+import type { Player, GamePhase } from '@/types/game';
 import { CardComponent } from './Card';
 import { cn } from '@/lib/utils';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye } from 'lucide-react';
 
 interface PlayerHandProps {
   player: Player;
@@ -14,8 +13,9 @@ interface PlayerHandProps {
   onCardSelectForKing?: (index: number) => void;
   onCardSelectForExtraDiscard?: (index: number) => void;
   selectedCardIndex?: number | null;
-  gamePhase?: string;
+  gamePhase?: GamePhase;
   size?: 'sm' | 'md' | 'lg';
+  peekedIndices?: number[];
 }
 
 export function PlayerHand({
@@ -30,9 +30,8 @@ export function PlayerHand({
   selectedCardIndex,
   gamePhase,
   size = 'md',
+  peekedIndices = [],
 }: PlayerHandProps) {
-  const [showAllCards, setShowAllCards] = useState(false);
-
   // Für Gegner: Karten immer verdeckt zeigen (außer beim König-Effekt)
   const isOpponent = !isCurrentPlayer && !isActivePlayer;
 
@@ -42,19 +41,19 @@ export function PlayerHand({
       <div className="flex items-center gap-2">
         <div
           className={cn(
-            'px-3 py-1 rounded-full text-sm font-medium',
+            'px-3 py-1 rounded-sm text-xs font-mono uppercase tracking-wider border',
             isActivePlayer
-              ? 'bg-green-500 text-white'
-              : 'bg-slate-200 text-slate-700'
+              ? 'bg-[hsl(var(--terminal-green)/0.15)] text-[hsl(var(--terminal-green))] border-[hsl(var(--terminal-green)/0.5)] terminal-glow'
+              : 'bg-[hsl(var(--terminal-panel))] text-[hsl(var(--terminal-green)/0.7)] border-[hsl(var(--terminal-green)/0.2)]'
           )}
         >
           {player.name}
         </div>
-        <div className="text-sm text-slate-600">
+        <div className="text-xs font-mono text-[hsl(var(--terminal-green)/0.8)]">
           {player.totalScore} pts
         </div>
         {player.isEliminated && (
-          <span className="text-red-500 text-xs font-bold">OUT</span>
+          <span className="text-[hsl(var(--terminal-red))] text-xs font-mono font-bold terminal-glow">OUT</span>
         )}
       </div>
 
@@ -62,7 +61,7 @@ export function PlayerHand({
       <div className="flex gap-1 sm:gap-2">
         {player.hand.map((card, index) => {
           const isVisible =
-            showAllCards ||
+            peekedIndices.includes(index) ||
             player.visibleCardIndices.includes(index) ||
             (isCurrentPlayer && gamePhase === 'ROUND_END');
 
@@ -93,11 +92,11 @@ export function PlayerHand({
                 }}
                 size={size}
               />
-              
+
               {/* Sichtbarkeits-Indikator */}
               {!isOpponent && player.visibleCardIndices.includes(index) && (
-                <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-5 sm:h-5 bg-green-500 rounded-full flex items-center justify-center">
-                  <Eye className="w-2 h-2 sm:w-3 sm:h-3 text-white" />
+                <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-5 sm:h-5 bg-[hsl(var(--terminal-panel))] border border-[hsl(var(--terminal-green)/0.6)] rounded-full flex items-center justify-center terminal-border-glow">
+                  <Eye aria-hidden="true" className="w-2 h-2 sm:w-3 sm:h-3 text-[hsl(var(--terminal-green))]" />
                 </div>
               )}
             </div>
@@ -105,27 +104,9 @@ export function PlayerHand({
         })}
       </div>
 
-      {/* Debug: Alle Karten anzeigen (nur für Entwicklung) */}
-      {isCurrentPlayer && (
-        <button
-          onClick={() => setShowAllCards(!showAllCards)}
-          className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1"
-        >
-          {showAllCards ? (
-            <>
-              <EyeOff className="w-3 h-3" /> Verbergen
-            </>
-          ) : (
-            <>
-              <Eye className="w-3 h-3" /> Alle anzeigen
-            </>
-          )}
-        </button>
-      )}
-
       {/* Strafkarten-Anzeige */}
       {player.penaltyCards.length > 0 && (
-        <div className="flex items-center gap-2 text-red-500 text-sm">
+        <div className="flex items-center gap-2 text-[hsl(var(--terminal-red))] text-xs font-mono">
           <span>Strafkarten: {player.penaltyCards.length}</span>
         </div>
       )}

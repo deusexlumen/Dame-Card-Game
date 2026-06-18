@@ -4,7 +4,7 @@ import type { GameState, Card } from '@/types/game';
 
 // Hilfsfunktion: Minimaler GameState für Tests
 function makeState(overrides?: Partial<GameState>): GameState {
-  return {
+  const state: GameState = {
     players: [
       {
         id: 'p1',
@@ -22,6 +22,7 @@ function makeState(overrides?: Partial<GameState>): GameState {
         isEliminated: false,
         hasCalledDame: false,
         penaltyCards: [],
+        memory: [],
       },
       {
         id: 'p2',
@@ -39,6 +40,7 @@ function makeState(overrides?: Partial<GameState>): GameState {
         isEliminated: false,
         hasCalledDame: false,
         penaltyCards: [],
+        memory: [],
       },
     ],
     currentPlayerIndex: 0,
@@ -53,8 +55,8 @@ function makeState(overrides?: Partial<GameState>): GameState {
     lastAction: null,
     roundStartPlayerIndex: 0,
     dameCallTurnsRemaining: null,
-    ...overrides,
-  } as GameState;
+  };
+  return overrides ? Object.assign(state, overrides) : state;
 }
 
 describe('createAIPlayer', () => {
@@ -146,9 +148,11 @@ describe('decideAIMove — Post-Draw', () => {
     const drawnCard: Card = { id: 'drawn', suit: 'hearts', rank: 'K', value: 10, isVisible: true };
     const move = decideAIMove(state, 'p1', 'medium', drawnCard);
     expect(move.action).toBe('USE_KING');
-    expect(move.payload).toHaveProperty('targetPlayerId');
-    expect(move.payload).toHaveProperty('myHandIndex');
-    expect(move.payload).toHaveProperty('targetHandIndex');
+    if (move.action === 'USE_KING') {
+      expect(move.payload).toHaveProperty('targetPlayerId');
+      expect(move.payload).toHaveProperty('myHandIndex');
+      expect(move.payload).toHaveProperty('targetHandIndex');
+    }
   });
 
   it('hard: Ass sofort tauschen', () => {
@@ -185,6 +189,7 @@ describe('decideAIMove — Dame Call', () => {
           isEliminated: false,
           hasCalledDame: false,
           penaltyCards: [],
+          memory: [],
         },
         {
           id: 'p2',
@@ -202,6 +207,7 @@ describe('decideAIMove — Dame Call', () => {
           isEliminated: false,
           hasCalledDame: false,
           penaltyCards: [],
+          memory: [],
         },
       ],
     });

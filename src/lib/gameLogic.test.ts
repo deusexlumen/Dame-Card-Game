@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { Card } from '@/types/game';
 import {
   createDeck,
   shuffleDeck,
@@ -15,10 +16,22 @@ import {
   applyJackEffect,
   applyKingEffect,
   applyQueenEffect,
+  peekCard,
   getWinner,
   canDiscardExtraCard,
   discardExtraCard,
 } from './gameLogic';
+
+function makeCard(overrides: Partial<Card> = {}): Card {
+  return {
+    id: 'test-card',
+    suit: 'hearts',
+    rank: '2',
+    value: 2,
+    isVisible: false,
+    ...overrides,
+  };
+}
 
 describe('createDeck', () => {
   it('erzeugt 52 Karten', () => {
@@ -47,10 +60,10 @@ describe('shuffleDeck', () => {
 describe('calculateHandScore', () => {
   it('summiert Kartenwerte korrekt', () => {
     const cards = [
-      { value: 5 },
-      { value: 10 },
-      { value: 0 },
-    ] as any;
+      makeCard({ value: 5 }),
+      makeCard({ value: 10 }),
+      makeCard({ value: 0 }),
+    ];
     expect(calculateHandScore(cards)).toBe(15);
   });
 });
@@ -85,7 +98,7 @@ describe('drawFromDeck', () => {
   });
 
   it('mischt Ablagestapel um wenn Deck leer', () => {
-    let state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B']);
     // Ablagestapel füllen
     state.discardPile = state.deck.splice(0, 10);
     state.deck = []; // Deck leer
@@ -93,11 +106,19 @@ describe('drawFromDeck', () => {
     expect(card).not.toBeNull();
     expect(newState.deck.length).toBeGreaterThan(0);
   });
+
+  it('verändert den übergebenen Zustand nicht', () => {
+    const state = initializeGame(['A', 'B']);
+    const deckBefore = state.deck.length;
+    const { newState } = drawFromDeck(state);
+    expect(state.deck).toHaveLength(deckBefore);
+    expect(newState.deck).toHaveLength(deckBefore - 1);
+  });
 });
 
 describe('drawFromDiscard', () => {
   it('nimmt die oberste Karte vom Ablagestapel', () => {
-    let state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B']);
     const top = state.deck[0];
     state.discardPile = [top];
     const { card, newState } = drawFromDiscard(state);
@@ -117,11 +138,22 @@ describe('swapCard', () => {
     const state = initializeGame(['A', 'B']);
     const player = state.players[0];
     const oldCard = player.hand[0];
-    const newCard = { id: 'test', suit: 'hearts', rank: '2', value: 2, isVisible: true } as any;
+    const newCard: Card = { id: 'test', suit: 'hearts', rank: '2', value: 2, isVisible: true };
     const { discardedCard, newState } = swapCard(state, player.id, 0, newCard);
-    expect(discardedCard).toEqual(oldCard);
+    expect(discardedCard.id).toBe(oldCard.id);
+    expect(discardedCard.isVisible).toBe(true);
     expect(newState.discardPile).toContainEqual(expect.objectContaining({ id: oldCard.id }));
     expect(newState.players[0].hand[0].isVisible).toBe(false);
+  });
+
+  it('ändert nichts bei ungültigem Index', () => {
+    const state = initializeGame(['A', 'B']);
+    const player = state.players[0];
+    const newCard = makeCard({ id: 'test', isVisible: true });
+    const handBefore = [...player.hand];
+    const { newState } = swapCard(state, player.id, 10, newCard);
+    expect(newState.players[0].hand).toEqual(handBefore);
+    expect(newState.lastAction).toBe('Ungültiger Kartenindex');
   });
 });
 
@@ -150,15 +182,45 @@ describe('endTurn', () => {
     const s = endTurn(state);
     expect(s.currentPlayerIndex).toBe(2); // überspringt B
   });
+
+  it('setzt GAME_OVER wenn alle Spieler eliminiert sind', () => {
+    const state = initializeGame(['A', 'B']);
+    state.players[0].isEliminated = true;
+    state.players[1].isEliminated = true;
+    const s = endTurn(state);
+    expect(s.phase).toBe('GAME_OVER');
+  });
 });
 
 describe('applyJackEffect', () => {
-  it('macht Karte sichtbar', () => {
+  it('macht eigene Karte sichtbar und speichert sie im Gedächtnis', () => {
     const state = initializeGame(['A', 'B']);
     const player = state.players[0];
     player.visibleCardIndices = [0];
-    const newState = applyJackEffect(state, player.id, 2);
+    const newState = applyJackEffect(state, player.id, player.id, 2);
     expect(newState.players[0].visibleCardIndices).toContain(2);
+    expect(newState.players[0].memory).toHaveLength(1);
+    expect(newState.players[0].memory[0]).toMatchObject({
+      targetPlayerId: player.id,
+      index: 2,
+      rank: player.hand[2].rank,
+      suit: player.hand[2].suit,
+    });
+  });
+
+  it('speichert gegnerische Karte nur im eigenen Gedächtnis, nicht im gegnerischen', () => {
+    const state = initializeGame(['A', 'B']);
+    const viewer = state.players[0];
+    const target = state.players[1];
+    const newState = applyJackEffect(state, viewer.id, target.id, 2);
+    expect(newState.players[0].memory).toHaveLength(1);
+    expect(newState.players[0].memory[0]).toMatchObject({
+      targetPlayerId: target.id,
+      index: 2,
+      rank: target.hand[2].rank,
+      suit: target.hand[2].suit,
+    });
+    expect(newState.players[1].visibleCardIndices).toEqual([0, 1]);
   });
 });
 
@@ -171,6 +233,28 @@ describe('applyKingEffect', () => {
     expect(newState.players[0].hand[0]).toEqual(bCard);
     expect(newState.players[1].hand[0]).toEqual(aCard);
     expect(newState.players[0].hand[0].isVisible).toBe(false);
+  });
+});
+
+describe('peekCard', () => {
+  it('zeigt eine gegnerische Karte kurz an, ohne sie dauerhaft aufzudecken', () => {
+    const state = initializeGame(['A', 'B']);
+    const viewer = state.players[0];
+    const target = state.players[1];
+    const { card, newState } = peekCard(state, viewer.id, target.id, 2);
+    expect(card.isVisible).toBe(true);
+    expect(card.rank).toBe(target.hand[2].rank);
+    expect(card.suit).toBe(target.hand[2].suit);
+    // Die eigentliche Handkarte bleibt verdeckt
+    expect(newState.players[1].hand[2].isVisible).toBe(false);
+    // Der Betrachter merkt sich die Karte
+    expect(newState.players[0].memory).toHaveLength(1);
+    expect(newState.players[0].memory[0]).toMatchObject({
+      targetPlayerId: target.id,
+      index: 2,
+      rank: target.hand[2].rank,
+      suit: target.hand[2].suit,
+    });
   });
 });
 
@@ -218,12 +302,18 @@ describe('endRound', () => {
     const state = initializeGame(['A', 'B']);
     state.players[0].totalScore = 45;
     state.players[0].hand = [
-      { value: 5 }, { value: 5 }, { value: 5 }, { value: 5 },
-    ] as any; // 20 Punkte
+      makeCard({ value: 5 }),
+      makeCard({ value: 5 }),
+      makeCard({ value: 5 }),
+      makeCard({ value: 5 }),
+    ]; // 20 Punkte
     state.players[1].totalScore = 30;
     state.players[1].hand = [
-      { value: 2 }, { value: 2 }, { value: 2 }, { value: 2 },
-    ] as any; // 8 Punkte
+      makeCard({ value: 2 }),
+      makeCard({ value: 2 }),
+      makeCard({ value: 2 }),
+      makeCard({ value: 2 }),
+    ]; // 8 Punkte
 
     const newState = endRound(state);
     expect(newState.players[0].totalScore).toBe(65); // 45 + 20, eliminiert
@@ -235,8 +325,9 @@ describe('endRound', () => {
     const state = initializeGame(['A', 'B']);
     state.players[0].totalScore = 30;
     state.players[0].hand = [
-      { value: 10 }, { value: 10 },
-    ] as any; // 20 Punkte -> 50 gesamt
+      makeCard({ value: 10 }),
+      makeCard({ value: 10 }),
+    ]; // 20 Punkte -> 50 gesamt
 
     const newState = endRound(state);
     expect(newState.players[0].totalScore).toBe(0);
@@ -263,8 +354,18 @@ describe('endRound', () => {
   it('bewertet Dame Call korrekt (Caller gewinnt)', () => {
     const state = initializeGame(['A', 'B']);
     state.dameCallerId = state.players[0].id;
-    state.players[0].hand = [{ value: 1 }, { value: 1 }, { value: 1 }, { value: 1 }] as any; // 4 Punkte
-    state.players[1].hand = [{ value: 10 }, { value: 10 }, { value: 10 }, { value: 10 }] as any; // 40 Punkte
+    state.players[0].hand = [
+      makeCard({ value: 1 }),
+      makeCard({ value: 1 }),
+      makeCard({ value: 1 }),
+      makeCard({ value: 1 }),
+    ]; // 4 Punkte
+    state.players[1].hand = [
+      makeCard({ value: 10 }),
+      makeCard({ value: 10 }),
+      makeCard({ value: 10 }),
+      makeCard({ value: 10 }),
+    ]; // 40 Punkte
     const newState = endRound(state);
     expect(newState.players[0].score).toBe(0); // gewinnt
     expect(newState.players[0].totalScore).toBe(0);
@@ -273,10 +374,63 @@ describe('endRound', () => {
   it('bestraft falschen Dame Call mit Strafkarte', () => {
     const state = initializeGame(['A', 'B']);
     state.dameCallerId = state.players[0].id;
-    state.players[0].hand = [{ value: 10 }, { value: 10 }, { value: 10 }, { value: 10 }] as any; // 40 Punkte
-    state.players[1].hand = [{ value: 1 }, { value: 1 }, { value: 1 }, { value: 1 }] as any; // 4 Punkte
+    state.players[0].hand = [
+      makeCard({ value: 10 }),
+      makeCard({ value: 10 }),
+      makeCard({ value: 10 }),
+      makeCard({ value: 10 }),
+    ]; // 40 Punkte
+    state.players[1].hand = [
+      makeCard({ value: 1 }),
+      makeCard({ value: 1 }),
+      makeCard({ value: 1 }),
+      makeCard({ value: 1 }),
+    ]; // 4 Punkte
     const newState = endRound(state);
     expect(newState.players[0].penaltyCards).toHaveLength(1);
+  });
+
+  it('falscher Dame-Call hinterlässt genau eine Strafkarte für die nächste Runde', () => {
+    const state = initializeGame(['A', 'B']);
+    state.dameCallerId = state.players[0].id;
+    state.players[0].hand = [
+      makeCard({ value: 10 }),
+      makeCard({ value: 10 }),
+      makeCard({ value: 10 }),
+      makeCard({ value: 10 }),
+    ]; // 40 Punkte
+    state.players[1].hand = [
+      makeCard({ value: 1 }),
+      makeCard({ value: 1 }),
+      makeCard({ value: 1 }),
+      makeCard({ value: 1 }),
+    ]; // 4 Punkte
+    const endState = endRound(state);
+    expect(endState.players[0].penaltyCards.length).toBe(1);
+  });
+
+  it('gibt einem falschen Caller in der nächsten Runde 5 Karten', () => {
+    const state = initializeGame(['A', 'B']);
+    state.dameCallerId = state.players[0].id;
+    state.players[0].hand = [
+      makeCard({ value: 10 }),
+      makeCard({ value: 10 }),
+      makeCard({ value: 10 }),
+      makeCard({ value: 10 }),
+    ]; // 40 Punkte
+    state.players[1].hand = [
+      makeCard({ value: 1 }),
+      makeCard({ value: 1 }),
+      makeCard({ value: 1 }),
+      makeCard({ value: 1 }),
+    ]; // 4 Punkte
+    const endState = endRound(state);
+    expect(endState.players[0].penaltyCards.length).toBe(1);
+    const nextState = startNextRound(endState);
+    expect(nextState.players[0].hand).toHaveLength(5);
+    expect(nextState.players[0].penaltyCards).toHaveLength(0);
+    expect(nextState.players[0].visibleCardIndices).toEqual([0, 1]);
+    expect(nextState.players[1].hand).toHaveLength(4);
   });
 });
 
@@ -295,11 +449,13 @@ describe('canDiscardExtraCard', () => {
   it('erlaubt ablegen wenn passender Rank in Hand', () => {
     const state = initializeGame(['A', 'B']);
     state.safePhase = false;
-    state.discardPile = [{ rank: '7', value: 7 } as any];
+    state.discardPile = [makeCard({ rank: '7', value: 7 })];
     state.players[0].hand = [
-      { rank: '7', value: 7 }, { rank: 'A', value: 1 },
-      { rank: '2', value: 2 }, { rank: '3', value: 3 },
-    ] as any;
+      makeCard({ rank: '7', value: 7 }),
+      makeCard({ rank: 'A', value: 1 }),
+      makeCard({ rank: '2', value: 2 }),
+      makeCard({ rank: '3', value: 3 }),
+    ];
     expect(canDiscardExtraCard(state, state.players[0].id, '7')).toBe(true);
     expect(canDiscardExtraCard(state, state.players[0].id, 'K')).toBe(false);
   });
@@ -310,7 +466,7 @@ describe('discardExtraCard', () => {
     const state = initializeGame(['A', 'B']);
     state.safePhase = false;
     const matchingCard = state.players[0].hand[0];
-    state.discardPile = [{ rank: matchingCard.rank, value: matchingCard.value } as any];
+    state.discardPile = [makeCard({ rank: matchingCard.rank, value: matchingCard.value })];
     const handBefore = state.players[0].hand.length;
     const deckBefore = state.deck.length;
     const { success, newState } = discardExtraCard(state, state.players[0].id, matchingCard.id);
@@ -322,8 +478,9 @@ describe('discardExtraCard', () => {
   it('bestraft falsches Ablegen mit Strafkarte', () => {
     const state = initializeGame(['A', 'B']);
     state.safePhase = false;
-    state.discardPile = [{ rank: '7', value: 7 } as any];
-    const wrongCard = state.players[0].hand[0];
+    state.discardPile = [makeCard({ rank: '7', value: 7 })];
+    // Sicherstellen, dass die gewählte Karte wirklich nicht zum Ablagestapel passt
+    const wrongCard = state.players[0].hand.find((c) => c.rank !== '7')!;
     const { success, newState } = discardExtraCard(state, state.players[0].id, wrongCard.id);
     expect(success).toBe(false);
     expect(newState.players[0].penaltyCards.length).toBeGreaterThan(0);

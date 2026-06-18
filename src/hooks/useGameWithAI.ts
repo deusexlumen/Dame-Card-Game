@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { GameState, Player, Card } from '@/types/game';
+import type { GameState, Player, Card, MemoryEntry, CardSuit, CardRank, GamePhase } from '@/types/game';
 import {
   initializeGame,
   drawFromDeck,
@@ -16,6 +16,7 @@ import {
   canCallDame,
   discardExtraCard,
   getWinner,
+  peekCard,
 } from '@/lib/gameLogic';
 import { decideAIMove, type AIDifficulty } from '@/lib/aiPlayer';
 import type { AISpeed } from '@/hooks/useSettings';
@@ -42,8 +43,9 @@ interface UseGameWithAIReturn {
   selectHandCard: (index: number) => void;
   confirmSwap: () => void;
   discardDrawnCard: () => void;
-  activateJack: (handIndex: number) => void;
+  activateJack: (targetPlayerId: string, handIndex: number) => void;
   activateKing: (targetPlayerId: string, myHandIndex: number, targetHandIndex: number) => void;
+  peekKingTarget: (targetPlayerId: string, targetHandIndex: number) => Card | null;
   callDame: () => void;
   tryDiscardExtra: (cardId: string) => void;
   endTurn: () => void;
@@ -60,6 +62,10 @@ const SPEED_MULTIPLIERS: Record<AISpeed, number> = {
 };
 
 const SAVE_KEY = 'dame-game-save';
+
+const VALID_SUITS: CardSuit[] = ['hearts', 'diamonds', 'clubs', 'spades'];
+const VALID_RANKS: CardRank[] = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+const VALID_PHASES: GamePhase[] = ['SETUP', 'FIRST_TURN', 'REGULAR_PLAY', 'DAME_CALLED', 'ROUND_END', 'GAME_OVER'];
 
 function saveGameState(state: GameState | null, drawn: Card | null, ai: Map<string, AIDifficulty>, msg: string) {
   try {
@@ -80,11 +86,125 @@ function saveGameState(state: GameState | null, drawn: Card | null, ai: Map<stri
   }
 }
 
+function isValidCard(value: unknown): value is Card {
+  if (typeof value !== 'object' || value === null) return false;
+  const card = value as Partial<Card>;
+  return (
+    typeof card.id === 'string' &&
+    typeof card.suit === 'string' &&
+    VALID_SUITS.includes(card.suit as CardSuit) &&
+    typeof card.rank === 'string' &&
+    VALID_RANKS.includes(card.rank as CardRank) &&
+    typeof card.value === 'number' &&
+    typeof card.isVisible === 'boolean'
+  );
+}
+
+function isValidMemoryEntry(value: unknown, targetPlayer: Player): value is MemoryEntry {
+  if (typeof value !== 'object' || value === null) return false;
+  const entry = value as Partial<MemoryEntry>;
+  return (
+    typeof entry.targetPlayerId === 'string' &&
+    typeof entry.index === 'number' &&
+    Number.isInteger(entry.index) &&
+    entry.index >= 0 &&
+    entry.index < targetPlayer.hand.length &&
+    typeof entry.rank === 'string' &&
+    VALID_RANKS.includes(entry.rank as CardRank) &&
+    typeof entry.suit === 'string' &&
+    VALID_SUITS.includes(entry.suit as CardSuit) &&
+    typeof entry.round === 'number' &&
+    typeof entry.turn === 'number'
+  );
+}
+
+function isValidPlayer(value: unknown): value is Player {
+  if (typeof value !== 'object' || value === null) return false;
+  const player = value as Partial<Player>;
+  if (
+    typeof player.id !== 'string' ||
+    typeof player.name !== 'string' ||
+    !Array.isArray(player.hand) ||
+    player.hand.length === 0 ||
+    !player.hand.every(isValidCard) ||
+    !Array.isArray(player.visibleCardIndices) ||
+    typeof player.score !== 'number' ||
+    typeof player.totalScore !== 'number' ||
+    typeof player.isActive !== 'boolean' ||
+    typeof player.isEliminated !== 'boolean' ||
+    typeof player.hasCalledDame !== 'boolean' ||
+    !Array.isArray(player.penaltyCards) ||
+    !player.penaltyCards.every(isValidCard) ||
+    !Array.isArray(player.memory) ||
+    !player.memory.every((entry) => isValidMemoryEntry(entry, player as Player))
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function isValidGameState(value: unknown): value is GameState {
+  if (typeof value !== 'object' || value === null) return false;
+  const state = value as Partial<GameState>;
+  return (
+    Array.isArray(state.players) &&
+    state.players.length > 0 &&
+    state.players.every(isValidPlayer) &&
+    typeof state.currentPlayerIndex === 'number' &&
+    state.currentPlayerIndex >= 0 &&
+    state.currentPlayerIndex < state.players.length &&
+    Array.isArray(state.deck) &&
+    state.deck.every(isValidCard) &&
+    Array.isArray(state.discardPile) &&
+    state.discardPile.every(isValidCard) &&
+    typeof state.phase === 'string' &&
+    VALID_PHASES.includes(state.phase as GamePhase) &&
+    typeof state.round === 'number' &&
+    typeof state.turnInRound === 'number' &&
+    (typeof state.dameCallerId === 'string' || state.dameCallerId === null) &&
+    typeof state.cardsLogged === 'boolean' &&
+    typeof state.safePhase === 'boolean' &&
+    (typeof state.lastAction === 'string' || state.lastAction === null) &&
+    typeof state.roundStartPlayerIndex === 'number' &&
+    state.roundStartPlayerIndex >= 0 &&
+    state.roundStartPlayerIndex < state.players.length &&
+    (typeof state.dameCallTurnsRemaining === 'number' || state.dameCallTurnsRemaining === null)
+  );
+}
+
+function isValidAIDifficulty(value: unknown): value is AIDifficulty {
+  return value === 'easy' || value === 'medium' || value === 'hard';
+}
+
+function isValidSaveData(data: unknown): data is {
+  gameState: GameState;
+  drawnCard: Card | null;
+  aiPlayers: Array<[string, AIDifficulty]>;
+  gameMessage: string;
+  timestamp: number;
+} {
+  if (typeof data !== 'object' || data === null) return false;
+  const save = data as Partial<Record<string, unknown>>;
+  if (!isValidGameState(save.gameState)) return false;
+  if (save.drawnCard !== null && !isValidCard(save.drawnCard)) return false;
+  if (!Array.isArray(save.aiPlayers)) return false;
+  if (!save.aiPlayers.every((entry) => Array.isArray(entry) && entry.length === 2 && typeof entry[0] === 'string' && isValidAIDifficulty(entry[1]))) {
+    return false;
+  }
+  if (typeof save.gameMessage !== 'string') return false;
+  if (typeof save.timestamp !== 'number') return false;
+  return true;
+}
+
 function loadGameState(): { gameState: GameState; drawnCard: Card | null; aiPlayers: Map<string, AIDifficulty>; gameMessage: string } | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
     const data = JSON.parse(raw);
+    if (!isValidSaveData(data)) {
+      localStorage.removeItem(SAVE_KEY);
+      return null;
+    }
     return {
       gameState: data.gameState,
       drawnCard: data.drawnCard,
@@ -106,6 +226,11 @@ function hasSavedGameState(): boolean {
 
 export function useGameWithAI(aiSpeed: AISpeed = 'normal'): UseGameWithAIReturn {
   const speedMult = SPEED_MULTIPLIERS[aiSpeed];
+  const speedMultRef = useRef(speedMult);
+  useEffect(() => {
+    speedMultRef.current = speedMult;
+  }, [speedMult]);
+
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [drawnCard, setDrawnCard] = useState<Card | null>(null);
   const [selectedHandIndex, setSelectedHandIndex] = useState<number | null>(null);
@@ -113,11 +238,12 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal'): UseGameWithAIReturn 
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [aiPlayers, setAiPlayers] = useState<Map<string, AIDifficulty>>(new Map());
   const [hasSavedGame, setHasSavedGame] = useState(hasSavedGameState);
-  
-  // Ref für KI-Züge (um State in Timeout zu aktualisieren)
+
+  // Refs für KI-Züge (um State in Timeouts zu aktualisieren)
   const gameStateRef = useRef(gameState);
   const drawnCardRef = useRef(drawnCard);
   const aiPlayersRef = useRef(aiPlayers);
+  const aiTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -131,17 +257,27 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal'): UseGameWithAIReturn 
     aiPlayersRef.current = aiPlayers;
   }, [aiPlayers]);
 
+  const clearAITimeouts = useCallback(() => {
+    aiTimeoutsRef.current.forEach((id) => clearTimeout(id));
+    aiTimeoutsRef.current = [];
+  }, []);
+
+  const scheduleAITimeout = useCallback((callback: () => void, delay: number) => {
+    const id = setTimeout(callback, delay);
+    aiTimeoutsRef.current.push(id);
+    return id;
+  }, []);
+
   // Auto-Save bei State-Änderungen
   useEffect(() => {
     saveGameState(gameState, drawnCard, aiPlayers, gameMessage);
-    setHasSavedGame(!!gameState);
   }, [gameState, drawnCard, aiPlayers, gameMessage]);
 
   // Spiel starten mit KI-Unterstützung
   const startGame = useCallback((players: Array<{ name: string; isAI?: boolean; difficulty?: AIDifficulty }>) => {
-    const playerNames = players.map(p => p.name);
+    const playerNames = players.map((p) => p.name);
     const newGame = initializeGame(playerNames);
-    
+
     // Speichere KI-Informationen
     const aiMap = new Map<string, AIDifficulty>();
     players.forEach((p, index) => {
@@ -149,168 +285,77 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal'): UseGameWithAIReturn 
         aiMap.set(newGame.players[index].id, p.difficulty);
       }
     });
+
+    clearAITimeouts();
     setAiPlayers(aiMap);
-    
     setGameState(newGame);
     setDrawnCard(null);
     setSelectedHandIndex(null);
     setGameMessage('Spiel gestartet! Ziehe eine Karte.');
     setIsAIThinking(false);
-  }, []);
+    setHasSavedGame(true);
+  }, [clearAITimeouts]);
 
   // Gespeichertes Spiel laden
   const loadSavedGame = useCallback(() => {
     const saved = loadGameState();
-    if (!saved) return false;
-    
+    if (!saved) {
+      setHasSavedGame(false);
+      return false;
+    }
+
+    clearAITimeouts();
     setGameState(saved.gameState);
     setDrawnCard(saved.drawnCard);
     setAiPlayers(saved.aiPlayers);
     setGameMessage(saved.gameMessage);
     setSelectedHandIndex(null);
     setIsAIThinking(false);
-    
+    setHasSavedGame(true);
+
     // Refs aktualisieren
     gameStateRef.current = saved.gameState;
     drawnCardRef.current = saved.drawnCard;
     aiPlayersRef.current = saved.aiPlayers;
-    
+
     return true;
-  }, []);
-
-  // KI-Zug ausführen
-  const executeAIMove = useCallback((playerId: string, difficulty: AIDifficulty) => {
-    const currentState = gameStateRef.current;
-    if (!currentState) return;
-    
-    const decision = decideAIMove(currentState, playerId, difficulty, drawnCardRef.current);
-    
-    setTimeout(() => {
-      switch (decision.action) {
-        case 'DRAW_FROM_DECK':
-          handleDrawFromDeck();
-          break;
-        case 'DRAW_FROM_DISCARD':
-          handleDrawFromDiscard();
-          break;
-        case 'SWAP_CARD':
-          if (decision.payload) {
-            setTimeout(() => {
-              confirmSwap(decision.payload.handIndex);
-              setTimeout(() => endTurnAfterAI(), Math.round(500 * speedMult));
-            }, Math.round(300 * speedMult));
-          }
-          break;
-        case 'DISCARD_DRAWN_CARD':
-          discardDrawnCard();
-          setTimeout(() => endTurnAfterAI(), Math.round(500 * speedMult));
-          break;
-        case 'USE_JACK':
-          if (decision.payload) {
-            handleUseJack(decision.payload.handIndex);
-            setTimeout(() => endTurnAfterAI(), Math.round(500 * speedMult));
-          }
-          break;
-        case 'USE_KING':
-          if (decision.payload) {
-            handleUseKing(
-              decision.payload.targetPlayerId,
-              decision.payload.myHandIndex,
-              decision.payload.targetHandIndex
-            );
-            setTimeout(() => endTurnAfterAI(), Math.round(500 * speedMult));
-          }
-          break;
-        case 'CALL_DAME':
-          handleCallDame();
-          setTimeout(() => endTurnAfterAI(), Math.round(500 * speedMult));
-          break;
-        case 'END_TURN':
-          endTurnAfterAI();
-          break;
-      }
-    }, Math.round(decision.delay * speedMult));
-  }, []);
-
-  // KI-Zug beenden und nächsten prüfen
-  const endTurnAfterAI = useCallback(() => {
-    handleEndTurn();
-  }, []);
-
-  // KI Post-Draw: wenn gezogene Karte gesetzt und KI am Zug
-  useEffect(() => {
-    if (!gameState || !drawnCard) return;
-
-    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-    const aiDifficulty = aiPlayers.get(currentPlayer.id);
-
-    if (aiDifficulty && !currentPlayer.isEliminated) {
-      setIsAIThinking(true);
-      executeAIMove(currentPlayer.id, aiDifficulty);
-
-      const delay = Math.round((aiDifficulty === 'easy' ? 2000 : aiDifficulty === 'medium' ? 1500 : 1200) * speedMult);
-      setTimeout(() => {
-        setIsAIThinking(false);
-      }, delay);
-    }
-  }, [drawnCard]);
-
-  // Prüfe ob aktueller Spieler KI ist und führe Zug aus
-  useEffect(() => {
-    if (!gameState || isAIThinking) return;
-
-    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-    const aiDifficulty = aiPlayers.get(currentPlayer.id);
-
-    if (aiDifficulty && !currentPlayer.isEliminated) {
-      setIsAIThinking(true);
-      setGameMessage(`${currentPlayer.name} denkt...`);
-
-      executeAIMove(currentPlayer.id, aiDifficulty);
-
-      // Reset thinking status nach Verzögerung
-      const delay = Math.round((aiDifficulty === 'easy' ? 2000 : aiDifficulty === 'medium' ? 1500 : 1200) * speedMult);
-      setTimeout(() => {
-        setIsAIThinking(false);
-      }, delay);
-    }
-  }, [gameState?.currentPlayerIndex, gameState?.phase, isAIThinking]);
+  }, [clearAITimeouts]);
 
   const handleDrawFromDeck = useCallback(() => {
     if (!gameStateRef.current) return;
-    
+
     const { card, newState } = drawFromDeck(gameStateRef.current);
     if (card) {
       gameStateRef.current = newState;
       setDrawnCard(card);
       setGameState(newState);
-      
+
       const currentPlayer = newState.players[newState.currentPlayerIndex];
-      const isAI = aiPlayers.has(currentPlayer.id);
-      
+      const isAI = aiPlayersRef.current.has(currentPlayer.id);
+
       if (!isAI) {
         setGameMessage(`Du hast ${card.rank} gezogen. Was möchtest du tun?`);
       }
     }
-  }, [aiPlayers]);
+  }, []);
 
   const handleDrawFromDiscard = useCallback(() => {
     if (!gameStateRef.current) return;
-    
+
     const { card, newState } = drawFromDiscard(gameStateRef.current);
     if (card) {
       gameStateRef.current = newState;
       setDrawnCard(card);
       setGameState(newState);
-      
+
       const currentPlayer = newState.players[newState.currentPlayerIndex];
-      const isAI = aiPlayers.has(currentPlayer.id);
-      
+      const isAI = aiPlayersRef.current.has(currentPlayer.id);
+
       if (!isAI) {
         setGameMessage(`Du nimmst ${card.rank} vom Ablagestapel.`);
       }
     }
-  }, [aiPlayers]);
+  }, []);
 
   const selectHandCard = useCallback((index: number) => {
     setSelectedHandIndex(index);
@@ -327,14 +372,14 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal'): UseGameWithAIReturn 
       handIndex,
       drawnCardRef.current
     );
-    
+
     gameStateRef.current = newState;
     setGameState(newState);
     setDrawnCard(null);
     setSelectedHandIndex(null);
 
-    const isAI = aiPlayers.has(currentPlayer.id);
-    
+    const isAI = aiPlayersRef.current.has(currentPlayer.id);
+
     // Spezialeffekte prüfen
     if (discardedCard.rank === 'Q') {
       const finalState = applyQueenEffect(newState, currentPlayer.id);
@@ -355,7 +400,7 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal'): UseGameWithAIReturn 
         setGameMessage(`Du hast ${discardedCard.rank} abgelegt.`);
       }
     }
-  }, [selectedHandIndex, aiPlayers]);
+  }, [selectedHandIndex]);
 
   const discardDrawnCard = useCallback(() => {
     if (!gameStateRef.current || !drawnCardRef.current) return;
@@ -364,39 +409,55 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal'): UseGameWithAIReturn 
     gameStateRef.current = newState;
     setGameState(newState);
     setDrawnCard(null);
-    
+
     const currentPlayer = newState.players[newState.currentPlayerIndex];
-    const isAI = aiPlayers.has(currentPlayer.id);
-    
+    const isAI = aiPlayersRef.current.has(currentPlayer.id);
+
     if (!isAI) {
       setGameMessage('Karte abgelegt.');
     }
-  }, [aiPlayers]);
+  }, []);
 
-  const handleUseJack = useCallback((handIndex: number) => {
-    if (!gameStateRef.current) return;
-    
+  const handleUseJack = useCallback((targetPlayerId: string, handIndex: number) => {
+    if (!gameStateRef.current || !drawnCardRef.current) return;
+
     const currentPlayer = gameStateRef.current.players[gameStateRef.current.currentPlayerIndex];
-    const newState = applyJackEffect(gameStateRef.current, currentPlayer.id, handIndex);
+
+    // Gezogene Bube-Karte zuerst ablegen, bevor der Effekt wirkt
+    const discardedState = discardCard(gameStateRef.current, drawnCardRef.current);
+    gameStateRef.current = discardedState;
+    setGameState(discardedState);
+    drawnCardRef.current = null;
+    setDrawnCard(null);
+
+    const newState = applyJackEffect(discardedState, currentPlayer.id, targetPlayerId, handIndex);
     gameStateRef.current = newState;
     setGameState(newState);
-    
-    const isAI = aiPlayers.has(currentPlayer.id);
+
+    const isAI = aiPlayersRef.current.has(currentPlayer.id);
     if (!isAI) {
       setGameMessage('Du kannst jetzt diese Karte sehen.');
     }
-  }, [aiPlayers]);
+  }, []);
 
   const handleUseKing = useCallback((
     targetPlayerId: string,
     myHandIndex: number,
     targetHandIndex: number
   ) => {
-    if (!gameStateRef.current) return;
-    
+    if (!gameStateRef.current || !drawnCardRef.current) return;
+
     const currentPlayer = gameStateRef.current.players[gameStateRef.current.currentPlayerIndex];
+
+    // Gezogene König-Karte zuerst ablegen, bevor der Effekt wirkt
+    const discardedState = discardCard(gameStateRef.current, drawnCardRef.current);
+    gameStateRef.current = discardedState;
+    setGameState(discardedState);
+    drawnCardRef.current = null;
+    setDrawnCard(null);
+
     const newState = applyKingEffect(
-      gameStateRef.current,
+      discardedState,
       currentPlayer.id,
       targetPlayerId,
       myHandIndex,
@@ -404,16 +465,26 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal'): UseGameWithAIReturn 
     );
     gameStateRef.current = newState;
     setGameState(newState);
-    
-    const isAI = aiPlayers.has(currentPlayer.id);
+
+    const isAI = aiPlayersRef.current.has(currentPlayer.id);
     if (!isAI) {
       setGameMessage('Karten getauscht!');
     }
-  }, [aiPlayers]);
+  }, []);
+
+  const peekKingTarget = useCallback((targetPlayerId: string, targetHandIndex: number): Card | null => {
+    if (!gameStateRef.current) return null;
+
+    const currentPlayer = gameStateRef.current.players[gameStateRef.current.currentPlayerIndex];
+    const { card, newState } = peekCard(gameStateRef.current, currentPlayer.id, targetPlayerId, targetHandIndex);
+    gameStateRef.current = newState;
+    setGameState(newState);
+    return card;
+  }, []);
 
   const handleCallDame = useCallback(() => {
     if (!gameStateRef.current) return;
-    
+
     const currentPlayer = gameStateRef.current.players[gameStateRef.current.currentPlayerIndex];
     const newState = callDame(gameStateRef.current, currentPlayer.id);
     gameStateRef.current = newState;
@@ -423,13 +494,13 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal'): UseGameWithAIReturn 
 
   const handleTryDiscardExtra = useCallback((cardId: string) => {
     if (!gameStateRef.current) return;
-    
+
     const currentPlayer = gameStateRef.current.players[gameStateRef.current.currentPlayerIndex];
     const { success, newState } = discardExtraCard(gameStateRef.current, currentPlayer.id, cardId);
     gameStateRef.current = newState;
     setGameState(newState);
-    
-    const isAI = aiPlayers.has(currentPlayer.id);
+
+    const isAI = aiPlayersRef.current.has(currentPlayer.id);
     if (!isAI) {
       if (success) {
         setGameMessage('Extra-Karte abgelegt!');
@@ -437,7 +508,7 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal'): UseGameWithAIReturn 
         setGameMessage('Falsche Karte! Strafkarte gezogen.');
       }
     }
-  }, [aiPlayers]);
+  }, []);
 
   const handleEndTurn = useCallback(() => {
     if (!gameStateRef.current) return;
@@ -481,17 +552,137 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal'): UseGameWithAIReturn 
   }, []);
 
   const resetGame = useCallback(() => {
+    clearAITimeouts();
     setGameState(null);
     setDrawnCard(null);
     setSelectedHandIndex(null);
     setGameMessage('Willkommen bei Dame!');
     setIsAIThinking(false);
     setAiPlayers(new Map());
-  }, []);
+    setHasSavedGame(false);
+  }, [clearAITimeouts]);
+
+  // KI-Zug beenden und nächsten prüfen
+  const endTurnAfterAI = useCallback(() => {
+    handleEndTurn();
+  }, [handleEndTurn]);
+
+  // KI-Zug ausführen
+  const executeAIMove = useCallback((playerId: string, difficulty: AIDifficulty) => {
+    const currentState = gameStateRef.current;
+    if (!currentState) return;
+
+    const decision = decideAIMove(currentState, playerId, difficulty, drawnCardRef.current);
+    const currentSpeed = speedMultRef.current;
+
+    scheduleAITimeout(() => {
+      switch (decision.action) {
+        case 'DRAW_FROM_DECK':
+          handleDrawFromDeck();
+          break;
+        case 'DRAW_FROM_DISCARD':
+          handleDrawFromDiscard();
+          break;
+        case 'SWAP_CARD':
+          if (decision.payload) {
+            scheduleAITimeout(() => {
+              confirmSwap(decision.payload.handIndex);
+              scheduleAITimeout(() => endTurnAfterAI(), Math.round(500 * currentSpeed));
+            }, Math.round(300 * currentSpeed));
+          }
+          break;
+        case 'DISCARD_DRAWN_CARD':
+          discardDrawnCard();
+          scheduleAITimeout(() => endTurnAfterAI(), Math.round(500 * currentSpeed));
+          break;
+        case 'USE_JACK':
+          if (decision.payload) {
+            handleUseJack(decision.payload.targetPlayerId, decision.payload.handIndex);
+            scheduleAITimeout(() => endTurnAfterAI(), Math.round(500 * currentSpeed));
+          }
+          break;
+        case 'USE_KING':
+          if (decision.payload) {
+            handleUseKing(
+              decision.payload.targetPlayerId,
+              decision.payload.myHandIndex,
+              decision.payload.targetHandIndex
+            );
+            scheduleAITimeout(() => endTurnAfterAI(), Math.round(500 * currentSpeed));
+          }
+          break;
+        case 'CALL_DAME':
+          handleCallDame();
+          scheduleAITimeout(() => endTurnAfterAI(), Math.round(500 * currentSpeed));
+          break;
+        case 'END_TURN':
+          endTurnAfterAI();
+          break;
+      }
+    }, Math.round(decision.delay * currentSpeed));
+  }, [scheduleAITimeout, endTurnAfterAI, handleDrawFromDeck, handleDrawFromDiscard, confirmSwap, discardDrawnCard, handleUseJack, handleUseKing, handleCallDame]);
+
+  // KI Post-Draw: wenn gezogene Karte gesetzt und KI am Zug
+  useEffect(() => {
+    clearAITimeouts();
+    if (!gameState || !drawnCard) return;
+
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    const aiDifficulty = aiPlayers.get(currentPlayer.id);
+
+    if (!aiDifficulty || currentPlayer.isEliminated) return;
+
+    const startId = setTimeout(() => {
+      setIsAIThinking(true);
+      executeAIMove(currentPlayer.id, aiDifficulty);
+
+      const delay = Math.round((aiDifficulty === 'easy' ? 2000 : aiDifficulty === 'medium' ? 1500 : 1200) * speedMult);
+      const id = setTimeout(() => {
+        setIsAIThinking(false);
+      }, delay);
+      aiTimeoutsRef.current.push(id);
+    }, 0);
+
+    return () => clearTimeout(startId);
+  }, [gameState, drawnCard, aiPlayers, executeAIMove, speedMult, clearAITimeouts]);
+
+  // Prüfe ob aktueller Spieler KI ist und führe Zug aus
+  useEffect(() => {
+    clearAITimeouts();
+    if (!gameState || isAIThinking) return;
+
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    const aiDifficulty = aiPlayers.get(currentPlayer.id);
+
+    if (!aiDifficulty || currentPlayer.isEliminated) return;
+
+    const startId = setTimeout(() => {
+      setIsAIThinking(true);
+      setGameMessage(`${currentPlayer.name} denkt...`);
+
+      executeAIMove(currentPlayer.id, aiDifficulty);
+
+      // Reset thinking status nach Verzögerung
+      const delay = Math.round((aiDifficulty === 'easy' ? 2000 : aiDifficulty === 'medium' ? 1500 : 1200) * speedMult);
+      const id = setTimeout(() => {
+        setIsAIThinking(false);
+      }, delay);
+      aiTimeoutsRef.current.push(id);
+    }, 0);
+
+    return () => clearTimeout(startId);
+  }, [gameState, isAIThinking, aiPlayers, executeAIMove, speedMult, clearAITimeouts]);
+
+  // Timeouts beim Unmount bereinigen
+  useEffect(() => {
+    return () => {
+      clearAITimeouts();
+    };
+  }, [clearAITimeouts]);
 
   const winner = gameState ? getWinner(gameState) : null;
   const canCallDameNow = gameState ? canCallDame(gameState) : false;
-  
+
   // Aktuelle KI-Schwierigkeit ermitteln
   const currentPlayer = gameState?.players[gameState.currentPlayerIndex];
   const currentAIDifficulty = currentPlayer ? aiPlayers.get(currentPlayer.id) || null : null;
@@ -516,6 +707,7 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal'): UseGameWithAIReturn 
     discardDrawnCard,
     activateJack: handleUseJack,
     activateKing: handleUseKing,
+    peekKingTarget,
     callDame: handleCallDame,
     tryDiscardExtra: handleTryDiscardExtra,
     endTurn: handleEndTurn,

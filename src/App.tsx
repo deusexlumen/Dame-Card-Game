@@ -8,7 +8,6 @@ import {
   Users, 
   Play, 
   BookOpen, 
-  Trophy, 
   Bot,
   User,
   Brain,
@@ -30,19 +29,19 @@ const DIFFICULTY_CONFIG: Record<AIDifficulty, { label: string; icon: React.React
   easy: { 
     label: 'Einfach', 
     icon: <Zap className="w-4 h-4" />, 
-    color: 'bg-green-500',
+    color: 'bg-[hsl(var(--terminal-green))] text-black',
     description: 'Zufällige Züge, wenig Strategie'
   },
   medium: { 
     label: 'Mittel', 
     icon: <Brain className="w-4 h-4" />, 
-    color: 'bg-yellow-500',
+    color: 'bg-[hsl(var(--terminal-amber))] text-black',
     description: 'Grundlegende Strategie, schlechte Karten vermeiden'
   },
   hard: { 
     label: 'Schwer', 
     icon: <Target className="w-4 h-4" />, 
-    color: 'bg-red-500',
+    color: 'bg-[hsl(var(--terminal-red))] text-black',
     description: 'Fortgeschrittene Strategie, Bluff, Risikobewertung'
   },
 };
@@ -110,27 +109,27 @@ function App() {
   // Regeln anzeigen
   if (gameMode === 'rules') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-4">
-        <div className="max-w-2xl mx-auto">
-          <Card className="shadow-2xl">
+      <div className="min-h-screen terminal-grid relative flex items-center justify-center p-4">
+        <div className="max-w-2xl mx-auto w-full">
+          <Card className="shadow-2xl bg-[hsl(var(--terminal-panel))] border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))]">
             <CardHeader>
-              <CardTitle className="text-3xl text-center flex items-center justify-center gap-2">
-                <BookOpen className="w-8 h-8" />
+              <CardTitle className="text-2xl text-center flex items-center justify-center gap-2 font-mono terminal-glow">
+                <BookOpen className="w-7 h-7" />
                 Spielregeln
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6 text-sm font-mono">
               <section>
-                <h3 className="text-xl font-bold mb-2 text-blue-600">Ziel des Spiels</h3>
-                <p className="text-slate-700">
+                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Ziel des Spiels</h3>
+                <p className="text-[hsl(var(--terminal-green)/0.85)]">
                   Sammle möglichst wenige Punkte! Wer über 50 Punkte kommt, scheidet aus. 
                   Aber Achtung: Wer genau 50 Punkte erreicht, fällt auf 0 zurück!
                 </p>
               </section>
 
               <section>
-                <h3 className="text-xl font-bold mb-2 text-blue-600">Spielablauf</h3>
-                <ul className="list-disc list-inside space-y-2 text-slate-700">
+                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Spielablauf</h3>
+                <ul className="list-disc list-inside space-y-2 text-[hsl(var(--terminal-green)/0.85)]">
                   <li>Jeder Spieler bekommt 4 verdeckte Karten</li>
                   <li>Du darfst dir nur 2 deiner Karten anschauen</li>
                   <li>Ziehe eine Karte vom Ziehstapel oder Ablagestapel</li>
@@ -140,26 +139,26 @@ function App() {
               </section>
 
               <section>
-                <h3 className="text-xl font-bold mb-2 text-blue-600">Besondere Karten</h3>
+                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Besondere Karten</h3>
                 <div className="space-y-3">
-                  <div className="bg-yellow-50 p-3 rounded-lg">
-                    <p className="font-bold text-yellow-700">Bube (10 Punkte)</p>
-                    <p className="text-slate-700">Wenn abgelegt: Du darfst dir eine deiner verdeckten Karten anschauen.</p>
+                  <div className="bg-[hsl(var(--terminal-amber)/0.08)] border border-[hsl(var(--terminal-amber)/0.25)] p-3 rounded-sm">
+                    <p className="font-bold text-[hsl(var(--terminal-amber))]">Bube (10 Punkte)</p>
+                    <p className="text-[hsl(var(--terminal-green)/0.85)]">Wenn abgelegt: Du darfst dir eine verdeckte Karte anschauen.</p>
                   </div>
-                  <div className="bg-purple-50 p-3 rounded-lg">
-                    <p className="font-bold text-purple-700">König (10 Punkte)</p>
-                    <p className="text-slate-700">Wenn abgelegt: Tausche blind eine deiner Karten mit einem Gegner.</p>
+                  <div className="bg-[hsl(var(--terminal-cyan)/0.08)] border border-[hsl(var(--terminal-cyan)/0.25)] p-3 rounded-sm">
+                    <p className="font-bold text-[hsl(var(--terminal-cyan))]">König (10 Punkte)</p>
+                    <p className="text-[hsl(var(--terminal-green)/0.85)]">Wenn abgelegt: Tausche blind eine deiner Karten mit einem Gegner.</p>
                   </div>
-                  <div className="bg-red-50 p-3 rounded-lg">
-                    <p className="font-bold text-red-700">Dame (0 Punkte)</p>
-                    <p className="text-slate-700">Wenn abgelegt: Du musst eine Strafkarte ziehen! Die Dame ist verflucht...</p>
+                  <div className="bg-[hsl(var(--terminal-red)/0.08)] border border-[hsl(var(--terminal-red)/0.25)] p-3 rounded-sm">
+                    <p className="font-bold text-[hsl(var(--terminal-red))]">Dame (0 Punkte)</p>
+                    <p className="text-[hsl(var(--terminal-green)/0.85)]">Wenn abgelegt: Du musst eine Strafkarte ziehen! Die Dame ist verflucht...</p>
                   </div>
                 </div>
               </section>
 
               <section>
-                <h3 className="text-xl font-bold mb-2 text-blue-600">Dame Call</h3>
-                <p className="text-slate-700">
+                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Dame Call</h3>
+                <p className="text-[hsl(var(--terminal-green)/0.85)]">
                   Ab Runde 3 kannst du "Dame" rufen, wenn du glaubst, die wenigsten Punkte zu haben. 
                   Nach einer letzten Runde werden alle Karten aufgedeckt. Wenn du recht hattest, 
                   gewinnst du die Runde. Wenn nicht, bekommst du eine Strafkarte!
@@ -167,27 +166,27 @@ function App() {
               </section>
 
               <section>
-                <h3 className="text-xl font-bold mb-2 text-blue-600">KI-Gegner</h3>
-                <div className="space-y-2">
+                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">KI-Gegner</h3>
+                <div className="space-y-2 text-[hsl(var(--terminal-green)/0.85)]">
                   <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                    <span className="w-3 h-3 rounded-sm bg-[hsl(var(--terminal-green))]"></span>
                     <span className="font-medium">Einfach:</span>
-                    <span className="text-slate-600 text-sm">Zufällige Züge, wenig Strategie</span>
+                    <span className="text-[hsl(var(--terminal-green)/0.7)] text-xs">Zufällige Züge, wenig Strategie</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-yellow-500"></span>
+                    <span className="w-3 h-3 rounded-sm bg-[hsl(var(--terminal-amber))]"></span>
                     <span className="font-medium">Mittel:</span>
-                    <span className="text-slate-600 text-sm">Grundlegende Strategie, schlechte Karten vermeiden</span>
+                    <span className="text-[hsl(var(--terminal-green)/0.7)] text-xs">Grundlegende Strategie, schlechte Karten vermeiden</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-red-500"></span>
+                    <span className="w-3 h-3 rounded-sm bg-[hsl(var(--terminal-red))]"></span>
                     <span className="font-medium">Schwer:</span>
-                    <span className="text-slate-600 text-sm">Fortgeschrittene Strategie mit Bluff und Risikobewertung</span>
+                    <span className="text-[hsl(var(--terminal-green)/0.7)] text-xs">Fortgeschrittene Strategie mit Bluff und Risikobewertung</span>
                   </div>
                 </div>
               </section>
 
-              <Button onClick={backToMenu} className="w-full">
+              <Button onClick={backToMenu} className="w-full font-mono bg-[hsl(var(--terminal-green))] text-black hover:bg-[hsl(var(--terminal-green)/0.85)]">
                 Zurück zum Menü
               </Button>
             </CardContent>
@@ -204,54 +203,54 @@ function App() {
 
   // Hauptmenü
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-4">
+    <div className="min-h-screen terminal-grid relative flex items-center justify-center p-4">
       <div className="max-w-lg w-full">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-6xl font-bold text-white mb-2 tracking-tight">
-            <span className="text-red-500">D</span>
-            <span className="text-white">a</span>
-            <span className="text-red-500">m</span>
-            <span className="text-white">e</span>
+          <h1 className="text-6xl font-mono font-bold text-[hsl(var(--terminal-green))] mb-2 tracking-widest terminal-glow">
+            DAME
           </h1>
-          <p className="text-slate-400">Das Kartenspiel mit Bluff und Strategie</p>
+          <p className="text-[hsl(var(--terminal-green)/0.7)] font-mono text-sm uppercase tracking-[0.3em]">
+            Kartenspiel mit Bluff und Strategie
+          </p>
         </div>
 
-        <Card className="shadow-2xl">
+        <Card className="shadow-2xl bg-[hsl(var(--terminal-panel))] border-[hsl(var(--terminal-green)/0.3)]">
           <CardHeader>
-            <CardTitle className="text-xl flex items-center gap-2">
+            <CardTitle className="text-lg flex items-center gap-2 font-mono text-[hsl(var(--terminal-green))]">
               <Users className="w-5 h-5" />
               Spieler ({players.length}/6)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Spieler-Liste */}
-            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
               {players.map((player, index) => (
                 <div
                   key={index}
                   className={cn(
-                    "p-3 rounded-lg border-2",
+                    "p-3 rounded-sm border",
                     player.isAI 
-                      ? "bg-purple-50 border-purple-200" 
-                      : "bg-blue-50 border-blue-200"
+                      ? "bg-[hsl(var(--terminal-cyan)/0.05)] border-[hsl(var(--terminal-cyan)/0.2)]" 
+                      : "bg-[hsl(var(--terminal-green)/0.05)] border-[hsl(var(--terminal-green)/0.2)]"
                   )}
                 >
                   <div className="flex items-center gap-2 mb-2">
                     {player.isAI ? (
-                      <Bot className="w-4 h-4 text-purple-600" />
+                      <Bot className="w-4 h-4 text-[hsl(var(--terminal-cyan))]" />
                     ) : (
-                      <User className="w-4 h-4 text-blue-600" />
+                      <User className="w-4 h-4 text-[hsl(var(--terminal-green))]" />
                     )}
                     <Input
                       value={player.name}
                       onChange={(e) => updatePlayerName(index, e.target.value)}
-                      className="flex-1 h-8 text-sm"
+                      className="flex-1 h-8 text-sm font-mono bg-[hsl(var(--terminal-dark))] border-[hsl(var(--terminal-green)/0.25)] text-[hsl(var(--terminal-green))] focus-visible:ring-[hsl(var(--terminal-green)/0.5)]"
                     />
                     {players.length > 2 && (
                       <button
                         onClick={() => removePlayer(index)}
-                        className="text-red-500 hover:text-red-700 transition-colors"
+                        className="text-[hsl(var(--terminal-red))] hover:text-[hsl(var(--terminal-red)/0.7)] transition-colors"
+                        aria-label="Spieler entfernen"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -266,10 +265,10 @@ function App() {
                           key={diff}
                           onClick={() => updateAIDifficulty(index, diff)}
                           className={cn(
-                            "flex-1 py-1 px-2 rounded text-xs font-medium transition-all",
+                            "flex-1 py-1 px-2 rounded-sm text-[10px] font-mono font-medium uppercase tracking-wider transition-all border",
                             player.difficulty === diff
-                              ? cn(DIFFICULTY_CONFIG[diff].color, "text-white")
-                              : "bg-slate-200 text-slate-600 hover:bg-slate-300"
+                              ? cn(DIFFICULTY_CONFIG[diff].color, "border-transparent")
+                              : "bg-[hsl(var(--terminal-dark))] text-[hsl(var(--terminal-green)/0.7)] border-[hsl(var(--terminal-green)/0.2)] hover:border-[hsl(var(--terminal-green)/0.4)]"
                           )}
                           title={DIFFICULTY_CONFIG[diff].description}
                         >
@@ -288,7 +287,7 @@ function App() {
                 <Button 
                   onClick={addHumanPlayer} 
                   variant="outline" 
-                  className="flex-1"
+                  className="flex-1 font-mono border-[hsl(var(--terminal-green)/0.4)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)] hover:text-[hsl(var(--terminal-green))]"
                   size="sm"
                 >
                   <User className="w-4 h-4 mr-1" />
@@ -297,7 +296,7 @@ function App() {
                 <Button 
                   onClick={addAIPlayer} 
                   variant="outline" 
-                  className="flex-1"
+                  className="flex-1 font-mono border-[hsl(var(--terminal-cyan)/0.4)] text-[hsl(var(--terminal-cyan))] hover:bg-[hsl(var(--terminal-cyan)/0.1)] hover:text-[hsl(var(--terminal-cyan))]"
                   size="sm"
                 >
                   <Bot className="w-4 h-4 mr-1" />
@@ -310,7 +309,7 @@ function App() {
             <div className="space-y-2 pt-4">
               <Button
                 onClick={startGame}
-                className="w-full"
+                className="w-full font-mono bg-[hsl(var(--terminal-green))] text-black hover:bg-[hsl(var(--terminal-green)/0.85)]"
                 size="lg"
                 disabled={players.length < 2}
               >
@@ -318,30 +317,20 @@ function App() {
                 Spiel starten
               </Button>
               
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => setGameMode('rules')}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  <BookOpen className="w-4 h-4 mr-2" />
-                  Regeln
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  disabled
-                >
-                  <Trophy className="w-4 h-4 mr-2" />
-                  Statistik
-                </Button>
-              </div>
+              <Button
+                onClick={() => setGameMode('rules')}
+                variant="outline"
+                className="w-full font-mono border-[hsl(var(--terminal-green)/0.4)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)] hover:text-[hsl(var(--terminal-green))]"
+              >
+                <BookOpen className="w-4 h-4 mr-2" />
+                Regeln
+              </Button>
             </div>
           </CardContent>
         </Card>
 
         {/* Footer */}
-        <p className="text-center text-slate-500 text-sm mt-8">
+        <p className="text-center text-[hsl(var(--terminal-green)/0.5)] text-xs font-mono mt-8 uppercase tracking-wider">
           Ein Spiel für 2-6 Spieler • Mit KI-Gegnern!
         </p>
       </div>

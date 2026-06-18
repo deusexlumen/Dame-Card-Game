@@ -2,6 +2,30 @@ import type { GameState, Player, Card } from '@/types/game';
 
 export type AIDifficulty = 'easy' | 'medium' | 'hard';
 
+export type AIActionType =
+  | 'WAIT'
+  | 'DRAW_FROM_DECK'
+  | 'DRAW_FROM_DISCARD'
+  | 'SWAP_CARD'
+  | 'DISCARD_DRAWN_CARD'
+  | 'USE_JACK'
+  | 'USE_KING'
+  | 'CALL_DAME'
+  | 'END_TURN';
+
+export type AIDecision =
+  | { action: 'WAIT' }
+  | { action: 'DRAW_FROM_DECK' }
+  | { action: 'DRAW_FROM_DISCARD' }
+  | { action: 'SWAP_CARD'; payload: { handIndex: number } }
+  | { action: 'DISCARD_DRAWN_CARD' }
+  | { action: 'USE_JACK'; payload: { targetPlayerId: string; handIndex: number } }
+  | { action: 'USE_KING'; payload: { targetPlayerId: string; myHandIndex: number; targetHandIndex: number } }
+  | { action: 'CALL_DAME' }
+  | { action: 'END_TURN' };
+
+export type AIDecisionWithDelay = AIDecision & { delay: number };
+
 // Hilfsfunktion: Prüft, ob eine Karte "gut" ist (niedriger Punktewert)
 function isGoodCard(card: Card): boolean {
   return card.value <= 3; // Ass, 2, 3 sind gut
@@ -46,7 +70,7 @@ function findWorstCardIndex(player: Player): number {
 function makeEasyMove(
   gameState: GameState,
   playerId: string
-): { action: string; payload?: any } {
+): AIDecision {
   const currentPlayerIndex = gameState.players.findIndex(p => p.id === playerId);
   
   // Prüfe, ob wir dran sind
@@ -66,10 +90,16 @@ function makeEasyMove(
 function makeEasyPostDrawMove(
   gameState: GameState,
   playerId: string,
-  _drawnCard: Card
-): { action: string; payload?: any } {
+  drawnCard: Card
+): AIDecision {
   const player = gameState.players.find(p => p.id === playerId)!;
-  
+
+  // Dame niemals direkt ablegen – immer mit einer Handkarte tauschen
+  if (drawnCard.rank === 'Q') {
+    const randomIndex = Math.floor(Math.random() * player.hand.length);
+    return { action: 'SWAP_CARD', payload: { handIndex: randomIndex } };
+  }
+
   // Zufällig entscheiden: Tauschen oder direkt ablegen
   if (Math.random() > 0.3) {
     // Tauschen - wähle zufällige Karte
@@ -85,7 +115,7 @@ function makeEasyPostDrawMove(
 function makeMediumMove(
   gameState: GameState,
   playerId: string
-): { action: string; payload?: any } {
+): AIDecision {
   const currentPlayerIndex = gameState.players.findIndex(p => p.id === playerId);
   
   if (gameState.currentPlayerIndex !== currentPlayerIndex) {
@@ -113,17 +143,17 @@ function makeMediumPostDrawMove(
   gameState: GameState,
   playerId: string,
   drawnCard: Card
-): { action: string; payload?: any } {
+): AIDecision {
   const player = gameState.players.find(p => p.id === playerId)!;
   
   // Spezialeffekte ausführen
   if (drawnCard.rank === 'J') {
-    // Bube: Schau dir eine verdeckte Karte an
-    const hiddenIndex = player.hand.findIndex((_, i) => 
+    // Bube: Schau dir eine eigene verdeckte Karte an
+    const hiddenIndex = player.hand.findIndex((_, i) =>
       !player.visibleCardIndices.includes(i)
     );
     if (hiddenIndex !== -1) {
-      return { action: 'USE_JACK', payload: { handIndex: hiddenIndex } };
+      return { action: 'USE_JACK', payload: { targetPlayerId: playerId, handIndex: hiddenIndex } };
     }
   }
   
@@ -169,7 +199,7 @@ function makeMediumPostDrawMove(
 function makeHardMove(
   gameState: GameState,
   playerId: string
-): { action: string; payload?: any } {
+): AIDecision {
   const player = gameState.players.find(p => p.id === playerId)!;
   const currentPlayerIndex = gameState.players.findIndex(p => p.id === playerId);
   
@@ -210,20 +240,20 @@ function makeHardPostDrawMove(
   gameState: GameState,
   playerId: string,
   drawnCard: Card
-): { action: string; payload?: any } {
+): AIDecision {
   const player = gameState.players.find(p => p.id === playerId)!;
   
   // BUBE: Strategisch einsetzen
   if (drawnCard.rank === 'J') {
-    // Schau dir die verdeckte Karte mit dem höchsten geschätzten Wert an
+    // Schau dir die eigene verdeckte Karte mit dem höchsten geschätzten Wert an
     // (wir vermuten, dass verdeckte Karten oft schlecht sind)
     const hiddenIndices = player.hand
       .map((_, i) => i)
       .filter(i => !player.visibleCardIndices.includes(i));
-    
+
     if (hiddenIndices.length > 0) {
       // Priorisiere Positionen, die oft schlechte Karten haben
-      return { action: 'USE_JACK', payload: { handIndex: hiddenIndices[0] } };
+      return { action: 'USE_JACK', payload: { targetPlayerId: playerId, handIndex: hiddenIndices[0] } };
     }
   }
   
@@ -313,7 +343,7 @@ export function decideAIMove(
   playerId: string,
   difficulty: AIDifficulty,
   drawnCard: Card | null = null
-): { action: string; payload?: any; delay: number } {
+): AIDecisionWithDelay {
   const reactionDelay = difficulty === 'easy' ? 1500 : difficulty === 'medium' ? 1000 : 800;
   
   // Prüfe ob "Dame" gerufen werden sollte

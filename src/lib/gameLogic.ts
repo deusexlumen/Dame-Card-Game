@@ -1,4 +1,4 @@
-import type { Card, CardSuit, CardRank, Player, GameState } from '@/types/game';
+import type { Card, CardSuit, CardRank, Player, GameState, MemoryEntry } from '@/types/game';
 import { CARD_VALUES } from '@/types/game';
 
 // Einzigartige ID generieren
@@ -59,6 +59,7 @@ export function createPlayer(id: string, name: string): Player {
     isEliminated: false,
     hasCalledDame: false,
     penaltyCards: [],
+    memory: [],
   };
 }
 
@@ -95,7 +96,7 @@ export function initializeGame(playerNames: string[]): GameState {
 
 // Karte ziehen vom Deck
 export function drawFromDeck(gameState: GameState): { card: Card | null; newState: GameState } {
-  const newState = { ...gameState };
+  const newState = structuredClone(gameState);
   
   if (newState.deck.length === 0) {
     // Deck ist leer - Ablagestapel neu mischen
@@ -116,7 +117,7 @@ export function drawFromDeck(gameState: GameState): { card: Card | null; newStat
 
 // Karte vom Ablagestapel nehmen
 export function drawFromDiscard(gameState: GameState): { card: Card | null; newState: GameState } {
-  const newState = { ...gameState };
+  const newState = structuredClone(gameState);
   
   if (newState.discardPile.length === 0) {
     return { card: null, newState };
@@ -135,9 +136,14 @@ export function swapCard(
   handIndex: number, 
   newCard: Card
 ): { discardedCard: Card; newState: GameState } {
-  const newState = { ...gameState };
+  const newState = structuredClone(gameState);
   const player = newState.players.find(p => p.id === playerId)!;
-  
+
+  if (handIndex < 0 || handIndex >= player.hand.length) {
+    newState.lastAction = 'Ungültiger Kartenindex';
+    return { discardedCard: newCard, newState };
+  }
+
   // Alte Karte wird abgelegt
   const discardedCard = player.hand[handIndex];
   discardedCard.isVisible = true;
@@ -153,23 +159,82 @@ export function swapCard(
 
 // Karte direkt ablegen (nur für ersten Spieler)
 export function discardCard(gameState: GameState, card: Card): GameState {
-  const newState = { ...gameState };
-  card.isVisible = true;
-  newState.discardPile.push(card);
+  const newState = structuredClone(gameState);
+  newState.discardPile.push({ ...card, isVisible: true });
   return newState;
 }
 
-// Bube-Effekt: Eigene Karte anschauen
-export function applyJackEffect(gameState: GameState, playerId: string, handIndex: number): GameState {
-  const newState = { ...gameState };
-  const player = newState.players.find(p => p.id === playerId)!;
-  
-  if (!player.visibleCardIndices.includes(handIndex)) {
-    player.visibleCardIndices.push(handIndex);
+// Hilfsfunktion: Gedächtniseintrag für den anschauenden Spieler erzeugen
+function rememberCard(
+  gameState: GameState,
+  targetPlayerId: string,
+  handIndex: number
+): MemoryEntry {
+  const targetPlayer = gameState.players.find(p => p.id === targetPlayerId)!;
+  const card = targetPlayer.hand[handIndex];
+  return {
+    targetPlayerId,
+    index: handIndex,
+    rank: card.rank,
+    suit: card.suit,
+    round: gameState.round,
+    turn: gameState.turnInRound,
+  };
+}
+
+// Bube-Effekt: Eigene oder gegnerische verdeckte Karte anschauen
+export function applyJackEffect(
+  gameState: GameState,
+  viewerPlayerId: string,
+  targetPlayerId: string,
+  handIndex: number
+): GameState {
+  const newState = structuredClone(gameState);
+  const viewer = newState.players.find(p => p.id === viewerPlayerId)!;
+  const targetPlayer = newState.players.find(p => p.id === targetPlayerId)!;
+
+  if (handIndex < 0 || handIndex >= targetPlayer.hand.length) {
+    newState.lastAction = 'Ungültiger Kartenindex';
+    return newState;
   }
-  
-  newState.lastAction = `${player.name} hat sich eine Karte angeschaut`;
+
+  // Eigene Karte: dauerhaft sichtbar machen
+  if (viewerPlayerId === targetPlayerId) {
+    if (!viewer.visibleCardIndices.includes(handIndex)) {
+      viewer.visibleCardIndices.push(handIndex);
+    }
+  }
+
+  // Gesehene Karte im Gedächtnis des Betrachters speichern
+  viewer.memory.push(rememberCard(newState, targetPlayerId, handIndex));
+
+  newState.lastAction = `${viewer.name} hat eine Karte von ${viewerPlayerId === targetPlayerId ? 'sich selbst' : targetPlayer.name} angeschaut`;
   return newState;
+}
+
+// König-Effekt: Gegnerische Karte kurz aufdecken (Gedächtnis wird aktualisiert)
+export function peekCard(
+  gameState: GameState,
+  viewerPlayerId: string,
+  targetPlayerId: string,
+  handIndex: number
+): { card: Card; newState: GameState } {
+  const newState = structuredClone(gameState);
+  const viewer = newState.players.find(p => p.id === viewerPlayerId)!;
+  const targetPlayer = newState.players.find(p => p.id === targetPlayerId)!;
+
+  if (handIndex < 0 || handIndex >= targetPlayer.hand.length) {
+    newState.lastAction = 'Ungültiger Kartenindex';
+    const fallbackCard = targetPlayer.hand[0] ?? createCard('hearts', 'A');
+    return { card: { ...fallbackCard, isVisible: true }, newState };
+  }
+
+  // Gesehene Karte im Gedächtnis des Betrachters speichern
+  viewer.memory.push(rememberCard(newState, targetPlayerId, handIndex));
+
+  const card = { ...targetPlayer.hand[handIndex], isVisible: true };
+
+  return { card, newState };
 }
 
 // König-Effekt: Karten tauschen
@@ -180,10 +245,20 @@ export function applyKingEffect(
   myHandIndex: number,
   targetHandIndex: number
 ): GameState {
-  const newState = { ...gameState };
+  const newState = structuredClone(gameState);
   const player = newState.players.find(p => p.id === playerId)!;
   const targetPlayer = newState.players.find(p => p.id === targetPlayerId)!;
-  
+
+  if (
+    myHandIndex < 0 ||
+    myHandIndex >= player.hand.length ||
+    targetHandIndex < 0 ||
+    targetHandIndex >= targetPlayer.hand.length
+  ) {
+    newState.lastAction = 'Ungültiger Kartenindex';
+    return newState;
+  }
+
   // Karten tauschen
   const myCard = player.hand[myHandIndex];
   const targetCard = targetPlayer.hand[targetHandIndex];
@@ -201,22 +276,22 @@ export function applyKingEffect(
 
 // Dame-Effekt: Strafkarte ziehen
 export function applyQueenEffect(gameState: GameState, playerId: string): GameState {
-  const newState = { ...gameState };
-  const player = newState.players.find(p => p.id === playerId)!;
-  
+  const newState = structuredClone(gameState);
+
   const { card, newState: updatedState } = drawFromDeck(newState);
   if (card) {
+    const updatedPlayer = updatedState.players.find(p => p.id === playerId)!;
     card.isVisible = false;
-    player.penaltyCards.push(card);
-    updatedState.lastAction = `${player.name} hat eine Strafkarte gezogen!`;
+    updatedPlayer.penaltyCards.push(card);
+    updatedState.lastAction = `${updatedPlayer.name} hat eine Strafkarte gezogen!`;
   }
-  
+
   return updatedState;
 }
 
 // Dame Call ausführen
 export function callDame(gameState: GameState, playerId: string): GameState {
-  const newState = { ...gameState };
+  const newState = structuredClone(gameState);
   const player = newState.players.find(p => p.id === playerId)!;
   const activePlayers = newState.players.filter(p => !p.isEliminated).length;
 
@@ -241,7 +316,13 @@ export function canCallDame(gameState: GameState): boolean {
 
 // Zug beenden und zum nächsten Spieler
 export function endTurn(gameState: GameState): GameState {
-  const newState = { ...gameState };
+  const newState = structuredClone(gameState);
+
+  const activePlayers = newState.players.filter(p => !p.isEliminated);
+  if (activePlayers.length === 0) {
+    newState.phase = 'GAME_OVER';
+    return newState;
+  }
 
   // Nächster Spieler (überspringe Eliminierte)
   do {
@@ -280,7 +361,7 @@ export function endTurn(gameState: GameState): GameState {
 
 // Runde beenden und Punkte berechnen
 export function endRound(gameState: GameState): GameState {
-  const newState = { ...gameState };
+  const newState = structuredClone(gameState);
 
   // --- Dame Call Auswertung — Teil 1: Gewinner bestimmen ---
   let callerWins = false;
@@ -317,7 +398,7 @@ export function endRound(gameState: GameState): GameState {
     if (player.isEliminated) continue;
 
     // Bei Dame Call wurde score evtl. schon gesetzt (caller)
-    if (dameCallerId === player.id && player.score === 0) {
+    if (dameCallerId === player.id && callerWins) {
       // score bereits 0, nichts zu tun
     } else {
       const allCards = [...player.hand, ...player.penaltyCards];
@@ -349,10 +430,8 @@ export function endRound(gameState: GameState): GameState {
         penaltyCard.isVisible = false;
         caller.penaltyCards.push(penaltyCard);
       }
-      if (updatedState) {
-        newState.deck = updatedState.deck;
-        newState.discardPile = updatedState.discardPile;
-      }
+      newState.deck = updatedState.deck;
+      newState.discardPile = updatedState.discardPile;
     }
   }
 
@@ -376,7 +455,7 @@ export function endRound(gameState: GameState): GameState {
 
 // Nächste Runde starten (nach ROUND_END Übersicht)
 export function startNextRound(gameState: GameState): GameState {
-  const newState = { ...gameState };
+  const newState = structuredClone(gameState);
 
   newState.turnInRound = 1;
   newState.dameCallerId = null;
@@ -387,6 +466,12 @@ export function startNextRound(gameState: GameState): GameState {
   const activePlayerIndices = newState.players
     .map((p, i) => (!p.isEliminated ? i : -1))
     .filter(i => i !== -1);
+
+  if (activePlayerIndices.length === 0) {
+    newState.phase = 'GAME_OVER';
+    return newState;
+  }
+
   const currentStartIdx = activePlayerIndices.indexOf(newState.roundStartPlayerIndex);
   const nextStartIdx = activePlayerIndices[(currentStartIdx + 1) % activePlayerIndices.length];
   newState.roundStartPlayerIndex = nextStartIdx;
@@ -400,8 +485,13 @@ export function startNextRound(gameState: GameState): GameState {
     if (player.isEliminated) continue;
 
     player.hand = deck.splice(0, 4);
+    // Strafkarten aus falscher Dame-Ansage an die neue Hand anhängen
+    player.hand.push(...player.penaltyCards);
+    player.penaltyCards = [];
+    // Nur die ersten beiden Karten der neuen Hand sind sichtbar
     player.visibleCardIndices = [0, 1];
     player.score = 0;
+    player.memory = [];
   }
 
   newState.deck = deck;
@@ -450,7 +540,7 @@ export function discardExtraCard(
   playerId: string, 
   cardId: string
 ): { success: boolean; newState: GameState } {
-  const newState = { ...gameState };
+  const newState = structuredClone(gameState);
   const player = newState.players.find(p => p.id === playerId)!;
   
   const cardIndex = player.hand.findIndex(c => c.id === cardId);
@@ -470,25 +560,27 @@ export function discardExtraCard(
     // Falsche Karte - Strafkarte!
     const { card: penaltyCard, newState: updatedState } = drawFromDeck(newState);
     if (penaltyCard) {
+      const updatedPlayer = updatedState.players.find(p => p.id === playerId)!;
       penaltyCard.isVisible = false;
-      player.penaltyCards.push(penaltyCard);
-      updatedState.lastAction = `${player.name} hat falsch abgelegt - Strafkarte!`;
+      updatedPlayer.penaltyCards.push(penaltyCard);
+      updatedState.lastAction = `${updatedPlayer.name} hat falsch abgelegt - Strafkarte!`;
     }
     return { success: false, newState: updatedState };
   }
-  
+
   // Karte ablegen
   card.isVisible = true;
   newState.discardPile.push(card);
   player.hand.splice(cardIndex, 1);
-  
+
   // Neue Karte vom Deck ziehen
   const { card: newCard, newState: finalState } = drawFromDeck(newState);
   if (newCard) {
+    const finalPlayer = finalState.players.find(p => p.id === playerId)!;
     newCard.isVisible = false;
-    player.hand.push(newCard);
+    finalPlayer.hand.push(newCard);
   }
-  
-  finalState.lastAction = `${player.name} hat eine Extra-Karte abgelegt`;
+
+  finalState.lastAction = `${finalState.players.find(p => p.id === playerId)!.name} hat eine Extra-Karte abgelegt`;
   return { success: true, newState: finalState };
 }

@@ -4,3 +4,4 @@ dist/
 .playwright-mcp/
 dame-*.png
 pnpm-lock.yaml
+.tmp/

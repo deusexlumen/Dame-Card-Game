@@ -10,6 +10,16 @@ export interface Card {
   isVisible: boolean;
 }
 
+// Gedächtniseintrag für gesehene Karten
+export interface MemoryEntry {
+  targetPlayerId: string;
+  index: number;
+  rank: CardRank;
+  suit: CardSuit;
+  round: number;
+  turn: number;
+}
+
 // Spieler
 export interface Player {
   id: string;
@@ -22,6 +32,7 @@ export interface Player {
   isEliminated: boolean;
   hasCalledDame: boolean;
   penaltyCards: Card[]; // Strafkarten für die nächste Runde
+  memory: MemoryEntry[]; // Gemerkte gesehene Karten (eigene und gegnerische)
 }
 
 // Spielphasen
@@ -56,7 +67,7 @@ export type GameAction =
   | { type: 'DRAW_FROM_DISCARD' }
   | { type: 'SWAP_CARD'; handIndex: number }
   | { type: 'DISCARD_DRAWN_CARD' }
-  | { type: 'USE_JACK_EFFECT'; handIndex: number }
+  | { type: 'USE_JACK_EFFECT'; targetPlayerId: string; handIndex: number }
   | { type: 'USE_KING_EFFECT'; targetPlayerId: string; myHandIndex: number; targetHandIndex: number }
   | { type: 'CALL_DAME' }
   | { type: 'DISCARD_EXTRA_CARD'; cardId: string }
@@ -79,17 +90,17 @@ export const CARD_VALUES: Record<CardRank, number> = {
   'K': 10,
 };
 
-// Farben für das UI — echte Spielkarten-Farben
+// Farben für das UI — Terminal/Cybernetic-Archive-Palette
 export const SUIT_COLORS: Record<CardSuit, string> = {
-  hearts: 'text-[#c41e3a]',
-  diamonds: 'text-[#c41e3a]',
-  clubs: 'text-[#1a1a2e]',
-  spades: 'text-[#1a1a2e]',
+  hearts: 'text-[hsl(var(--terminal-red))]',
+  diamonds: 'text-[hsl(var(--terminal-amber))]',
+  clubs: 'text-[hsl(var(--terminal-green))]',
+  spades: 'text-[hsl(var(--terminal-cyan))]',
 };
 
 export const SUIT_SYMBOLS: Record<CardSuit, string> = {
-  hearts: '♥',
-  diamonds: '♦',
-  clubs: '♣',
-  spades: '♠',
+  hearts: '◆',
+  diamonds: '▲',
+  clubs: '●',
+  spades: '■',
 };
