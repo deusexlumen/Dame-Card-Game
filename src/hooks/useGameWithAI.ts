@@ -249,6 +249,7 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
   const drawnCardRef = useRef(drawnCard);
   const aiPlayersRef = useRef(aiPlayers);
   const aiTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const isAIMovingRef = useRef(false);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -582,6 +583,7 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
 
   const resetGame = useCallback(() => {
     clearAITimeouts();
+    isAIMovingRef.current = false;
     setGameState(null);
     setDrawnCard(null);
     setSelectedHandIndex(null);
@@ -593,7 +595,9 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
 
   // KI-Zug beenden und nächsten prüfen
   const endTurnAfterAI = useCallback(() => {
+    isAIMovingRef.current = false;
     handleEndTurn();
+    setIsAIThinking(false);
   }, [handleEndTurn]);
 
   // KI-Zug ausführen
@@ -659,37 +663,42 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
 
   // KI Post-Draw: wenn gezogene Karte gesetzt und KI am Zug
   useEffect(() => {
-    clearAITimeouts();
     if (!gameState || !drawnCard) return;
 
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     const aiDifficulty = aiPlayers.get(currentPlayer.id);
 
     if (!aiDifficulty || currentPlayer.isEliminated) return;
+    if (isAIMovingRef.current) return;
+
+    isAIMovingRef.current = true;
+    let didStart = false;
 
     const startId = setTimeout(() => {
+      didStart = true;
       setIsAIThinking(true);
       executeAIMove(currentPlayer.id, aiDifficulty);
-
-      const delay = Math.round((aiDifficulty === 'easy' ? 2000 : aiDifficulty === 'medium' ? 1500 : 1200) * speedMult);
-      const id = setTimeout(() => {
-        setIsAIThinking(false);
-      }, delay);
-      aiTimeoutsRef.current.push(id);
     }, 0);
 
-    return () => clearTimeout(startId);
-  }, [gameState, drawnCard, aiPlayers, executeAIMove, speedMult, clearAITimeouts]);
+    return () => {
+      clearTimeout(startId);
+      if (!didStart) {
+        isAIMovingRef.current = false;
+        setIsAIThinking(false);
+      }
+    };
+  }, [gameState, drawnCard, aiPlayers, executeAIMove, speedMult]);
 
   // Prüfe ob aktueller Spieler KI ist und führe Zug aus
   useEffect(() => {
-    clearAITimeouts();
-    if (!gameState || isAIThinking) return;
+    if (!gameState) return;
 
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     const aiDifficulty = aiPlayers.get(currentPlayer.id);
 
     if (!aiDifficulty || currentPlayer.isEliminated) return;
+    if (isAIMovingRef.current) return;
+    if (drawnCard) return;
 
     const topDiscard = gameState.discardPile[gameState.discardPile.length - 1];
     const mustTakeQueen =
@@ -699,9 +708,12 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
       gameState.phase !== 'ROUND_END' &&
       gameState.phase !== 'GAME_OVER';
 
-    const startId = setTimeout(() => {
-      setIsAIThinking(true);
+    isAIMovingRef.current = true;
+    let didStart = false;
 
+    const startId = setTimeout(() => {
+      didStart = true;
+      setIsAIThinking(true);
       if (mustTakeQueen) {
         setGameMessage(`${currentPlayer.name} muss die offene Dame nehmen...`);
         handleDrawFromDiscard();
@@ -709,17 +721,16 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
         setGameMessage(`${currentPlayer.name} denkt...`);
         executeAIMove(currentPlayer.id, aiDifficulty);
       }
-
-      // Reset thinking status nach Verzögerung
-      const delay = Math.round((aiDifficulty === 'easy' ? 2000 : aiDifficulty === 'medium' ? 1500 : 1200) * speedMult);
-      const id = setTimeout(() => {
-        setIsAIThinking(false);
-      }, delay);
-      aiTimeoutsRef.current.push(id);
     }, 0);
 
-    return () => clearTimeout(startId);
-  }, [gameState, isAIThinking, aiPlayers, executeAIMove, speedMult, clearAITimeouts, handleDrawFromDiscard]);
+    return () => {
+      clearTimeout(startId);
+      if (!didStart) {
+        isAIMovingRef.current = false;
+        setIsAIThinking(false);
+      }
+    };
+  }, [gameState, aiPlayers, executeAIMove, speedMult, handleDrawFromDiscard, drawnCard]);
 
   // Zwangszug: menschlicher Spieler muss eine offene Dame vom Ablagestapel nehmen
   useEffect(() => {

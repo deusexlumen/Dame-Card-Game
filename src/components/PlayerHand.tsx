@@ -16,6 +16,7 @@ interface PlayerHandProps {
   gamePhase?: GamePhase;
   size?: 'sm' | 'md' | 'lg';
   peekedIndices?: number[];
+  peekPhase?: boolean;
 }
 
 export function PlayerHand({
@@ -31,9 +32,10 @@ export function PlayerHand({
   gamePhase,
   size = 'md',
   peekedIndices = [],
+  peekPhase = false,
 }: PlayerHandProps) {
-  // Für Gegner: Karten immer verdeckt zeigen (außer beim König-Effekt)
-  const isOpponent = !isCurrentPlayer && !isActivePlayer;
+  // Gegner-Karten immer verdeckt zeigen, auch wenn der Gegner am Zug ist
+  const isOpponent = !isCurrentPlayer;
 
   return (
     <div className="flex flex-col items-center gap-3">
@@ -60,15 +62,21 @@ export function PlayerHand({
       {/* Karten */}
       <div className="flex gap-1 sm:gap-2">
         {player.hand.map((card, index) => {
+          // Nur eigene Karten während der Peek-Phase oder am Rundenende aufdecken
           const isVisible =
-            peekedIndices.includes(index) ||
-            player.visibleCardIndices.includes(index) ||
+            (isCurrentPlayer && peekPhase && player.visibleCardIndices.includes(index)) ||
             (isCurrentPlayer && gamePhase === 'ROUND_END');
 
           const isClickable =
             isActivePlayer &&
             !player.isEliminated &&
             (onCardClick || onCardSelectForSwap || onCardSelectForJack || onCardSelectForExtraDiscard);
+
+          // Gedächtnis-Indikatoren: eigene gesehene Karten oder gegnerische Karten,
+          // die der menschliche Spieler durch Bube/König gesehen hat
+          const showMemoryIndicator =
+            (!isOpponent && player.visibleCardIndices.includes(index)) ||
+            (isOpponent && peekedIndices.includes(index));
 
           return (
             <div key={card.id} className="relative">
@@ -94,7 +102,7 @@ export function PlayerHand({
               />
 
               {/* Sichtbarkeits-Indikator */}
-              {!isOpponent && player.visibleCardIndices.includes(index) && (
+              {showMemoryIndicator && (
                 <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-5 sm:h-5 bg-[hsl(var(--terminal-panel))] border border-[hsl(var(--terminal-green)/0.6)] rounded-full flex items-center justify-center terminal-border-glow">
                   <Eye aria-hidden="true" className="w-2 h-2 sm:w-3 sm:h-3 text-[hsl(var(--terminal-green))]" />
                 </div>

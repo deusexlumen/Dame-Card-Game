@@ -95,6 +95,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
   }, [gameState, settings.musicEnabled]);
 
   const [showStartDialog, setShowStartDialog] = useState(true);
+  const [peekPhase, setPeekPhase] = useState(false);
   const [showJackEffect, setShowJackEffect] = useState(false);
   const [showKingEffect, setShowKingEffect] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -243,11 +244,18 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
     }
   }, [gameMessage]);
 
-  // Spiel starten
+  // Spiel starten: zeige zuerst die eigenen Karten zum Merken
   const handleStart = () => {
     playCardFlip();
     startGame(players);
     setShowStartDialog(false);
+    setPeekPhase(true);
+  };
+
+  // Peek-Phase beenden und ins eigentliche Spiel wechseln
+  const handleReady = () => {
+    playCardFlip();
+    setPeekPhase(false);
   };
 
   // Spiel zurücksetzen
@@ -255,6 +263,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
     playCardFlip();
     resetGame();
     setShowStartDialog(true);
+    setPeekPhase(false);
   };
 
   // Index des menschlichen Spielers in gameState.players
@@ -327,6 +336,37 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
           </div>
         </DialogContent>
       </Dialog>
+    );
+  }
+
+  // Peek-Phase: Spieler darf seine beiden gesehenen Karten kurz anschauen
+  if (peekPhase && humanPlayerIndex >= 0) {
+    const humanPlayer = gameState.players[humanPlayerIndex];
+    return (
+      <div className="min-h-screen terminal-grid p-4 flex flex-col items-center justify-center">
+        <div className="max-w-2xl w-full bg-[hsl(var(--terminal-panel))] border border-[hsl(var(--terminal-green)/0.3)] rounded-xl p-6 sm:p-8 text-center space-y-6">
+          <h2 className="text-2xl sm:text-3xl font-bold text-[hsl(var(--terminal-green))]">
+            Merke dir deine Karten
+          </h2>
+          <p className="text-[hsl(var(--terminal-green)/0.85)]">
+            Du darfst dir 2 Karten anschauen. Sobald du bereit bist, werden sie wieder verdeckt.
+          </p>
+          <div className="flex justify-center">
+            <PlayerHand
+              player={humanPlayer}
+              isCurrentPlayer={true}
+              isActivePlayer={false}
+              gamePhase={gameState.phase}
+              peekPhase={true}
+              size="lg"
+            />
+          </div>
+          <Button onClick={handleReady} size="lg" className="w-full sm:w-auto">
+            <Play className="w-5 h-5 mr-2" />
+            Bereit
+          </Button>
+        </div>
+      </div>
     );
   }
 
