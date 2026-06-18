@@ -1,5 +1,6 @@
 # ♛ DAME — Gedächtnis, Risiko & Bluff
 
+[![Version](https://img.shields.io/badge/version-0.1.0--alpha-orange)](./)
 [![Deploy](https://img.shields.io/github/deployments/deusexlumen/Dame-Card-Game/github-pages?label=deploy&logo=github)](https://deusexlumen.github.io/Dame-Card-Game/)
 [![Build](https://img.shields.io/badge/build-passing-brightgreen?logo=githubactions)](https://github.com/deusexlumen/Dame-Card-Game/actions)
 [![Tests](https://img.shields.io/badge/tests-57%2F57-brightgreen?logo=vitest)](./)
@@ -11,7 +12,11 @@
 > **Ein browserbasiertes Kartenspiel für 2–6 Spieler.**  
 > Mensch gegen Mensch, Mensch gegen KI — komplett client-seitig, ohne Backend, ohne Tracking.
 
+> 🚧 **Alpha-Version:** Das Spiel ist spielbar, aber Features, Balance und UI können sich noch ändern. Feedback ist willkommen!
+
 🚀 **Live spielen:** https://deusexlumen.github.io/Dame-Card-Game/
+
+🌐 **English version:** [README_EN.md](./README_EN.md)
 
 ---
 

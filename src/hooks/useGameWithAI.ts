@@ -530,7 +530,6 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     }
 
     return false;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleEndTurn = useCallback(() => {
