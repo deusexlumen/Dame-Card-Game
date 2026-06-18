@@ -2,6 +2,18 @@ import type { GameState, Player, Card } from '@/types/game';
 
 export type AIDifficulty = 'easy' | 'medium' | 'hard';
 
+const EXTRA_DISCARD_THRESHOLDS: Record<AIDifficulty, number> = {
+  easy: 0,
+  medium: 3,
+  hard: 4,
+};
+
+const DAME_CALL_CONFIDENCE: Record<AIDifficulty, number> = {
+  easy: 0.7,
+  medium: 0.85,
+  hard: 0.95,
+};
+
 export type AIActionType =
   | 'WAIT'
   | 'DRAW_FROM_DECK'
@@ -107,10 +119,10 @@ function makeEasyMove(
     return { action: 'WAIT' };
   }
 
-  // Extra-Ablegen: Einfache KI nutzt es manchmal, wenn eine passende Karte vorhanden ist
-  if (gameState.discardPile.length > 0 && Math.random() > 0.5) {
+  // Extra-Ablegen: Einfache KI nutzt es, wenn eine passende Karte vorhanden ist
+  if (gameState.discardPile.length > 0) {
     const topCard = gameState.discardPile[gameState.discardPile.length - 1];
-    const extraCardId = findExtraDiscardCardId(player, topCard.rank, 0);
+    const extraCardId = findExtraDiscardCardId(player, topCard.rank, EXTRA_DISCARD_THRESHOLDS.easy);
     if (extraCardId) {
       return { action: 'DISCARD_EXTRA_CARD', payload: { cardId: extraCardId } };
     }
@@ -166,7 +178,7 @@ function makeMediumMove(
     const topCard = gameState.discardPile[gameState.discardPile.length - 1];
 
     // Extra-Ablegen: Wenn wir eine passende Karte haben, nutze die Gelegenheit
-    const extraCardId = findExtraDiscardCardId(player, topCard.rank, 3);
+    const extraCardId = findExtraDiscardCardId(player, topCard.rank, EXTRA_DISCARD_THRESHOLDS.medium);
     if (extraCardId && topCard.rank !== 'Q') {
       return { action: 'DISCARD_EXTRA_CARD', payload: { cardId: extraCardId } };
     }
@@ -260,7 +272,7 @@ function makeHardMove(
     const topCard = gameState.discardPile[gameState.discardPile.length - 1];
 
     // Extra-Ablegen: Strategisch nutzen, wenn eine passende Karte schlecht ist
-    const extraCardId = findExtraDiscardCardId(player, topCard.rank, 4);
+    const extraCardId = findExtraDiscardCardId(player, topCard.rank, EXTRA_DISCARD_THRESHOLDS.hard);
     if (extraCardId && topCard.rank !== 'Q') {
       return { action: 'DISCARD_EXTRA_CARD', payload: { cardId: extraCardId } };
     }
@@ -370,9 +382,9 @@ function shouldCallDame(gameState: GameState, playerId: string, difficulty: AIDi
   
   // Mittel: Rufen wenn geschätzter Score < 15
   if (difficulty === 'medium') {
-    return estimatedScore < 15 && Math.random() > 0.3; // 70% Chance wenn Bedingung erfüllt
+    return estimatedScore < 15 && Math.random() < DAME_CALL_CONFIDENCE[difficulty];
   }
-  
+
   // Schwer: Rufen wenn geschätzter Score < 20 und wir führen wahrscheinlich
   if (difficulty === 'hard') {
     // Prüfe ob wir wahrscheinlich führen
@@ -381,8 +393,8 @@ function shouldCallDame(gameState: GameState, playerId: string, difficulty: AIDi
       const theirEstimatedScore = evaluateHand(p);
       return estimatedScore <= theirEstimatedScore;
     });
-    
-    return probablyLeading && estimatedScore < 20;
+
+    return probablyLeading && estimatedScore < 20 && Math.random() < DAME_CALL_CONFIDENCE[difficulty];
   }
   
   return false;
