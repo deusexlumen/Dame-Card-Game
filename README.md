@@ -1,212 +1,145 @@
-# DAME — Gedächtnis, Risiko & Bluff
+# ♛ DAME — Gedächtnis, Risiko & Bluff
 
-[![Build](https://img.shields.io/badge/build-passing-brightgreen?logo=githubactions)](./)
+[![Deploy](https://img.shields.io/github/deployments/deusexlumen/Dame-Card-Game/github-pages?label=deploy&logo=github)](https://deusexlumen.github.io/Dame-Card-Game/)
+[![Build](https://img.shields.io/badge/build-passing-brightgreen?logo=githubactions)](https://github.com/deusexlumen/Dame-Card-Game/actions)
+[![Tests](https://img.shields.io/badge/tests-57%2F57-brightgreen?logo=vitest)](./)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-7-646CFF?logo=vite)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss)](https://tailwindcss.com/)
-[![Tests](https://img.shields.io/badge/tests-passing-brightgreen?logo=vitest)](./)
 
-> Ein browserbasiertes Kartenspiel für 2–6 Spieler. Menschliche Spieler können gegeneinander oder gegen KI-Gegner antreten. Komplett client-seitig in React + TypeScript gebaut — ohne Backend, ohne externe Assets.
+> **Ein browserbasiertes Kartenspiel für 2–6 Spieler.**  
+> Mensch gegen Mensch, Mensch gegen KI — komplett client-seitig, ohne Backend, ohne Tracking.
+
+🚀 **Live spielen:** https://deusexlumen.github.io/Dame-Card-Game/
 
 ---
 
-## 🎴 Über das Spiel
+## 🎴 Was ist DAME?
 
-**DAME** ist ein minimalistisches Informations-, Risiko- und Memory-Kartenspiel. Jeder Spieler besitzt ein verdecktes Kartenfeld aus vier Karten, von denen er sich zu Beginn nur zwei anschauen darf. Von da an muss er sich merken, welche Karte wo liegt — während er gleichzeitig die gegnerischen Aktionen beobachtet und den richtigen Moment findet, um die Runde zu beenden.
+DAME ist ein taktisches Memory-Kartenspiel mit Bluff-Element. Du kennst deine eigenen Karten nie wirklich — nur das, was du dir merken kannst.
 
-Der zentrale Reiz liegt nicht darin, einfach gute Karten zu besitzen, sondern die eigene Auslage zuverlässig zu kennen und die anderen Spieler richtig einzuschätzen. Fehler werden sofort bestraft, Information ist die wichtigste Währung, und die **Dame-Ansage** ist ein riskanter Bluff, der alles entscheiden kann.
+- Jeder Spieler bekommt **4 verdeckte Karten** und darf sich **nur 2** davon anschauen.
+- Danach bleiben die Karten verdeckt liegen. Du musst dir **Position und Wert merken**.
+- Ziehe, tausche, bluffe — und rufe zur richtigen Zeit **„Dame"**, um die Runde zu beenden.
+- Fehler werden mit **Strafkarten** bestraft. Information ist alles.
 
-Visuell folgt DAME einer **Terminal-/Cybernetic-Archive-Ästhetik**: schwarzer Hintergrund, grüner Phosphor-Glow, geometrische Symbole und Monospace-Typografie. Die Karten wirken wie Speicherobjekte eines archivierten Systems, nicht wie klassische Spielkarten.
+Visuell fühlt sich DAME wie ein **Terminal eines archivierten Cyber-Systems** an: schwarzer Hintergrund, grüner Phosphor-Glow, geometrische Symbole, Monospace-Typografie.
 
 ---
 
 ## ✨ Features
 
-| Feature | Beschreibung |
-|---------|-------------|
-| 🎮 **2–6 Spieler** | Mensch gegen Mensch oder gemischte Partien mit KI-Gegnern |
-| 🤖 **KI-Gegner** | Drei Schwierigkeitsgrade: Einfach, Mittel, Schwer |
-| 👁️ **Bube (J)** | Schau dir eine eigene *oder* gegnerische verdeckte Karte an |
-| 👑 **König (K)** | Deck eine gegnerische Karte kurz auf und tausche sie gezielt mit einer eigenen |
-| 🃏 **Dame (Q)** | Beim Ablegen ziehst du eine Strafkarte; der nächste Spieler muss eine offene Dame vom Ablagestapel ziehen |
-| 📢 **Dame-Ansage** | Beende die Runde frühzeitig — liegt der Caller falsch, startet er die nächste Runde mit **5 Karten** |
-| ⚡ **Extra-Ablegen** | Wenn du eine Karte mit gleichem Wert wie die oberste Ablagekarte besitzt, kannst du sie direkt ablegen |
-| 🎯 **50-Punkte-Schwelle** | Wer über 50 Punkte kommt, scheidet aus; genau 50 Punkte setzen den Score auf 0 zurück |
-| 🔊 **Sounds & Musik** | Prozedurale Soundeffekte über die Web Audio API, ein-/ausschaltbare Ambient-Musik |
-| 🎬 **Animationen** | Framer-Motion-Animationen für Karten, UI-Übergänge und Feedback |
-| ⚙️ **Einstellungen** | Sound, Musik, Animationen, KI-Geschwindigkeit und mehr |
-| 💾 **Speichern & Laden** | Auto-Save im localStorage; Savegames werden validiert und bei Beschädigung verworfen |
-| 📖 **Tutorial** | Integrierte Anleitung für neue Spieler |
-| ♿ **Zugänglichkeit** | ARIA-Labels, Tastatursteuerung und Screenreader-freundliche Statusmeldungen |
+|  |  |
+|---|---|
+| 🎮 **2–6 Spieler** | Mensch vs. Mensch oder mit KI-Gegnern |
+| 🤖 **3 KI-Stufen** | Einfach, Mittel, Schwer — mit unterschiedlichen Aggressions- und Bluff-Strategien |
+| 👁️ **Bube (J)** | Eigene oder gegnerische Karte anschauen |
+| 👑 **König (K)** | Gegnerische Karte kurz aufdecken und gezielt tauschen |
+| 🃏 **Dame (Q)** | Strafkarte beim Ablegen — und Zwangszug für den nächsten Spieler |
+| ⚡ **Extra-Ablegen** | Passende Karten direkt mit ablegen |
+| 📢 **Dame-Ansage** | Frühzeitig die Runde beenden — aber Vorsicht bei falschem Call |
+| 🎯 **50-Punkte-Regel** | Über 50 = ausgeschieden, genau 50 = Reset auf 0 |
+| 📊 **Statistiken** | Lokale Spielstatistiken im Browser |
+| 🔊 **Sound & Musik** | Prozedurale Web-Audio-Sounds, abschaltbare Ambient-Musik |
+| 🎬 **Animationen** | Framer-Motion-Übergänge für Karten und UI |
+| ♿ **Barrierefrei** | Tastatursteuerung, ARIA-Labels, Screenreader-Support |
 
 ---
 
-## 🕹️ Spielregeln
+## 🕹️ Schnellstart
 
-### Ziel
-Sammle so wenige Punkte wie möglich. Wer **mehr als 50 Punkte** besitzt, scheidet aus. Wer **genau 50 Punkte** erreicht, fällt auf **0** zurück.
+```bash
+# 1. Repo klonen
+git clone https://github.com/deusexlumen/Dame-Card-Game.git
+cd Dame-Card-Game
 
-### Aufbau
-- Jeder Spieler erhält **4 verdeckte Karten**.
-- Du darfst dir davon **genau 2** anschauen.
-- Die Positionen der Karten bleiben erhalten — du musst dir merken, was wo liegt.
+# 2. Dependencies installieren (pnpm)
+pnpm install
 
-### Zugablauf
-1. **Ziehen** — Nimm die oberste Karte vom Zieh- oder Ablagestapel.
-2. **Entscheiden** — Behalte die Karte, tausche sie mit einer deiner Hand-Karten oder lege sie ab.
-3. **Extra-Ablegen** — Passt eine deiner Hand-Karten zum Wert der obersten Ablagekarte, kannst du sie sofort mit ablegen.
+# 3. Dev-Server starten
+pnpm dev
 
-### Sonderkarten
-| Karte | Wert | Effekt |
-|-------|------|--------|
-| **Dame (Q)** | 0 | Beim Ablegen ziehst du eine Strafkarte. Liegt eine Dame oben auf dem Ablagestapel, muss der nächste Spieler sie ziehen. |
-| **Bube (J)** | 10 | Schaue eine beliebige verdeckte Karte an (eigene oder gegnerische). |
-| **König (K)** | 10 | Deck eine gegnerische Karte auf und tausche sie gezielt mit einer deiner Karten. |
-| **Ass (A)** | 1 | Kein Effekt. |
-| **2–10** | Kartenwert | Kein Effekt. |
+# 4. Tests laufen lassen
+pnpm test
+```
 
-### Dame-Ansage
-Ab einer bestimmten Runde kannst du **„Dame"** rufen, wenn du glaubst, die wenigsten Punkte zu haben:
-- Deine Karten werden gesperrt.
-- Alle anderen Spieler erhalten noch einen letzten Zug.
-- Dann werden alle Karten aufgedeckt und die Punkte berechnet.
-
-**Wichtig:** Liegst du falsch oder hat ein anderer Spieler gleich viele oder weniger Punkte, startest du die **nächste Runde mit 5 statt 4 Karten** als Strafe.
+Fertig! Der Server läuft meist unter `http://localhost:5173/Dame-Card-Game/`.
 
 ---
 
-## ⌨️ Tastenkürzel
+## 📋 Die wichtigsten Regeln
+
+1. **Aufbau:** 4 verdeckte Karten pro Spieler, 2 davon kurz anschauen.
+2. **Zug:** Ziehe vom Zieh- oder Ablagestapel. Entscheide: behalten, tauschen oder ablegen.
+3. **Extra-Ablegen:** Hast du eine Karte mit gleichem Wert wie die oberste Ablagekarte, darfst du sie sofort ablegen.
+4. **Sonderkarten:**
+   - **Dame (Q)** → Strafkarte beim Ablegen; offene Dame muss vom nächsten Spieler genommen werden.
+   - **Bube (J)** → Beliebige verdeckte Karte anschauen.
+   - **König (K)** → Gegnerische Karte anschauen und gezielt tauschen.
+5. **Dame-Ansage:** Wer glaubt, die wenigsten Punkte zu haben, ruft „Dame". Liegt er falsch, startet er die nächste Runde mit **5 statt 4 Karten**.
+
+Die vollständigen Konzept-Entscheidungen findest du in [`CONCEPT_DECISIONS.md`](./CONCEPT_DECISIONS.md).
+
+---
+
+## ⌨️ Tastatursteuerung
 
 | Taste | Aktion |
-|-------|--------|
-| `Leertaste` | Karte ziehen (wenn keine gezogen) / Gezogene Karte ablegen |
-| `1` – `4` | Hand-Karte 1–4 auswählen (für Tausch oder Extra-Ablegen) |
+|---|---|
+| `Leertaste` | Karte ziehen / Gezogene Karte ablegen |
+| `1` – `4` | Hand-Karte auswählen |
 | `Enter` | Tausch bestätigen |
 | `D` | Dame rufen |
 | `Z` / `E` | Zug beenden |
-| `Esc` | Dialoge schließen / Aktion abbrechen |
+| `Esc` | Dialog schließen |
 
 ---
 
 ## 🛠️ Tech Stack
 
 - **Framework:** React 19
-- **Sprache:** TypeScript 5.9
-- **Build-Tool:** Vite 7
-- **Styling:** Tailwind CSS 3.4, shadcn/ui (New-York-Style)
+- **Language:** TypeScript 5.9
+- **Build:** Vite 7
+- **Styling:** Tailwind CSS 3.4 + shadcn/ui
 - **Animationen:** Framer Motion
-- **State Management:** React Hooks + pure Logikfunktionen
-- **Sound:** Web Audio API (prozedural generiert)
-- **Testing:** Vitest + jsdom
-- **Linting:** ESLint 9 mit TypeScript-Support
+- **Sound:** Web Audio API
+- **Tests:** Vitest + jsdom
+- **Linting:** ESLint 9
 
 ---
 
-## 📁 Projektstruktur
+## 🌍 Deployment
 
-```
-src/
-├── components/          # UI-Komponenten
-│   ├── Card.tsx         # Kartendarstellung (Terminal-Look, Animationen)
-│   ├── GameBoard.tsx    # Hauptspielbrett und Interaktionen
-│   ├── PlayerHand.tsx   # Spielerhand mit Sichtbarkeitslogik
-│   └── ui/              # shadcn/ui-Komponenten
-├── hooks/               # React-Hooks
-│   ├── useGameWithAI.ts # Spielzustand + KI-Automatisierung
-│   ├── useSettings.ts   # Persistente Einstellungen
-│   └── use-mobile.ts    # Mobile-Breakpoint-Erkennung
-├── lib/                 # Reine Spiellogik (kein React)
-│   ├── gameLogic.ts     # Spielregeln & Zustandsmaschine
-│   ├── aiPlayer.ts      # KI-Entscheidungslogik
-│   ├── sounds.ts        # Web-Audio-Sound-Engine
-│   └── settings.ts      # Globale Settings-Referenz
-├── types/               # TypeScript-Typen & Konstanten
-│   └── game.ts
-├── App.tsx              # Root-Komponente: Menü, Regeln, Spiel-Router
-└── main.tsx             # Entry-Point
-```
+Jeder Push auf `main` wird automatisch auf **GitHub Pages** deployt.
 
----
-
-## 🚀 Getting Started
-
-### Voraussetzungen
-- [Node.js](https://nodejs.org/) (LTS empfohlen)
-- [pnpm](https://pnpm.io/) als Package-Manager
-
-### Installation & Entwicklung
-
-```bash
-# Dependencies installieren
-pnpm install
-
-# Entwicklungsserver starten
-pnpm dev
-
-# Produktions-Build erzeugen
-pnpm build
-
-# Produktions-Build lokal testen
-pnpm preview
-```
-
----
-
-## 📜 Scripts
-
-| Script | Befehl | Beschreibung |
-|--------|--------|--------------|
-| `dev` | `pnpm dev` | Vite-Entwicklungsserver starten |
-| `build` | `pnpm build` | TypeScript-Check + Produktions-Build |
-| `preview` | `pnpm preview` | `dist/` lokal previewen |
-| `lint` | `pnpm lint` | ESLint ausführen |
-| `test` | `pnpm test` | Vitest im Watch-Modus starten |
-| `test:ui` | `pnpm test:ui` | Vitest mit UI-Oberfläche starten |
+- **Live-URL:** https://deusexlumen.github.io/Dame-Card-Game/
+- **Workflow:** [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml)
+- **Base-Pfad:** `/Dame-Card-Game/`
 
 ---
 
 ## 🧪 Tests
 
 ```bash
-# Tests einmalig ausführen
-pnpm vitest run
-
-# Tests mit UI
-pnpm test:ui
+pnpm vitest run   # Tests einmalig ausführen
+pnpm test:ui      # Tests mit UI-Oberfläche
 ```
 
-Die Tests decken ab:
-- Karten-Generierung & Mischen
+Abgedeckt werden:
 - Spielmechaniken (Ziehen, Tauschen, Ablegen)
 - Sonderkarten-Effekte (Bube, König, Dame)
-- Dame-Ansage & Strafmechanik
-- Punkteberechnung & Eliminierung
-- KI-Entscheidungslogik
+- Dame-Ansage & Strafsystem
+- KI-Entscheidungslogik pro Schwierigkeitsgrad
 
 ---
 
-## Offene Konzeptfragen — Finale Entscheidungen
+## 📸 Screenshot
 
-Siehe [`CONCEPT_DECISIONS.md`](./CONCEPT_DECISIONS.md) für die verbindliche Festlegung von Echtzeit-Reaktion, Strafkarten-Anzahl, Sichtbarkeit der Dame, Mitwerfen und Rundenabschluss.
-
-## Spielstatistiken
-
-Das Spiel speichert lokale Statistiken im Browser (`localStorage`): gespielte Spiele, Siegquote, Runden, beste Runde sowie Dame-Ansagen. Über den Start-Dialog können sie eingesehen und zurückgesetzt werden.
-
-## Deployment
-
-Das Projekt wird automatisch auf GitHub Pages deployt, sobald Änderungen in den `main`-Branch gepusht werden.  
-`vite.config.ts` verwendet dafür `base: '/Dame-Card-Game/'`.
-
-Live-URL: https://deusexlumen.github.io/Dame-Card-Game/
+> _[Hier könnte ein Screenshot des Spieltischs stehen — füge einfach `dame-screenshot.png` im Root hinzu und aktualisiere diesen Abschnitt.]_
 
 ---
 
 ## 📝 Lizenz
 
-MIT
-
----
-
-> Gebaut mit ❤️, ☕ und viel grünem Phosphor-Glow — viel Spaß beim Spielen!
+MIT — gebaut mit ❤️, ☕ und viel grünem Phosphor-Glow.
