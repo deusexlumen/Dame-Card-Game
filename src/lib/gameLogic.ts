@@ -265,14 +265,19 @@ export function applyKingEffect(
   // Karten tauschen
   const myCard = player.hand[myHandIndex];
   const targetCard = targetPlayer.hand[targetHandIndex];
-  
+
   player.hand[myHandIndex] = targetCard;
   targetPlayer.hand[targetHandIndex] = myCard;
-  
+
   // Beide Karten bleiben verdeckt
   player.hand[myHandIndex].isVisible = false;
   targetPlayer.hand[targetHandIndex].isVisible = false;
-  
+
+  // Sichtbarkeits-Informationen an den neuen Positionen zurücksetzen,
+  // damit keine Karte durch den Tausch aufgedeckt bleibt.
+  player.visibleCardIndices = player.visibleCardIndices.filter((i) => i !== myHandIndex);
+  targetPlayer.visibleCardIndices = targetPlayer.visibleCardIndices.filter((i) => i !== targetHandIndex);
+
   newState.lastAction = `${player.name} hat eine Karte mit ${targetPlayer.name} getauscht`;
   return newState;
 }

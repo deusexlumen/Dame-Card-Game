@@ -52,7 +52,7 @@ interface UseGameWithAIReturn {
   activateKing: (targetPlayerId: string, myHandIndex: number, targetHandIndex: number) => void;
   peekKingTarget: (targetPlayerId: string, targetHandIndex: number) => Card | null;
   callDame: () => void;
-  tryDiscardExtra: (cardId: string) => void;
+  tryDiscardExtra: (cardId: string) => boolean;
   endTurn: () => void;
   startNextRound: () => void;
   resetGame: () => void;
@@ -498,8 +498,8 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     setGameMessage(`${currentPlayer.name} hat Dame gerufen! Letzte Runde!`);
   }, []);
 
-  const handleTryDiscardExtra = useCallback((cardId: string) => {
-    if (!gameStateRef.current) return;
+  const handleTryDiscardExtra = useCallback((cardId: string): boolean => {
+    if (!gameStateRef.current) return false;
 
     const currentPlayer = gameStateRef.current.players[gameStateRef.current.currentPlayerIndex];
     const { success, newState } = discardExtraCard(gameStateRef.current, currentPlayer.id, cardId);
@@ -514,6 +514,23 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
         setGameMessage('Falsche Karte! Strafkarte gezogen.');
       }
     }
+
+    // Wenn der Spieler durch das Extra-Ablegen keine Karten mehr hat, Dame automatisch rufen
+    if (success) {
+      const playerAfter = newState.players.find((p) => p.id === currentPlayer.id);
+      if (playerAfter && playerAfter.hand.length === 0) {
+        isAIMovingRef.current = false;
+        const dameState = callDame(newState, currentPlayer.id);
+        const endState = endTurn(dameState);
+        gameStateRef.current = endState;
+        setGameState(endState);
+        setGameMessage(`${currentPlayer.name} hat keine Karten mehr und ruft Dame!`);
+        return true;
+      }
+    }
+
+    return false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleEndTurn = useCallback(() => {
@@ -630,8 +647,10 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
           break;
         case 'DISCARD_EXTRA_CARD':
           if (decision.payload) {
-            handleTryDiscardExtra(decision.payload.cardId);
-            scheduleAITimeout(() => endTurnAfterAI(), Math.round(500 * currentSpeed));
+            const autoDame = handleTryDiscardExtra(decision.payload.cardId);
+            if (!autoDame) {
+              scheduleAITimeout(() => endTurnAfterAI(), Math.round(500 * currentSpeed));
+            }
           }
           break;
         case 'USE_JACK':
