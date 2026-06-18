@@ -144,7 +144,9 @@ describe('decideAIMove — Pre-Draw', () => {
     ];
     const move = decideAIMove(state, 'p1', 'hard');
     expect(move.action).toBe('DISCARD_EXTRA_CARD');
-    expect(move.payload?.cardId).toBe('h1');
+    if (move.action === 'DISCARD_EXTRA_CARD') {
+      expect(move.payload.cardId).toBe('h1');
+    }
   });
 
   it('hard KI extra-discardiert keine niedrigwertige passende Karte', () => {
