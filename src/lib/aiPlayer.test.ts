@@ -118,6 +118,50 @@ describe('decideAIMove — Pre-Draw', () => {
     const moveHard = decideAIMove(state, 'p1', 'hard');
     expect(moveHard.action).toBe('DISCARD_EXTRA_CARD');
   });
+
+  it('easy KI extra-discardiert auch niedrige passende Karten', () => {
+    const state = makeState({
+      discardPile: [{ id: 'd1', suit: 'hearts', rank: '2', value: 2, isVisible: true }],
+    });
+    state.players[0].hand = [
+      { id: 'h1', suit: 'clubs', rank: '2', value: 2, isVisible: false },
+      { id: 'h2', suit: 'diamonds', rank: '5', value: 5, isVisible: false },
+      { id: 'h3', suit: 'spades', rank: '8', value: 8, isVisible: false },
+      { id: 'h4', suit: 'hearts', rank: '3', value: 3, isVisible: false },
+    ];
+    expect(decideAIMove(state, 'p1', 'easy').action).toBe('DISCARD_EXTRA_CARD');
+  });
+
+  it('hard KI extra-discardiert nur hochwertige passende Karten', () => {
+    const state = makeState({
+      discardPile: [{ id: 'd1', suit: 'hearts', rank: '10', value: 10, isVisible: true }],
+    });
+    state.players[0].hand = [
+      { id: 'h1', suit: 'clubs', rank: '10', value: 10, isVisible: false },
+      { id: 'h2', suit: 'diamonds', rank: '5', value: 5, isVisible: false },
+      { id: 'h3', suit: 'spades', rank: '8', value: 8, isVisible: false },
+      { id: 'h4', suit: 'hearts', rank: '3', value: 3, isVisible: false },
+    ];
+    const move = decideAIMove(state, 'p1', 'hard');
+    expect(move.action).toBe('DISCARD_EXTRA_CARD');
+    if (move.action === 'DISCARD_EXTRA_CARD') {
+      expect(move.payload.cardId).toBe('h1');
+    }
+  });
+
+  it('hard KI extra-discardiert keine niedrigwertige passende Karte', () => {
+    const state = makeState({
+      discardPile: [{ id: 'd1', suit: 'hearts', rank: '2', value: 2, isVisible: true }],
+    });
+    state.players[0].hand = [
+      { id: 'h1', suit: 'clubs', rank: '2', value: 2, isVisible: false },
+      { id: 'h2', suit: 'diamonds', rank: 'A', value: 1, isVisible: false },
+      { id: 'h3', suit: 'spades', rank: 'A', value: 1, isVisible: false },
+      { id: 'h4', suit: 'hearts', rank: 'A', value: 1, isVisible: false },
+    ];
+    const move = decideAIMove(state, 'p1', 'hard');
+    expect(move.action).not.toBe('DISCARD_EXTRA_CARD');
+  });
 });
 
 describe('decideAIMove — Post-Draw', () => {
@@ -230,7 +274,7 @@ describe('decideAIMove — Dame Call', () => {
       const move = decideAIMove(state, 'p1', 'medium');
       if (move.action === 'CALL_DAME') callCount++;
     }
-    expect(callCount).toBeGreaterThan(5); // 70% Chance bei Score < 15
+    expect(callCount).toBeGreaterThan(5); // 85% Chance bei Score < 15
   });
 
   it('verbietet Dame Call in Safe Phase', () => {

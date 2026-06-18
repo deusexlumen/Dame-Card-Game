@@ -1,6 +1,9 @@
 import type { Card, CardSuit, CardRank, Player, GameState, MemoryEntry } from '@/types/game';
 import { CARD_VALUES } from '@/types/game';
 
+// Anzahl der Strafkarten, die bei regelwidrigen Aktionen gezogen werden
+export const PENALTY_CARD_COUNT = 1;
+
 // Einzigartige ID generieren
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 9);
@@ -276,17 +279,22 @@ export function applyKingEffect(
 
 // Dame-Effekt: Strafkarte ziehen
 export function applyQueenEffect(gameState: GameState, playerId: string): GameState {
-  const newState = structuredClone(gameState);
+  let newState = structuredClone(gameState);
 
-  const { card, newState: updatedState } = drawFromDeck(newState);
-  if (card) {
-    const updatedPlayer = updatedState.players.find(p => p.id === playerId)!;
-    card.isVisible = false;
-    updatedPlayer.penaltyCards.push(card);
-    updatedState.lastAction = `${updatedPlayer.name} hat eine Strafkarte gezogen!`;
+  for (let i = 0; i < PENALTY_CARD_COUNT; i++) {
+    const { card, newState: updatedState } = drawFromDeck(newState);
+    if (card) {
+      const updatedPlayer = updatedState.players.find(p => p.id === playerId)!;
+      card.isVisible = false;
+      updatedPlayer.penaltyCards.push(card);
+      newState = updatedState;
+    }
   }
 
-  return updatedState;
+  const player = newState.players.find(p => p.id === playerId)!;
+  newState.lastAction = `${player.name} hat eine Strafkarte gezogen!`;
+
+  return newState;
 }
 
 // Dame Call ausführen
@@ -425,13 +433,17 @@ export function endRound(gameState: GameState): GameState {
   if (!callerWins && dameCallerId) {
     const caller = newState.players.find(p => p.id === dameCallerId);
     if (caller) {
-      const { card: penaltyCard, newState: updatedState } = drawFromDeck(newState);
-      if (penaltyCard) {
-        penaltyCard.isVisible = false;
-        caller.penaltyCards.push(penaltyCard);
+      let currentState = newState;
+      for (let i = 0; i < PENALTY_CARD_COUNT; i++) {
+        const { card: penaltyCard, newState: drawnState } = drawFromDeck(currentState);
+        if (penaltyCard) {
+          penaltyCard.isVisible = false;
+          caller.penaltyCards.push(penaltyCard);
+          currentState = drawnState;
+        }
       }
-      newState.deck = updatedState.deck;
-      newState.discardPile = updatedState.discardPile;
+      newState.deck = currentState.deck;
+      newState.discardPile = currentState.discardPile;
     }
   }
 
@@ -558,12 +570,16 @@ export function discardExtraCard(
   const topCard = newState.discardPile[newState.discardPile.length - 1];
   if (card.rank !== topCard.rank) {
     // Falsche Karte - Strafkarte!
-    const { card: penaltyCard, newState: updatedState } = drawFromDeck(newState);
-    if (penaltyCard) {
-      const updatedPlayer = updatedState.players.find(p => p.id === playerId)!;
-      penaltyCard.isVisible = false;
-      updatedPlayer.penaltyCards.push(penaltyCard);
-      updatedState.lastAction = `${updatedPlayer.name} hat falsch abgelegt - Strafkarte!`;
+    let updatedState = newState;
+    for (let i = 0; i < PENALTY_CARD_COUNT; i++) {
+      const { card: penaltyCard, newState: drawnState } = drawFromDeck(updatedState);
+      if (penaltyCard) {
+        const updatedPlayer = drawnState.players.find(p => p.id === playerId)!;
+        penaltyCard.isVisible = false;
+        updatedPlayer.penaltyCards.push(penaltyCard);
+        drawnState.lastAction = `${updatedPlayer.name} hat falsch abgelegt - Strafkarte!`;
+        updatedState = drawnState;
+      }
     }
     return { success: false, newState: updatedState };
   }

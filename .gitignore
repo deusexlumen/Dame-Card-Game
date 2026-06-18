@@ -5,3 +5,4 @@ dist/
 dame-*.png
 pnpm-lock.yaml
 .tmp/
+.worktrees/
