@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameWithAI } from '@/hooks/useGameWithAI';
+import { useGameStats } from '@/hooks/useGameStats';
+import { StatsPanel } from './StatsPanel';
 import { CardComponent, CardStack } from './Card';
 import { PlayerHand } from './PlayerHand';
 import { Button } from '@/components/ui/button';
@@ -44,6 +46,7 @@ const DIFFICULTY_COLORS: Record<AIDifficulty, string> = {
 };
 
 export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
+  const { stats, clear, recordRound, recordGame } = useGameStats();
   const { settings, toggleSound, toggleAnimations, toggleMusic, setAiSpeed } = useSettings();
 
   const {
@@ -72,7 +75,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
     canCallDameNow,
     isCurrentPlayerHuman,
     tryDiscardExtra,
-  } = useGameWithAI(settings.aiSpeed);
+  } = useGameWithAI(settings.aiSpeed, { recordRound, recordGame });
 
   // Globale Settings für Sound-Engine synchronisieren
   useEffect(() => {
@@ -291,6 +294,9 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
               <p className="text-[hsl(var(--terminal-green)/0.85)] text-sm">
                 {players.filter(p => p.isAI).length} KI-Gegner mit verschiedenen Schwierigkeitsgraden!
               </p>
+            </div>
+            <div className="flex justify-center">
+              <StatsPanel stats={stats} onReset={clear} />
             </div>
             {hasSavedGame && (
               <Button

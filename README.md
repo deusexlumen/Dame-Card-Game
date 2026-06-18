@@ -208,3 +208,7 @@ MIT
 ## Offene Konzeptfragen — Finale Entscheidungen
 
 Siehe [`CONCEPT_DECISIONS.md`](./CONCEPT_DECISIONS.md) für die verbindliche Festlegung von Echtzeit-Reaktion, Strafkarten-Anzahl, Sichtbarkeit der Dame, Mitwerfen und Rundenabschluss.
+
+## Spielstatistiken
+
+Das Spiel speichert lokale Statistiken im Browser (`localStorage`): gespielte Spiele, Siegquote, Runden, beste Runde sowie Dame-Ansagen. Über den Start-Dialog können sie eingesehen und zurückgesetzt werden.

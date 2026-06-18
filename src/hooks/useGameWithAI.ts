@@ -27,6 +27,11 @@ export interface AIPlayerInfo {
   difficulty: AIDifficulty;
 }
 
+interface StatsActions {
+  recordRound: (dameCalled: boolean, dameSuccessful: boolean, penaltyCards: number, bestScore: number) => void;
+  recordGame: (won: boolean) => void;
+}
+
 interface UseGameWithAIReturn {
   gameState: GameState | null;
   drawnCard: Card | null;
@@ -224,7 +229,7 @@ function hasSavedGameState(): boolean {
   }
 }
 
-export function useGameWithAI(aiSpeed: AISpeed = 'normal'): UseGameWithAIReturn {
+export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsActions): UseGameWithAIReturn {
   const speedMult = SPEED_MULTIPLIERS[aiSpeed];
   const speedMultRef = useRef(speedMult);
   useEffect(() => {
@@ -521,6 +526,30 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal'): UseGameWithAIReturn 
       const roundEndState = endRound(newState);
       setGameState(roundEndState);
 
+      // Rundenstatistiken erfassen
+      const dameCalled = !!roundEndState.dameCallerId;
+      const caller = dameCalled
+        ? roundEndState.players.find((p) => p.id === roundEndState.dameCallerId)
+        : undefined;
+      const dameSuccessful = caller
+        ? roundEndState.players.every((p) => p.id === caller.id || p.score > caller.score)
+        : false;
+      const totalPenaltyCards = roundEndState.players.reduce(
+        (sum, p) => sum + p.penaltyCards.length,
+        0
+      );
+      const activeScores = roundEndState.players
+        .filter((p) => !p.isEliminated)
+        .map((p) => p.score);
+      const bestScore = activeScores.length > 0 ? Math.min(...activeScores) : 0;
+      statsActions?.recordRound(dameCalled, dameSuccessful, totalPenaltyCards, bestScore);
+
+      if (roundEndState.phase === 'GAME_OVER') {
+        const winner = getWinner(roundEndState);
+        const humanWon = winner ? !aiPlayersRef.current.has(winner.id) : false;
+        statsActions?.recordGame(humanWon);
+      }
+
       const nextPlayer = roundEndState.players[roundEndState.currentPlayerIndex];
       const isAI = aiPlayersRef.current.has(nextPlayer.id);
       if (!isAI) {
@@ -538,7 +567,7 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal'): UseGameWithAIReturn 
         setGameMessage(`${nextPlayer.name} ist am Zug.`);
       }
     }
-  }, []);
+  }, [statsActions]);
 
   const handleStartNextRound = useCallback(() => {
     if (!gameStateRef.current) return;
