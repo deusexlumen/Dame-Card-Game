@@ -918,6 +918,14 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     return () => clearTimeout(id);
   }, [gameState, drawnCard, aiPlayers, speedMult, handleDrawFromDiscard, setMessage]);
 
+  const winner = gameState ? getWinner(gameState) : null;
+  const canCallDameNow = gameState ? canCallDame(gameState) : false;
+
+  // Aktuelle KI-Schwierigkeit ermitteln
+  const currentPlayer = gameState?.players[gameState.currentPlayerIndex];
+  const currentAIDifficulty = currentPlayer ? aiPlayers.get(currentPlayer.id) || null : null;
+  const isCurrentPlayerHuman = currentPlayer ? !aiPlayers.has(currentPlayer.id) : false;
+
   // Zug-Timer für menschliche Spieler
   useEffect(() => {
     if (!gameState || !gameConfig?.turnTimer.enabled || !isCurrentPlayerHuman) {
@@ -957,14 +965,6 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
       clearAITimeouts();
     };
   }, [clearAITimeouts]);
-
-  const winner = gameState ? getWinner(gameState) : null;
-  const canCallDameNow = gameState ? canCallDame(gameState) : false;
-
-  // Aktuelle KI-Schwierigkeit ermitteln
-  const currentPlayer = gameState?.players[gameState.currentPlayerIndex];
-  const currentAIDifficulty = currentPlayer ? aiPlayers.get(currentPlayer.id) || null : null;
-  const isCurrentPlayerHuman = currentPlayer ? !aiPlayers.has(currentPlayer.id) : false;
 
   return {
     gameState,
