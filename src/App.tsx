@@ -13,13 +13,17 @@ import {
   Brain,
   Zap,
   Target,
-  Globe
+  Globe,
+  Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
+import { useSettings } from '@/hooks/useSettings';
+import { SettingsPanel } from '@/components/SettingsPanel';
 import type { AIDifficulty } from '@/lib/aiPlayer';
+import type { GameConfig } from '@/types/game';
 
-type GameMode = 'menu' | 'game' | 'rules' | 'stats';
+type GameMode = 'menu' | 'game' | 'rules' | 'stats' | 'settings';
 
 interface PlayerConfig {
   name: string;
@@ -47,6 +51,7 @@ const DIFFICULTY_CONFIG: Record<AIDifficulty, { icon: React.ReactNode; color: st
 
 function App() {
   const { t, language, setLanguage } = useI18n();
+  const { settings } = useSettings();
   const [gameMode, setGameMode] = useState<GameMode>('menu');
   const [players, setPlayers] = useState<PlayerConfig[]>([
     { name: 'Spieler 1', isAI: false },
@@ -67,7 +72,7 @@ function App() {
       setPlayers([...players, { 
         name: `KI-${aiCount + 1}`, 
         isAI: true, 
-        difficulty: 'medium' 
+        difficulty: settings.defaultAIDifficulty 
       }]);
     }
   };
@@ -104,6 +109,11 @@ function App() {
   const backToMenu = () => {
     setGameMode('menu');
   };
+
+  // Settings page
+  if (gameMode === 'settings') {
+    return <SettingsPanel onClose={() => setGameMode('menu')} />;
+  }
 
   // Rules page
   if (gameMode === 'rules') {
@@ -169,7 +179,11 @@ function App() {
 
   // Game
   if (gameMode === 'game') {
-    return <GameBoard players={players} onBackToMenu={backToMenu} />;
+    const gameConfig: GameConfig = {
+      turnTimer: { enabled: settings.turnTimer, seconds: settings.turnTimerSeconds },
+      powerEffects: settings.powerEffects,
+    };
+    return <GameBoard players={players} onBackToMenu={backToMenu} gameConfig={gameConfig} />;
   }
 
   // Main menu
@@ -293,6 +307,15 @@ function App() {
               >
                 <BookOpen className="w-4 h-4 mr-2" />
                 {t('menu.rules')}
+              </Button>
+
+              <Button
+                onClick={() => setGameMode('settings')}
+                variant="outline"
+                className="w-full h-11 font-mono border-[hsl(var(--terminal-green)/0.4)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)] hover:text-[hsl(var(--terminal-green))]"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                {t('menu.settings')}
               </Button>
             </div>
           </CardContent>

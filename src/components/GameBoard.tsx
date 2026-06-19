@@ -22,7 +22,7 @@ import {
   Target
 } from 'lucide-react';
 import type { AIDifficulty } from '@/lib/aiPlayer';
-import type { Card } from '@/types/game';
+import type { Card, GameConfig } from '@/types/game';
 import { playCardDraw, playCardPlace, playCardFlip, playDameCall, playWinSound, playPenaltySound, startBackgroundMusic, stopBackgroundMusic } from '@/lib/sounds';
 import { setGlobalSettings } from '@/lib/settings';
 import { useSettings } from '@/hooks/useSettings';
@@ -32,6 +32,7 @@ import { Settings, Volume2, VolumeX, Sparkles, Music } from 'lucide-react';
 interface GameBoardProps {
   players: Array<{ name: string; isAI?: boolean; difficulty?: AIDifficulty }>;
   onBackToMenu: () => void;
+  gameConfig: GameConfig;
 }
 
 const DIFFICULTY_ICONS: Record<AIDifficulty, React.ReactNode> = {
@@ -46,7 +47,7 @@ const DIFFICULTY_COLORS: Record<AIDifficulty, string> = {
   hard: 'text-red-400',
 };
 
-export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
+export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps) {
   const { stats, clear, recordRound, recordGame } = useGameStats();
   const { settings, toggleSound, toggleAnimations, toggleMusic, setAiSpeed } = useSettings();
   const { t } = useI18n();
@@ -78,7 +79,10 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
     canCallDameNow,
     isCurrentPlayerHuman,
     tryDiscardExtra,
-  } = useGameWithAI(settings.aiSpeed, { recordRound, recordGame });
+    turnTimeLeft,
+    pauseTurnTimer,
+    resumeTurnTimer,
+  } = useGameWithAI(settings.aiSpeed, { recordRound, recordGame }, gameConfig);
 
   // Globale Settings für Sound-Engine synchronisieren
   useEffect(() => {
@@ -410,12 +414,20 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
               {t('game.aiThinking')}
             </motion.div>
           )}
+          {gameConfig.turnTimer.enabled && turnTimeLeft !== null && isCurrentPlayerHuman && !isAIThinking && (
+            <div className={cn(
+              "px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-white text-[10px] sm:text-sm font-mono",
+              turnTimeLeft <= 5 ? "bg-red-500/90 animate-pulse" : "bg-[hsl(var(--terminal-cyan)/0.8)]"
+            )}>
+              {turnTimeLeft}s
+            </div>
+          )}
         </div>
         <div className="flex gap-1 sm:gap-2 shrink-0">
           <Button variant="outline" size="sm" onClick={() => setShowTutorial(true)} aria-label={t('game.tutorial')} className="h-9 w-9 sm:h-10 sm:w-10 p-0">
             <Eye className="w-4 h-4 sm:w-5 sm:h-5" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowSettings(true)} aria-label={t('menu.settings')} className="h-9 w-9 sm:h-10 sm:w-10 p-0">
+          <Button variant="outline" size="sm" onClick={onBackToMenu} aria-label={t('menu.settings')} className="h-9 w-9 sm:h-10 sm:w-10 p-0">
             <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
           </Button>
           <Button variant="outline" size="sm" onClick={handleReset} aria-label={t('game.restart')} className="h-9 px-2 sm:h-10 sm:px-3 text-[10px] sm:text-sm">
@@ -646,7 +658,14 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
       </div>
 
       {/* Bube-Effekt Dialog */}
-      <Dialog open={showJackEffect} onOpenChange={setShowJackEffect}>
+      <Dialog open={showJackEffect} onOpenChange={(open) => {
+        setShowJackEffect(open);
+        if (open) {
+          pauseTurnTimer();
+        } else {
+          resumeTurnTimer();
+        }
+      }}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto bg-[hsl(var(--terminal-panel))] border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))]">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2">
@@ -693,8 +712,11 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
 
       {/* König-Effekt Dialog */}
       <Dialog open={showKingEffect} onOpenChange={(open) => {
-        if (!open) {
-          setShowKingEffect(false);
+        setShowKingEffect(open);
+        if (open) {
+          pauseTurnTimer();
+        } else {
+          resumeTurnTimer();
           setKingTargetPlayer(null);
           setKingTargetCardIndex(null);
           setKingPeekedCard(null);
