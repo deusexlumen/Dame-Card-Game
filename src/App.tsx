@@ -13,13 +13,16 @@ import {
   Brain,
   Zap,
   Target,
-  Globe
+  Globe,
+  Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
+import { useSettings } from '@/hooks/useSettings';
+import { SettingsPanel } from '@/components/SettingsPanel';
 import type { AIDifficulty } from '@/lib/aiPlayer';
 
-type GameMode = 'menu' | 'game' | 'rules' | 'stats';
+type GameMode = 'menu' | 'game' | 'rules' | 'settings';
 
 interface PlayerConfig {
   name: string;
@@ -31,22 +34,23 @@ const DIFFICULTY_CONFIG: Record<AIDifficulty, { icon: React.ReactNode; color: st
   easy: { 
     icon: <Zap className="w-4 h-4" />, 
     color: 'bg-[hsl(var(--terminal-green))] text-black',
-    descriptionKey: 'Zufällige Züge, wenig Strategie'
+    descriptionKey: 'menu.difficulty.easyDescription'
   },
   medium: { 
     icon: <Brain className="w-4 h-4" />, 
     color: 'bg-[hsl(var(--terminal-amber))] text-black',
-    descriptionKey: 'Grundlegende Strategie, schlechte Karten vermeiden'
+    descriptionKey: 'menu.difficulty.mediumDescription'
   },
   hard: { 
     icon: <Target className="w-4 h-4" />, 
     color: 'bg-[hsl(var(--terminal-red))] text-black',
-    descriptionKey: 'Fortgeschrittene Strategie, Bluff, Risikobewertung'
+    descriptionKey: 'menu.difficulty.hardDescription'
   },
 };
 
 function App() {
   const { t, language, setLanguage } = useI18n();
+  const { settings } = useSettings();
   const [gameMode, setGameMode] = useState<GameMode>('menu');
   const [players, setPlayers] = useState<PlayerConfig[]>([
     { name: 'Spieler 1', isAI: false },
@@ -67,7 +71,7 @@ function App() {
       setPlayers([...players, { 
         name: `KI-${aiCount + 1}`, 
         isAI: true, 
-        difficulty: 'medium' 
+        difficulty: settings.defaultAIDifficulty 
       }]);
     }
   };
@@ -105,6 +109,11 @@ function App() {
     setGameMode('menu');
   };
 
+  // Settings page
+  if (gameMode === 'settings') {
+    return <SettingsPanel onClose={() => setGameMode('menu')} />;
+  }
+
   // Rules page
   if (gameMode === 'rules') {
     return (
@@ -124,7 +133,7 @@ function App() {
               </section>
 
               <section>
-                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Setup</h3>
+                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">{t('rules.setupTitle')}</h3>
                 <ul className="list-disc list-inside space-y-2 text-[hsl(var(--terminal-green)/0.85)]">
                   <li>{t('rules.setup')}</li>
                   <li>{t('rules.turn')}</li>
@@ -133,7 +142,7 @@ function App() {
               </section>
 
               <section>
-                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Special cards</h3>
+                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">{t('rules.specialCardsTitle')}</h3>
                 <div className="space-y-3">
                   <div className="bg-[hsl(var(--terminal-amber)/0.08)] border border-[hsl(var(--terminal-amber)/0.25)] p-3 rounded-sm">
                     <p className="font-bold text-[hsl(var(--terminal-amber))]">{t('rules.jack')}</p>
@@ -148,12 +157,12 @@ function App() {
               </section>
 
               <section>
-                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Dame Call</h3>
+                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">{t('rules.dameCallTitle')}</h3>
                 <p className="text-[hsl(var(--terminal-green)/0.85)]">{t('rules.dameCall')}</p>
               </section>
 
               <section>
-                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Points</h3>
+                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">{t('rules.pointsTitle')}</h3>
                 <p className="text-[hsl(var(--terminal-green)/0.85)]">{t('rules.points')}</p>
               </section>
 
@@ -221,7 +230,7 @@ function App() {
                       <button
                         onClick={() => removePlayer(index)}
                         className="h-10 w-10 flex items-center justify-center rounded-sm text-[hsl(var(--terminal-red))] hover:text-[hsl(var(--terminal-red)/0.7)] hover:bg-[hsl(var(--terminal-red)/0.1)] transition-colors"
-                        aria-label={t('rules.close')}
+                        aria-label={t('menu.removePlayer')}
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>
@@ -241,7 +250,7 @@ function App() {
                               ? cn(DIFFICULTY_CONFIG[diff].color, "border-transparent")
                               : "bg-[hsl(var(--terminal-dark))] text-[hsl(var(--terminal-green)/0.7)] border-[hsl(var(--terminal-green)/0.2)] hover:border-[hsl(var(--terminal-green)/0.4)]"
                           )}
-                          title={DIFFICULTY_CONFIG[diff].descriptionKey}
+                          title={t(DIFFICULTY_CONFIG[diff].descriptionKey)}
                         >
                           {t(`menu.difficulty.${diff}`)}
                         </button>
@@ -293,6 +302,15 @@ function App() {
               >
                 <BookOpen className="w-4 h-4 mr-2" />
                 {t('menu.rules')}
+              </Button>
+
+              <Button
+                onClick={() => setGameMode('settings')}
+                variant="outline"
+                className="w-full h-11 font-mono border-[hsl(var(--terminal-green)/0.4)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)] hover:text-[hsl(var(--terminal-green))]"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                {t('menu.settings')}
               </Button>
             </div>
           </CardContent>

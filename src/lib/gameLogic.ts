@@ -1,4 +1,4 @@
-import type { Card, CardSuit, CardRank, Player, GameState, MemoryEntry } from '@/types/game';
+import type { Card, CardSuit, CardRank, Player, GameState, MemoryEntry, GameConfig } from '@/types/game';
 import { CARD_VALUES } from '@/types/game';
 
 // Anzahl der Strafkarten, die bei regelwidrigen Aktionen gezogen werden
@@ -190,11 +190,18 @@ export function applyJackEffect(
   gameState: GameState,
   viewerPlayerId: string,
   targetPlayerId: string,
-  handIndex: number
+  handIndex: number,
+  config?: GameConfig
 ): GameState {
   const newState = structuredClone(gameState);
   const viewer = newState.players.find(p => p.id === viewerPlayerId)!;
   const targetPlayer = newState.players.find(p => p.id === targetPlayerId)!;
+
+  // Im Power-Effects-Modus muss der Bube eine gegnerische Karte ansehen.
+  if (config?.powerEffects && viewerPlayerId === targetPlayerId) {
+    newState.lastAction = 'Bube-Effekt im Power-Modus: Du musst eine gegnerische Karte ansehen';
+    return newState;
+  }
 
   if (handIndex < 0 || handIndex >= targetPlayer.hand.length) {
     newState.lastAction = 'Ungültiger Kartenindex';
@@ -246,11 +253,18 @@ export function applyKingEffect(
   playerId: string,
   targetPlayerId: string,
   myHandIndex: number,
-  targetHandIndex: number
+  targetHandIndex: number,
+  config?: GameConfig
 ): GameState {
   const newState = structuredClone(gameState);
   const player = newState.players.find(p => p.id === playerId)!;
   const targetPlayer = newState.players.find(p => p.id === targetPlayerId)!;
+
+  // Im Power-Effects-Modus muss der König mit einem Gegner tauschen.
+  if (config?.powerEffects && playerId === targetPlayerId) {
+    newState.lastAction = 'König-Effekt im Power-Modus: Du musst mit einem Gegner tauschen';
+    return newState;
+  }
 
   if (
     myHandIndex < 0 ||
@@ -280,6 +294,59 @@ export function applyKingEffect(
 
   newState.lastAction = `${player.name} hat eine Karte mit ${targetPlayer.name} getauscht`;
   return newState;
+}
+
+// Ass-Effekt: Die obersten 3 Karten des Decks aufdecken und optional tauschen
+export function applyAceEffect(
+  gameState: GameState,
+  playerId: string,
+  deckIndex: number,
+  handIndex: number
+): { revealedCards: Card[]; newState: GameState } {
+  const newState = structuredClone(gameState);
+  const player = newState.players.find(p => p.id === playerId)!;
+
+  const revealedCount = Math.min(3, newState.deck.length);
+  const revealedCards: Card[] = [];
+
+  for (let i = 0; i < revealedCount; i++) {
+    const card = newState.deck[newState.deck.length - 1 - i];
+    card.isVisible = true;
+    revealedCards.push(card);
+  }
+
+  const canSwap =
+    deckIndex >= 0 &&
+    deckIndex < revealedCards.length &&
+    handIndex >= 0 &&
+    handIndex < player.hand.length;
+
+  if (canSwap) {
+    const deckPosition = newState.deck.length - 1 - deckIndex;
+    const deckCard = newState.deck[deckPosition];
+    const handCard = player.hand[handIndex];
+
+    // Karten tauschen
+    newState.deck[deckPosition] = { ...handCard, isVisible: false };
+    player.hand[handIndex] = { ...deckCard, isVisible: false };
+
+    // Sichtbarkeitsinformation der getauschten Handkarte zurücksetzen
+    player.visibleCardIndices = player.visibleCardIndices.filter((i) => i !== handIndex);
+
+    newState.lastAction = `${player.name} hat eine der 3 aufgedeckten Karten mit einer Handkarte getauscht`;
+  } else {
+    newState.lastAction = `${player.name} hat die obersten 3 Karten des Decks aufgedeckt`;
+  }
+
+  return { revealedCards: revealedCards.map((c) => ({ ...c })), newState };
+}
+
+// Zehn-Effekt: Nächsten Spieler überspringen
+export function applyTenEffect(gameState: GameState, playerId: string): { skipNextPlayer: boolean; newState: GameState } {
+  const newState = structuredClone(gameState);
+  const player = newState.players.find(p => p.id === playerId)!;
+  newState.lastAction = `${player.name} hat einen Zehn-Effekt gespielt - der nächste Spieler wird übersprungen`;
+  return { skipNextPlayer: true, newState };
 }
 
 // Dame-Effekt: Strafkarte ziehen

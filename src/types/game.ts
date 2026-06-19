@@ -59,6 +59,7 @@ export interface GameState {
   lastAction: string | null;
   roundStartPlayerIndex: number;
   dameCallTurnsRemaining: number | null;
+  skipNextPlayer?: boolean;
 }
 
 // Aktionen
@@ -72,6 +73,12 @@ export type GameAction =
   | { type: 'CALL_DAME' }
   | { type: 'DISCARD_EXTRA_CARD'; cardId: string }
   | { type: 'END_TURN' };
+
+// Spielkonfiguration für erweiterte Regel-Optionen
+export interface GameConfig {
+  turnTimer: { enabled: boolean; seconds: number };
+  powerEffects: boolean;
+}
 
 // Kartenwerte
 export const CARD_VALUES: Record<CardRank, number> = {

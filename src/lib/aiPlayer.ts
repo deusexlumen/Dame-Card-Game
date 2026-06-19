@@ -1,4 +1,4 @@
-import type { GameState, Player, Card } from '@/types/game';
+import type { GameState, Player, Card, GameConfig } from '@/types/game';
 
 export type AIDifficulty = 'easy' | 'medium' | 'hard';
 
@@ -23,6 +23,8 @@ export type AIActionType =
   | 'DISCARD_EXTRA_CARD'
   | 'USE_JACK'
   | 'USE_KING'
+  | 'USE_ACE'
+  | 'USE_TEN'
   | 'CALL_DAME'
   | 'END_TURN';
 
@@ -35,6 +37,8 @@ export type AIDecision =
   | { action: 'DISCARD_EXTRA_CARD'; payload: { cardId: string } }
   | { action: 'USE_JACK'; payload: { targetPlayerId: string; handIndex: number } }
   | { action: 'USE_KING'; payload: { targetPlayerId: string; myHandIndex: number; targetHandIndex: number } }
+  | { action: 'USE_ACE' }
+  | { action: 'USE_TEN' }
   | { action: 'CALL_DAME' }
   | { action: 'END_TURN' };
 
@@ -87,7 +91,7 @@ function findExtraDiscardCardId(player: Player, topCardRank: string, minEstimate
 }
 
 // Hilfsfunktion: Finde den Index der schlechtesten Karte in der Hand
-function findWorstCardIndex(player: Player): number {
+export function findWorstCardIndex(player: Player): number {
   let worstIndex = 0;
   let worstValue = -1;
   
@@ -104,6 +108,56 @@ function findWorstCardIndex(player: Player): number {
   });
   
   return worstIndex;
+}
+
+// Hilfsfunktion: Entscheidet über Spezialeffekte, wenn powerEffects aktiviert ist
+function handlePowerEffects(
+  gameState: GameState,
+  playerId: string,
+  drawnCard: Card
+): AIDecision | null {
+  const player = gameState.players.find(p => p.id === playerId)!;
+  const opponents = gameState.players.filter(
+    p => p.id !== playerId && !p.isEliminated && p.hand.length > 0
+  );
+
+  if (drawnCard.rank === 'J') {
+    if (opponents.length > 0) {
+      const target = opponents[Math.floor(Math.random() * opponents.length)];
+      return {
+        action: 'USE_JACK',
+        payload: {
+          targetPlayerId: target.id,
+          handIndex: Math.floor(Math.random() * target.hand.length),
+        },
+      };
+    }
+  }
+
+  if (drawnCard.rank === 'K') {
+    if (opponents.length > 0) {
+      const target = opponents[Math.floor(Math.random() * opponents.length)];
+      const myWorstCard = findWorstCardIndex(player);
+      return {
+        action: 'USE_KING',
+        payload: {
+          targetPlayerId: target.id,
+          myHandIndex: myWorstCard,
+          targetHandIndex: Math.floor(Math.random() * target.hand.length),
+        },
+      };
+    }
+  }
+
+  if (drawnCard.rank === 'A') {
+    return { action: 'USE_ACE' };
+  }
+
+  if (drawnCard.rank === '10') {
+    return { action: 'USE_TEN' };
+  }
+
+  return null;
 }
 
 // EINFACHE KI: Zufällige Entscheidungen
@@ -140,9 +194,16 @@ function makeEasyMove(
 function makeEasyPostDrawMove(
   gameState: GameState,
   playerId: string,
-  drawnCard: Card
+  drawnCard: Card,
+  config?: GameConfig
 ): AIDecision {
   const player = gameState.players.find(p => p.id === playerId)!;
+
+  // Spezialeffekte nutzen, wenn powerEffects aktiviert ist
+  if (config?.powerEffects) {
+    const powerDecision = handlePowerEffects(gameState, playerId, drawnCard);
+    if (powerDecision) return powerDecision;
+  }
 
   // Dame niemals direkt ablegen – immer mit einer Handkarte tauschen
   if (drawnCard.rank === 'Q') {
@@ -199,10 +260,17 @@ function makeMediumMove(
 function makeMediumPostDrawMove(
   gameState: GameState,
   playerId: string,
-  drawnCard: Card
+  drawnCard: Card,
+  config?: GameConfig
 ): AIDecision {
   const player = gameState.players.find(p => p.id === playerId)!;
-  
+
+  // Spezialeffekte nutzen, wenn powerEffects aktiviert ist
+  if (config?.powerEffects) {
+    const powerDecision = handlePowerEffects(gameState, playerId, drawnCard);
+    if (powerDecision) return powerDecision;
+  }
+
   // Spezialeffekte ausführen
   if (drawnCard.rank === 'J') {
     // Bube: Schau dir eine eigene verdeckte Karte an
@@ -302,10 +370,17 @@ function makeHardMove(
 function makeHardPostDrawMove(
   gameState: GameState,
   playerId: string,
-  drawnCard: Card
+  drawnCard: Card,
+  config?: GameConfig
 ): AIDecision {
   const player = gameState.players.find(p => p.id === playerId)!;
-  
+
+  // Spezialeffekte nutzen, wenn powerEffects aktiviert ist
+  if (config?.powerEffects) {
+    const powerDecision = handlePowerEffects(gameState, playerId, drawnCard);
+    if (powerDecision) return powerDecision;
+  }
+
   // BUBE: Strategisch einsetzen
   if (drawnCard.rank === 'J') {
     // Schau dir die eigene verdeckte Karte mit dem höchsten geschätzten Wert an
@@ -405,7 +480,8 @@ export function decideAIMove(
   gameState: GameState,
   playerId: string,
   difficulty: AIDifficulty,
-  drawnCard: Card | null = null
+  drawnCard: Card | null = null,
+  config?: GameConfig
 ): AIDecisionWithDelay {
   const reactionDelay = difficulty === 'easy' ? 1500 : difficulty === 'medium' ? 1000 : 800;
   
@@ -437,13 +513,13 @@ export function decideAIMove(
   let decision;
   switch (difficulty) {
     case 'easy':
-      decision = makeEasyPostDrawMove(gameState, playerId, drawnCard);
+      decision = makeEasyPostDrawMove(gameState, playerId, drawnCard, config);
       break;
     case 'medium':
-      decision = makeMediumPostDrawMove(gameState, playerId, drawnCard);
+      decision = makeMediumPostDrawMove(gameState, playerId, drawnCard, config);
       break;
     case 'hard':
-      decision = makeHardPostDrawMove(gameState, playerId, drawnCard);
+      decision = makeHardPostDrawMove(gameState, playerId, drawnCard, config);
       break;
   }
   return { ...decision, delay: reactionDelay };

@@ -1,12 +1,18 @@
 import { useState, useCallback, useEffect } from 'react';
 
 export type AISpeed = 'fast' | 'normal' | 'slow';
+export type AIDifficulty = 'easy' | 'medium' | 'hard';
+export type TurnTimerSeconds = 15 | 30 | 60;
 
 interface GameSettings {
   soundEnabled: boolean;
   animationsEnabled: boolean;
   aiSpeed: AISpeed;
   musicEnabled: boolean;
+  defaultAIDifficulty: AIDifficulty;
+  turnTimer: boolean;
+  turnTimerSeconds: TurnTimerSeconds;
+  powerEffects: boolean;
 }
 
 const STORAGE_KEY = 'dame-game-settings';
@@ -16,13 +22,24 @@ const DEFAULT_SETTINGS: GameSettings = {
   animationsEnabled: true,
   aiSpeed: 'normal',
   musicEnabled: true,
+  defaultAIDifficulty: 'medium',
+  turnTimer: false,
+  turnTimerSeconds: 30,
+  powerEffects: false,
 };
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 function loadSettings(): GameSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+      const parsed = JSON.parse(raw);
+      if (isPlainObject(parsed)) {
+        return { ...DEFAULT_SETTINGS, ...parsed };
+      }
     }
   } catch {
     // ignore
@@ -61,12 +78,32 @@ export function useSettings() {
     setSettings((prev) => ({ ...prev, aiSpeed: speed }));
   }, []);
 
+  const setDefaultAIDifficulty = useCallback((difficulty: AIDifficulty) => {
+    setSettings((prev) => ({ ...prev, defaultAIDifficulty: difficulty }));
+  }, []);
+
+  const toggleTurnTimer = useCallback(() => {
+    setSettings((prev) => ({ ...prev, turnTimer: !prev.turnTimer }));
+  }, []);
+
+  const setTurnTimerSeconds = useCallback((seconds: TurnTimerSeconds) => {
+    setSettings((prev) => ({ ...prev, turnTimerSeconds: seconds }));
+  }, []);
+
+  const togglePowerEffects = useCallback(() => {
+    setSettings((prev) => ({ ...prev, powerEffects: !prev.powerEffects }));
+  }, []);
+
   return {
     settings,
     toggleSound,
     toggleAnimations,
     toggleMusic,
     setAiSpeed,
+    setDefaultAIDifficulty,
+    toggleTurnTimer,
+    setTurnTimerSeconds,
+    togglePowerEffects,
   };
 }
 
