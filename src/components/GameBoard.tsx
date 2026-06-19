@@ -19,7 +19,8 @@ import {
   Bot,
   Brain,
   Zap,
-  Target
+  Target,
+  Home,
 } from 'lucide-react';
 import type { AIDifficulty } from '@/lib/aiPlayer';
 import type { Card, GameConfig } from '@/types/game';
@@ -27,7 +28,6 @@ import { playCardDraw, playCardPlace, playCardFlip, playDameCall, playWinSound, 
 import { setGlobalSettings } from '@/lib/settings';
 import { useSettings } from '@/hooks/useSettings';
 import { Toaster, toast } from 'sonner';
-import { Settings, Volume2, VolumeX, Sparkles, Music } from 'lucide-react';
 
 interface GameBoardProps {
   players: Array<{ name: string; isAI?: boolean; difficulty?: AIDifficulty }>;
@@ -49,7 +49,7 @@ const DIFFICULTY_COLORS: Record<AIDifficulty, string> = {
 
 export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps) {
   const { stats, clear, recordRound, recordGame } = useGameStats();
-  const { settings, toggleSound, toggleAnimations, toggleMusic, setAiSpeed } = useSettings();
+  const { settings } = useSettings();
   const { t } = useI18n();
 
   const {
@@ -105,7 +105,6 @@ export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps)
   const [peekPhase, setPeekPhase] = useState(false);
   const [showJackEffect, setShowJackEffect] = useState(false);
   const [showKingEffect, setShowKingEffect] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [kingTargetPlayer, setKingTargetPlayer] = useState<string | null>(null);
   const [kingTargetCardIndex, setKingTargetCardIndex] = useState<number | null>(null);
@@ -118,7 +117,7 @@ export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Nur wenn kein Dialog offen ist
-      if (showStartDialog || showJackEffect || showKingEffect || showSettings || showTutorial || winner) return;
+      if (showStartDialog || showJackEffect || showKingEffect || showTutorial || winner) return;
       // Nur wenn menschlicher Spieler am Zug
       if (!isHumanTurn || isAIThinking) return;
       // Ignorieren wenn Input-Feld fokussiert
@@ -181,7 +180,7 @@ export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps)
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
-    showStartDialog, showJackEffect, showKingEffect, showSettings, showTutorial, winner,
+    showStartDialog, showJackEffect, showKingEffect, showTutorial, winner,
     isHumanTurn, isAIThinking, drawnCard, selectedHandIndex, canCallDameNow,
     drawFromDeck, discardDrawnCard, selectHandCard, confirmSwap, callDame, endTurn
   ]);
@@ -427,8 +426,8 @@ export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps)
           <Button variant="outline" size="sm" onClick={() => setShowTutorial(true)} aria-label={t('game.tutorial')} className="h-9 w-9 sm:h-10 sm:w-10 p-0">
             <Eye className="w-4 h-4 sm:w-5 sm:h-5" />
           </Button>
-          <Button variant="outline" size="sm" onClick={onBackToMenu} aria-label={t('menu.settings')} className="h-9 w-9 sm:h-10 sm:w-10 p-0">
-            <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+          <Button variant="outline" size="sm" onClick={onBackToMenu} aria-label={t('menu.backToMenu')} className="h-9 w-9 sm:h-10 sm:w-10 p-0">
+            <Home className="w-4 h-4 sm:w-5 sm:h-5" />
           </Button>
           <Button variant="outline" size="sm" onClick={handleReset} aria-label={t('game.restart')} className="h-9 px-2 sm:h-10 sm:px-3 text-[10px] sm:text-sm">
             <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 mr-1" />
@@ -951,113 +950,6 @@ export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps)
               <ChevronRight className="w-5 h-5 mr-2" />
               {t('game.nextRound')}
             </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Settings-Dialog */}
-      <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="sm:max-w-md bg-[hsl(var(--terminal-panel))] border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))]">
-          <DialogHeader>
-            <DialogTitle className="text-xl flex items-center gap-2">
-              <Settings className="w-5 h-5" />
-              {t('settings.title')}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {/* Sound Toggle */}
-            <div className="flex items-center justify-between p-3 bg-[hsl(var(--terminal-dark)/0.5)] border border-[hsl(var(--terminal-green)/0.15)] rounded-lg">
-              <div className="flex items-center gap-3">
-                {settings.soundEnabled ? (
-                  <Volume2 className="w-5 h-5 text-[hsl(var(--terminal-green))]" />
-                ) : (
-                  <VolumeX className="w-5 h-5 text-[hsl(var(--terminal-green)/0.5)]" />
-                )}
-                <div>
-                  <p className="font-medium text-sm text-[hsl(var(--terminal-green))]">{t('settings.sound')}</p>
-                  <p className="text-xs text-[hsl(var(--terminal-green)/0.6)]">{t('settings.soundDescription')}</p>
-                </div>
-              </div>
-              <Button
-                variant={settings.soundEnabled ? 'default' : 'outline'}
-                size="sm"
-                onClick={toggleSound}
-                aria-pressed={settings.soundEnabled}
-                className={!settings.soundEnabled ? 'border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)]' : ''}
-              >
-                {settings.soundEnabled ? t('settings.on') : t('settings.off')}
-              </Button>
-            </div>
-
-            {/* Music Toggle */}
-            <div className="flex items-center justify-between p-3 bg-[hsl(var(--terminal-dark)/0.5)] border border-[hsl(var(--terminal-green)/0.15)] rounded-lg">
-              <div className="flex items-center gap-3">
-                <Music className={cn('w-5 h-5', settings.musicEnabled ? 'text-[hsl(var(--terminal-cyan))]' : 'text-[hsl(var(--terminal-green)/0.5)]')} />
-                <div>
-                  <p className="font-medium text-sm text-[hsl(var(--terminal-green))]">{t('settings.music')}</p>
-                  <p className="text-xs text-[hsl(var(--terminal-green)/0.6)]">{t('settings.musicDescription')}</p>
-                </div>
-              </div>
-              <Button
-                variant={settings.musicEnabled ? 'default' : 'outline'}
-                size="sm"
-                onClick={toggleMusic}
-                aria-pressed={settings.musicEnabled}
-                className={!settings.musicEnabled ? 'border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)]' : ''}
-              >
-                {settings.musicEnabled ? t('settings.on') : t('settings.off')}
-              </Button>
-            </div>
-
-            {/* Animation Toggle */}
-            <div className="flex items-center justify-between p-3 bg-[hsl(var(--terminal-dark)/0.5)] border border-[hsl(var(--terminal-green)/0.15)] rounded-lg">
-              <div className="flex items-center gap-3">
-                <Sparkles className={cn('w-5 h-5', settings.animationsEnabled ? 'text-[hsl(var(--terminal-amber))]' : 'text-[hsl(var(--terminal-green)/0.5)]')} />
-                <div>
-                  <p className="font-medium text-sm text-[hsl(var(--terminal-green))]">{t('settings.animations')}</p>
-                  <p className="text-xs text-[hsl(var(--terminal-green)/0.6)]">{t('settings.animationsDescription')}</p>
-                </div>
-              </div>
-              <Button
-                variant={settings.animationsEnabled ? 'default' : 'outline'}
-                size="sm"
-                onClick={toggleAnimations}
-                aria-pressed={settings.animationsEnabled}
-                className={!settings.animationsEnabled ? 'border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)]' : ''}
-              >
-                {settings.animationsEnabled ? t('settings.on') : t('settings.off')}
-              </Button>
-            </div>
-
-            {/* {t('settings.aiSpeed')} */}
-            <div className="p-3 bg-[hsl(var(--terminal-dark)/0.5)] border border-[hsl(var(--terminal-green)/0.15)] rounded-lg">
-              <div className="flex items-center gap-3 mb-2">
-                <Bot className={cn('w-5 h-5', settings.aiSpeed === 'fast' ? 'text-[hsl(var(--terminal-green))]' : settings.aiSpeed === 'slow' ? 'text-[hsl(var(--terminal-red))]' : 'text-[hsl(var(--terminal-cyan))]')} />
-                <div>
-                  <p className="font-medium text-sm text-[hsl(var(--terminal-green))]">{t('settings.aiSpeed')}</p>
-                  <p className="text-xs text-[hsl(var(--terminal-green)/0.6)]">{t('settings.aiSpeedDescription')}</p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                {(['fast', 'normal', 'slow'] as const).map((speed) => (
-                  <Button
-                    key={speed}
-                    variant={settings.aiSpeed === speed ? 'default' : 'outline'}
-                    size="sm"
-                    aria-pressed={settings.aiSpeed === speed}
-                    className={cn(
-                      'flex-1 text-xs',
-                      settings.aiSpeed !== speed && 'border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)]'
-                    )}
-                    onClick={() => setAiSpeed(speed)}
-                  >
-                    {speed === 'fast' && t('settings.speedFast')}
-                    {speed === 'normal' && t('settings.speedNormal')}
-                    {speed === 'slow' && t('settings.speedSlow')}
-                  </Button>
-                ))}
-              </div>
-            </div>
           </div>
         </DialogContent>
       </Dialog>

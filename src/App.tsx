@@ -35,17 +35,17 @@ const DIFFICULTY_CONFIG: Record<AIDifficulty, { icon: React.ReactNode; color: st
   easy: { 
     icon: <Zap className="w-4 h-4" />, 
     color: 'bg-[hsl(var(--terminal-green))] text-black',
-    descriptionKey: 'Zufällige Züge, wenig Strategie'
+    descriptionKey: 'menu.difficulty.easyDescription'
   },
   medium: { 
     icon: <Brain className="w-4 h-4" />, 
     color: 'bg-[hsl(var(--terminal-amber))] text-black',
-    descriptionKey: 'Grundlegende Strategie, schlechte Karten vermeiden'
+    descriptionKey: 'menu.difficulty.mediumDescription'
   },
   hard: { 
     icon: <Target className="w-4 h-4" />, 
     color: 'bg-[hsl(var(--terminal-red))] text-black',
-    descriptionKey: 'Fortgeschrittene Strategie, Bluff, Risikobewertung'
+    descriptionKey: 'menu.difficulty.hardDescription'
   },
 };
 
@@ -255,7 +255,7 @@ function App() {
                               ? cn(DIFFICULTY_CONFIG[diff].color, "border-transparent")
                               : "bg-[hsl(var(--terminal-dark))] text-[hsl(var(--terminal-green)/0.7)] border-[hsl(var(--terminal-green)/0.2)] hover:border-[hsl(var(--terminal-green)/0.4)]"
                           )}
-                          title={DIFFICULTY_CONFIG[diff].descriptionKey}
+                          title={t(DIFFICULTY_CONFIG[diff].descriptionKey)}
                         >
                           {t(`menu.difficulty.${diff}`)}
                         </button>

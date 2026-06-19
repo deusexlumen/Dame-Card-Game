@@ -134,6 +134,28 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                   ))}
                 </div>
               </div>
+
+              <div className="p-3 bg-[hsl(var(--terminal-dark)/0.5)] border border-[hsl(var(--terminal-green)/0.15)] rounded-lg space-y-2">
+                <Label className="text-sm font-medium text-[hsl(var(--terminal-green))]">
+                  {t('settings.aiSpeed')}
+                </Label>
+                <div className="flex gap-2">
+                  {aiSpeeds.map((speed) => (
+                    <Button
+                      key={speed}
+                      variant={settings.aiSpeed === speed ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setAiSpeed(speed)}
+                      className={cn(
+                        'flex-1 text-xs',
+                        settings.aiSpeed !== speed && 'border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)]'
+                      )}
+                    >
+                      {t(`settings.speed${speed.charAt(0).toUpperCase() + speed.slice(1)}`)}
+                    </Button>
+                  ))}
+                </div>
+              </div>
             </section>
 
             {/* Audio & Sprache */}
@@ -204,28 +226,6 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                     <option value="de">Deutsch</option>
                     <option value="en">English</option>
                   </select>
-                </div>
-              </div>
-
-              <div className="p-3 bg-[hsl(var(--terminal-dark)/0.5)] border border-[hsl(var(--terminal-green)/0.15)] rounded-lg space-y-2">
-                <Label className="text-sm font-medium text-[hsl(var(--terminal-green))]">
-                  {t('settings.aiSpeed')}
-                </Label>
-                <div className="flex gap-2">
-                  {aiSpeeds.map((speed) => (
-                    <Button
-                      key={speed}
-                      variant={settings.aiSpeed === speed ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setAiSpeed(speed)}
-                      className={cn(
-                        'flex-1 text-xs',
-                        settings.aiSpeed !== speed && 'border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)]'
-                      )}
-                    >
-                      {t(`settings.speed${speed.charAt(0).toUpperCase() + speed.slice(1)}`)}
-                    </Button>
-                  ))}
                 </div>
               </div>
             </section>
