@@ -54,6 +54,8 @@ interface UseGameWithAIReturn {
   discardDrawnCard: () => void;
   activateJack: (targetPlayerId: string, handIndex: number) => void;
   activateKing: (targetPlayerId: string, myHandIndex: number, targetHandIndex: number) => void;
+  activateAce: (deckIndex: number, handIndex: number) => void;
+  activateTen: () => void;
   peekKingTarget: (targetPlayerId: string, targetHandIndex: number) => Card | null;
   callDame: () => void;
   tryDiscardExtra: (cardId: string) => boolean;
@@ -293,6 +295,10 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
   const aiTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const isAIMovingRef = useRef(false);
 
+  // Refs für Zug-Timer, um Interval-Leaks zu vermeiden
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const setMessage = useCallback(
     (key: string, vars?: Record<string, string | number>) => {
       setMessageKey(key);
@@ -328,13 +334,27 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     return id;
   }, []);
 
-  const pauseTurnTimer = useCallback(() => {
-    setIsTimerPaused(true);
+  const clearTimer = useCallback(() => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    if (timerTimeoutRef.current) {
+      clearTimeout(timerTimeoutRef.current);
+      timerTimeoutRef.current = null;
+    }
   }, []);
 
+  const pauseTurnTimer = useCallback(() => {
+    clearTimer();
+    setIsTimerPaused(true);
+  }, [clearTimer]);
+
   const resumeTurnTimer = useCallback(() => {
+    // Timer-Intervalle bereinigen, bevor der Effekt neu startet
+    clearTimer();
     setIsTimerPaused(false);
-  }, []);
+  }, [clearTimer]);
 
   // Auto-Save bei State-Änderungen
   useEffect(() => {
@@ -541,7 +561,7 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     }
   }, [setMessage]);
 
-  const handleUseAce = useCallback(() => {
+  const handleUseAce = useCallback((deckIndex: number, handIndex: number) => {
     if (!gameStateRef.current || !drawnCardRef.current) return;
 
     const currentPlayer = gameStateRef.current.players[gameStateRef.current.currentPlayerIndex];
@@ -553,8 +573,7 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     drawnCardRef.current = null;
     setDrawnCard(null);
 
-    const worstHandIndex = findWorstCardIndex(currentPlayer);
-    const { newState } = applyAceEffect(discardedState, currentPlayer.id, 0, worstHandIndex);
+    const { newState } = applyAceEffect(discardedState, currentPlayer.id, deckIndex, handIndex);
     gameStateRef.current = newState;
     setGameState(newState);
 
@@ -576,8 +595,10 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     drawnCardRef.current = null;
     setDrawnCard(null);
 
-    const { newState } = applyTenEffect(discardedState, currentPlayer.id);
-    newState.skipNextPlayer = true;
+    const { newState, skipNextPlayer } = applyTenEffect(discardedState, currentPlayer.id);
+    if (skipNextPlayer) {
+      newState.skipNextPlayer = true;
+    }
     gameStateRef.current = newState;
     setGameState(newState);
 
@@ -801,10 +822,13 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
             scheduleAITimeout(() => endTurnAfterAI(), Math.round(500 * currentSpeed));
           }
           break;
-        case 'USE_ACE':
-          handleUseAce();
+        case 'USE_ACE': {
+          const acePlayer = currentState.players[currentState.currentPlayerIndex];
+          const worstHandIndex = findWorstCardIndex(acePlayer);
+          handleUseAce(0, worstHandIndex);
           scheduleAITimeout(() => endTurnAfterAI(), Math.round(500 * currentSpeed));
           break;
+        }
         case 'USE_TEN':
           handleUseTen();
           scheduleAITimeout(() => endTurnAfterAI(), Math.round(500 * currentSpeed));
@@ -928,36 +952,49 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
 
   // Zug-Timer für menschliche Spieler
   useEffect(() => {
+    // Bestehende Timer immer bereinigen, bevor neue gestartet werden
+    clearTimer();
+
     if (!gameState || !gameConfig?.turnTimer.enabled || !isCurrentPlayerHuman) {
-      const id = setTimeout(() => setTurnTimeLeft(null), 0);
-      return () => clearTimeout(id);
+      timerTimeoutRef.current = setTimeout(() => setTurnTimeLeft(null), 0);
+      return () => {
+        clearTimer();
+      };
     }
     if (gameState.phase === 'ROUND_END' || gameState.phase === 'GAME_OVER') {
-      const id = setTimeout(() => setTurnTimeLeft(null), 0);
-      return () => clearTimeout(id);
+      timerTimeoutRef.current = setTimeout(() => setTurnTimeLeft(null), 0);
+      return () => {
+        clearTimer();
+      };
     }
     // Timer pausieren, wenn eine Karte gezogen wurde (Entscheidungsphase) oder explizit pausiert wurde
     if (drawnCard !== null || isTimerPaused) {
-      return;
+      return () => {
+        clearTimer();
+      };
     }
 
-    const id = setTimeout(() => {
+    timerTimeoutRef.current = setTimeout(() => {
       setTurnTimeLeft(gameConfig.turnTimer.seconds);
-      const interval = setInterval(() => {
+      timerIntervalRef.current = setInterval(() => {
         setTurnTimeLeft((prev) => {
           if (prev === null) return null;
           if (prev <= 1) {
-            clearInterval(interval);
+            clearTimer();
             handleTimerExpired();
             return 0;
           }
           return prev - 1;
         });
       }, 1000);
+      // Timeout-Ref zurücksetzen, damit clearTimer nicht das bereits abgelaufene Timeout doppelt bereinigt
+      timerTimeoutRef.current = null;
     }, 0);
 
-    return () => clearTimeout(id);
-  }, [gameState, gameConfig, isCurrentPlayerHuman, drawnCard, isTimerPaused, handleTimerExpired]);
+    return () => {
+      clearTimer();
+    };
+  }, [gameState, gameConfig, isCurrentPlayerHuman, drawnCard, isTimerPaused, handleTimerExpired, clearTimer]);
 
   // Timeouts beim Unmount bereinigen
   useEffect(() => {
@@ -986,6 +1023,8 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     discardDrawnCard,
     activateJack: handleUseJack,
     activateKing: handleUseKing,
+    activateAce: handleUseAce,
+    activateTen: handleUseTen,
     peekKingTarget,
     callDame: handleCallDame,
     tryDiscardExtra: handleTryDiscardExtra,

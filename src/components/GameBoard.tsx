@@ -3,10 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGameWithAI } from '@/hooks/useGameWithAI';
 import { useGameStats } from '@/hooks/useGameStats';
 import { StatsPanel } from './StatsPanel';
+import { SettingsPanel } from './SettingsPanel';
 import { CardComponent, CardStack } from './Card';
 import { PlayerHand } from './PlayerHand';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
 import { 
@@ -21,6 +23,8 @@ import {
   Zap,
   Target,
   Home,
+  Settings,
+  Sparkles,
 } from 'lucide-react';
 import type { AIDifficulty } from '@/lib/aiPlayer';
 import type { Card, GameConfig } from '@/types/game';
@@ -71,6 +75,8 @@ export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps)
     discardDrawnCard,
     activateJack,
     activateKing,
+    activateAce,
+    activateTen,
     peekKingTarget,
     callDame,
     endTurn,
@@ -105,10 +111,13 @@ export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps)
   const [peekPhase, setPeekPhase] = useState(false);
   const [showJackEffect, setShowJackEffect] = useState(false);
   const [showKingEffect, setShowKingEffect] = useState(false);
+  const [showAceEffect, setShowAceEffect] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [kingTargetPlayer, setKingTargetPlayer] = useState<string | null>(null);
   const [kingTargetCardIndex, setKingTargetCardIndex] = useState<number | null>(null);
   const [kingPeekedCard, setKingPeekedCard] = useState<Card | null>(null);
+  const [aceSelectedDeckIndex, setAceSelectedDeckIndex] = useState<number | null>(null);
 
   // Prüfe ob aktueller Spieler ein menschlicher Spieler ist
   const isHumanTurn = isCurrentPlayerHuman;
@@ -423,6 +432,9 @@ export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps)
           )}
         </div>
         <div className="flex gap-1 sm:gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={() => setShowSettings(true)} aria-label={t('menu.settings')} className="h-9 w-9 sm:h-10 sm:w-10 p-0">
+            <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setShowTutorial(true)} aria-label={t('game.tutorial')} className="h-9 w-9 sm:h-10 sm:w-10 p-0">
             <Eye className="w-4 h-4 sm:w-5 sm:h-5" />
           </Button>
@@ -571,6 +583,30 @@ export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps)
                   <Crown className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5" />
                   {t('game.king')}
                 </Button>
+                {gameConfig.powerEffects && (
+                  <>
+                    <Button
+                      onClick={() => setShowAceEffect(true)}
+                      disabled={drawnCard.rank !== 'A'}
+                      variant={drawnCard.rank === 'A' ? 'default' : 'outline'}
+                      size="default"
+                      className="h-11 px-3 text-xs sm:text-sm"
+                    >
+                      <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5" />
+                      {t('game.ace')}
+                    </Button>
+                    <Button
+                      onClick={() => { playCardPlace(); activateTen(); }}
+                      disabled={drawnCard.rank !== '10'}
+                      variant={drawnCard.rank === '10' ? 'default' : 'outline'}
+                      size="default"
+                      className="h-11 px-3 text-xs sm:text-sm"
+                    >
+                      <Zap className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5" />
+                      {t('game.ten')}
+                    </Button>
+                  </>
+                )}
                 <Button
                   onClick={() => { playCardPlace(); discardDrawnCard(); }}
                   variant="secondary"
@@ -703,6 +739,92 @@ export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps)
               );
             })}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ass-Effekt Dialog */}
+      <Dialog open={showAceEffect} onOpenChange={(open) => {
+        setShowAceEffect(open);
+        if (open) {
+          pauseTurnTimer();
+        } else {
+          resumeTurnTimer();
+          setAceSelectedDeckIndex(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto bg-[hsl(var(--terminal-panel))] border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))]">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <Sparkles className="w-5 h-5" />
+              {t('game.aceEffect')}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-[hsl(var(--terminal-green)/0.85)] mb-4">
+            {t('game.aceEffectDescription')}
+          </p>
+
+          {/* Aufgedeckte Deck-Karten */}
+          <div className="mb-4">
+            <p className="text-sm font-medium mb-2 text-[hsl(var(--terminal-cyan))]">{t('game.aceRevealedCards')}</p>
+            <div className="flex justify-center gap-3">
+              {gameState.deck.slice(-3).reverse().map((card, index) => (
+                <div key={card.id} className="flex flex-col items-center gap-2">
+                  <CardComponent
+                    card={card}
+                    isVisible={true}
+                    size="md"
+                    isSelected={aceSelectedDeckIndex === index}
+                    isClickable={true}
+                    onClick={() => setAceSelectedDeckIndex(index)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Eigene Hand-Karte auswählen */}
+          {aceSelectedDeckIndex !== null && (
+            <div className="mb-4">
+              <p className="text-sm font-medium mb-2 text-[hsl(var(--terminal-cyan))]">{t('game.aceChooseHandCard')}</p>
+              <div className="flex justify-center">
+                <PlayerHand
+                  player={gameState.players[humanPlayerIndex >= 0 ? humanPlayerIndex : 0]}
+                  isCurrentPlayer={true}
+                  isActivePlayer={false}
+                  onCardSelectForSwap={selectHandCard}
+                  selectedCardIndex={selectedHandIndex}
+                  gamePhase={gameState.phase}
+                  size="md"
+                />
+              </div>
+            </div>
+          )}
+
+          {aceSelectedDeckIndex !== null && selectedHandIndex !== null && (
+            <div className="flex gap-2 mt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowAceEffect(false);
+                  setAceSelectedDeckIndex(null);
+                }}
+                className="flex-1 border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)]"
+              >
+                {t('game.cancel')}
+              </Button>
+              <Button
+                onClick={() => {
+                  playCardPlace();
+                  activateAce(aceSelectedDeckIndex, selectedHandIndex);
+                  setShowAceEffect(false);
+                  setAceSelectedDeckIndex(null);
+                }}
+                className="flex-1 bg-[hsl(var(--terminal-green))] text-black hover:bg-[hsl(var(--terminal-green)/0.85)]"
+              >
+                {t('game.swap')}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -950,6 +1072,15 @@ export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps)
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Einstellungen während des Spiels */}
+      <Sheet open={showSettings} onOpenChange={setShowSettings}>
+        <SheetContent className="w-full sm:max-w-lg h-full p-0 overflow-y-auto bg-[hsl(var(--terminal-panel))] border-[hsl(var(--terminal-green)/0.3)]">
+          <div className="min-h-full">
+            <SettingsPanel onClose={() => setShowSettings(false)} />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Tutorial / Anleitung */}
       <Dialog open={showTutorial} onOpenChange={setShowTutorial}>
