@@ -410,7 +410,7 @@ export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps)
               >
                 <Bot className="w-3 h-3" />
               </motion.div>
-              {t('game.aiThinking')}
+              {t('game.aiThinking', { name: currentPlayer.name })}
             </motion.div>
           )}
           {gameConfig.turnTimer.enabled && turnTimeLeft !== null && isCurrentPlayerHuman && !isAIThinking && (
@@ -432,9 +432,6 @@ export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps)
           <Button variant="outline" size="sm" onClick={handleReset} aria-label={t('game.restart')} className="h-9 px-2 sm:h-10 sm:px-3 text-[10px] sm:text-sm">
             <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 mr-1" />
             <span className="hidden sm:inline">{t('game.restart')}</span>
-          </Button>
-          <Button variant="outline" size="sm" onClick={onBackToMenu} aria-label={t('game.backToMenu')} className="h-9 px-2 sm:h-10 sm:px-3 text-[10px] sm:text-sm">
-            {t('game.backToMenu')}
           </Button>
         </div>
       </div>

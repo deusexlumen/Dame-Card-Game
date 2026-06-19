@@ -134,7 +134,7 @@ function App() {
               </section>
 
               <section>
-                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Setup</h3>
+                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">{t('rules.setupTitle')}</h3>
                 <ul className="list-disc list-inside space-y-2 text-[hsl(var(--terminal-green)/0.85)]">
                   <li>{t('rules.setup')}</li>
                   <li>{t('rules.turn')}</li>
@@ -143,7 +143,7 @@ function App() {
               </section>
 
               <section>
-                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Special cards</h3>
+                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">{t('rules.specialCardsTitle')}</h3>
                 <div className="space-y-3">
                   <div className="bg-[hsl(var(--terminal-amber)/0.08)] border border-[hsl(var(--terminal-amber)/0.25)] p-3 rounded-sm">
                     <p className="font-bold text-[hsl(var(--terminal-amber))]">{t('rules.jack')}</p>
@@ -158,12 +158,12 @@ function App() {
               </section>
 
               <section>
-                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Dame Call</h3>
+                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">{t('rules.dameCallTitle')}</h3>
                 <p className="text-[hsl(var(--terminal-green)/0.85)]">{t('rules.dameCall')}</p>
               </section>
 
               <section>
-                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">Points</h3>
+                <h3 className="text-base font-bold mb-2 text-[hsl(var(--terminal-cyan))] uppercase tracking-wider">{t('rules.pointsTitle')}</h3>
                 <p className="text-[hsl(var(--terminal-green)/0.85)]">{t('rules.points')}</p>
               </section>
 
@@ -235,7 +235,7 @@ function App() {
                       <button
                         onClick={() => removePlayer(index)}
                         className="h-10 w-10 flex items-center justify-center rounded-sm text-[hsl(var(--terminal-red))] hover:text-[hsl(var(--terminal-red)/0.7)] hover:bg-[hsl(var(--terminal-red)/0.1)] transition-colors"
-                        aria-label={t('rules.close')}
+                        aria-label={t('menu.removePlayer')}
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>
