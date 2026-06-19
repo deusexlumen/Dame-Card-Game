@@ -23,7 +23,7 @@ import { SettingsPanel } from '@/components/SettingsPanel';
 import type { AIDifficulty } from '@/lib/aiPlayer';
 import type { GameConfig } from '@/types/game';
 
-type GameMode = 'menu' | 'game' | 'rules' | 'stats' | 'settings';
+type GameMode = 'menu' | 'game' | 'rules' | 'settings';
 
 interface PlayerConfig {
   name: string;
