@@ -289,3 +289,58 @@ describe('decideAIMove — Dame Call', () => {
     expect(move.action).not.toBe('CALL_DAME');
   });
 });
+
+describe('decideAIMove — Power Effects', () => {
+  const powerConfig = { powerEffects: true, turnTimer: { enabled: false, seconds: 0 } };
+  const disabledConfig = { powerEffects: false, turnTimer: { enabled: false, seconds: 0 } };
+
+  it('returns USE_ACE for Ace when power effects are enabled', () => {
+    const state = makeState();
+    const drawnCard: Card = { id: 'drawn', suit: 'hearts', rank: 'A', value: 1, isVisible: true };
+    const move = decideAIMove(state, 'p1', 'easy', drawnCard, powerConfig);
+    expect(move.action).toBe('USE_ACE');
+  });
+
+  it('does not return USE_ACE for Ace when power effects are disabled', () => {
+    const state = makeState();
+    const drawnCard: Card = { id: 'drawn', suit: 'hearts', rank: 'A', value: 1, isVisible: true };
+    const move = decideAIMove(state, 'p1', 'easy', drawnCard, disabledConfig);
+    expect(move.action).not.toBe('USE_ACE');
+  });
+
+  it('returns USE_TEN for Ten when power effects are enabled', () => {
+    const state = makeState();
+    const drawnCard: Card = { id: 'drawn', suit: 'hearts', rank: '10', value: 10, isVisible: true };
+    const move = decideAIMove(state, 'p1', 'easy', drawnCard, powerConfig);
+    expect(move.action).toBe('USE_TEN');
+  });
+
+  it('does not return USE_TEN for Ten when power effects are disabled', () => {
+    const state = makeState();
+    const drawnCard: Card = { id: 'drawn', suit: 'hearts', rank: '10', value: 10, isVisible: true };
+    const move = decideAIMove(state, 'p1', 'easy', drawnCard, disabledConfig);
+    expect(move.action).not.toBe('USE_TEN');
+  });
+
+  it('Jack targets an opponent when power effects are enabled', () => {
+    const state = makeState();
+    const drawnCard: Card = { id: 'drawn', suit: 'hearts', rank: 'J', value: 10, isVisible: true };
+    const move = decideAIMove(state, 'p1', 'easy', drawnCard, powerConfig);
+    expect(move.action).toBe('USE_JACK');
+    if (move.action === 'USE_JACK') {
+      expect(move.payload.targetPlayerId).not.toBe('p1');
+      expect(move.payload.targetPlayerId).toBe('p2');
+    }
+  });
+
+  it('King targets an opponent when power effects are enabled', () => {
+    const state = makeState();
+    const drawnCard: Card = { id: 'drawn', suit: 'hearts', rank: 'K', value: 10, isVisible: true };
+    const move = decideAIMove(state, 'p1', 'easy', drawnCard, powerConfig);
+    expect(move.action).toBe('USE_KING');
+    if (move.action === 'USE_KING') {
+      expect(move.payload.targetPlayerId).not.toBe('p1');
+      expect(move.payload.targetPlayerId).toBe('p2');
+    }
+  });
+});
