@@ -73,6 +73,12 @@ export type GameAction =
   | { type: 'DISCARD_EXTRA_CARD'; cardId: string }
   | { type: 'END_TURN' };
 
+// Spielkonfiguration für erweiterte Regel-Optionen
+export interface GameConfig {
+  turnTimer: { enabled: boolean; seconds: number };
+  powerEffects: boolean;
+}
+
 // Kartenwerte
 export const CARD_VALUES: Record<CardRank, number> = {
   'A': 1,
