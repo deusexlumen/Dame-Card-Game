@@ -21,7 +21,6 @@ import { useI18n } from '@/lib/i18n';
 import { useSettings } from '@/hooks/useSettings';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import type { AIDifficulty } from '@/lib/aiPlayer';
-import type { GameConfig } from '@/types/game';
 
 type GameMode = 'menu' | 'game' | 'rules' | 'settings';
 
@@ -179,11 +178,7 @@ function App() {
 
   // Game
   if (gameMode === 'game') {
-    const gameConfig: GameConfig = {
-      turnTimer: { enabled: settings.turnTimer, seconds: settings.turnTimerSeconds },
-      powerEffects: settings.powerEffects,
-    };
-    return <GameBoard players={players} onBackToMenu={backToMenu} gameConfig={gameConfig} />;
+    return <GameBoard players={players} onBackToMenu={backToMenu} />;
   }
 
   // Main menu

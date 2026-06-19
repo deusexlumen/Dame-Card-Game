@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameWithAI } from '@/hooks/useGameWithAI';
 import { useGameStats } from '@/hooks/useGameStats';
@@ -27,7 +27,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { AIDifficulty } from '@/lib/aiPlayer';
-import type { Card, GameConfig } from '@/types/game';
+import type { Card } from '@/types/game';
 import { playCardDraw, playCardPlace, playCardFlip, playDameCall, playWinSound, playPenaltySound, startBackgroundMusic, stopBackgroundMusic } from '@/lib/sounds';
 import { setGlobalSettings } from '@/lib/settings';
 import { useSettings } from '@/hooks/useSettings';
@@ -36,7 +36,6 @@ import { Toaster, toast } from 'sonner';
 interface GameBoardProps {
   players: Array<{ name: string; isAI?: boolean; difficulty?: AIDifficulty }>;
   onBackToMenu: () => void;
-  gameConfig: GameConfig;
 }
 
 const DIFFICULTY_ICONS: Record<AIDifficulty, React.ReactNode> = {
@@ -51,10 +50,23 @@ const DIFFICULTY_COLORS: Record<AIDifficulty, string> = {
   hard: 'text-red-400',
 };
 
-export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps) {
+export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
   const { stats, clear, recordRound, recordGame } = useGameStats();
   const { settings } = useSettings();
   const { t } = useI18n();
+
+  const gameConfig = useMemo(
+    () => ({
+      turnTimer: { enabled: settings.turnTimer, seconds: settings.turnTimerSeconds },
+      powerEffects: settings.powerEffects,
+    }),
+    [settings]
+  );
+
+  const statsActions = useMemo(
+    () => ({ recordRound, recordGame }),
+    [recordRound, recordGame]
+  );
 
   const {
     gameState,
@@ -88,7 +100,7 @@ export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps)
     turnTimeLeft,
     pauseTurnTimer,
     resumeTurnTimer,
-  } = useGameWithAI(settings.aiSpeed, { recordRound, recordGame }, gameConfig);
+  } = useGameWithAI(settings.aiSpeed, statsActions, gameConfig);
 
   // Globale Settings für Sound-Engine synchronisieren
   useEffect(() => {
@@ -126,7 +138,7 @@ export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Nur wenn kein Dialog offen ist
-      if (showStartDialog || showJackEffect || showKingEffect || showTutorial || winner) return;
+      if (showStartDialog || showJackEffect || showKingEffect || showAceEffect || showTutorial || winner) return;
       // Nur wenn menschlicher Spieler am Zug
       if (!isHumanTurn || isAIThinking) return;
       // Ignorieren wenn Input-Feld fokussiert
@@ -189,7 +201,7 @@ export function GameBoard({ players, onBackToMenu, gameConfig }: GameBoardProps)
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
-    showStartDialog, showJackEffect, showKingEffect, showTutorial, winner,
+    showStartDialog, showJackEffect, showKingEffect, showAceEffect, showTutorial, winner,
     isHumanTurn, isAIThinking, drawnCard, selectedHandIndex, canCallDameNow,
     drawFromDeck, discardDrawnCard, selectHandCard, confirmSwap, callDame, endTurn
   ]);
