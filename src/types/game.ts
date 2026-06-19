@@ -59,6 +59,7 @@ export interface GameState {
   lastAction: string | null;
   roundStartPlayerIndex: number;
   dameCallTurnsRemaining: number | null;
+  skipNextPlayer?: boolean;
 }
 
 // Aktionen
