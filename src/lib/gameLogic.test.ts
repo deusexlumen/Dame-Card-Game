@@ -15,6 +15,8 @@ import {
   canCallDame,
   applyJackEffect,
   applyKingEffect,
+  applyAceEffect,
+  applyTenEffect,
   applyQueenEffect,
   peekCard,
   getWinner,
@@ -233,6 +235,80 @@ describe('applyKingEffect', () => {
     expect(newState.players[0].hand[0]).toEqual(bCard);
     expect(newState.players[1].hand[0]).toEqual(aCard);
     expect(newState.players[0].hand[0].isVisible).toBe(false);
+  });
+
+  it('verhindert Tausch mit sich selbst im Power-Modus', () => {
+    const state = initializeGame(['A', 'B']);
+    const handBefore = [...state.players[0].hand];
+    const newState = applyKingEffect(
+      state,
+      state.players[0].id,
+      state.players[0].id,
+      0,
+      1,
+      { powerEffects: true, turnTimer: { enabled: false, seconds: 0 } }
+    );
+    expect(newState.players[0].hand).toEqual(handBefore);
+    expect(newState.lastAction).toContain('Gegner');
+  });
+});
+
+describe('applyAceEffect', () => {
+  it('deckt die obersten 3 Karten auf und tauscht korrekt', () => {
+    const state = initializeGame(['A', 'B']);
+    const deckBefore = [...state.deck];
+    const player = state.players[0];
+    const handCard = player.hand[2];
+
+    const { revealedCards, newState } = applyAceEffect(state, player.id, 1, 2);
+
+    expect(revealedCards).toHaveLength(3);
+    expect(revealedCards.every((c) => c.isVisible)).toBe(true);
+
+    const expectedDeckCard = deckBefore[deckBefore.length - 1 - 1];
+    expect(newState.players[0].hand[2]).toMatchObject({
+      id: expectedDeckCard.id,
+      isVisible: false,
+    });
+    expect(newState.deck[newState.deck.length - 2]).toMatchObject({
+      id: handCard.id,
+      isVisible: false,
+    });
+    expect(newState.lastAction).toContain('getauscht');
+  });
+
+  it('deckt die obersten 3 Karten auf, wenn kein Tausch gewählt wird', () => {
+    const state = initializeGame(['A', 'B']);
+    const { revealedCards, newState } = applyAceEffect(state, state.players[0].id, -1, -1);
+    expect(revealedCards).toHaveLength(3);
+    expect(revealedCards.every((c) => c.isVisible)).toBe(true);
+    expect(newState.lastAction).toContain('aufgedeckt');
+  });
+});
+
+describe('applyTenEffect', () => {
+  it('gibt skipNextPlayer zurück', () => {
+    const state = initializeGame(['A', 'B']);
+    const { skipNextPlayer, newState } = applyTenEffect(state, state.players[0].id);
+    expect(skipNextPlayer).toBe(true);
+    expect(newState.lastAction).toContain('übersprungen');
+  });
+});
+
+describe('applyJackEffect', () => {
+  it('verhindert Selbstbespielung im Power-Modus', () => {
+    const state = initializeGame(['A', 'B']);
+    const handBefore = [...state.players[0].hand];
+    const newState = applyJackEffect(
+      state,
+      state.players[0].id,
+      state.players[0].id,
+      2,
+      { powerEffects: true, turnTimer: { enabled: false, seconds: 0 } }
+    );
+    expect(newState.players[0].hand).toEqual(handBefore);
+    expect(newState.players[0].visibleCardIndices).toEqual([0, 1]);
+    expect(newState.lastAction).toContain('gegnerische');
   });
 });
 
