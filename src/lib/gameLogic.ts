@@ -59,6 +59,7 @@ export function createPlayer(id: string, name: string): Player {
     score: 0,
     totalScore: 0,
     isActive: true,
+    isHuman: true,
     isEliminated: false,
     hasCalledDame: false,
     penaltyCards: [],
