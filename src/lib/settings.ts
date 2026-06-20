@@ -1,7 +1,22 @@
-import type { GameSettings } from '@/hooks/useSettings';
+export type AISpeed = 'fast' | 'normal' | 'slow';
+export type AIDifficulty = 'easy' | 'medium' | 'hard';
+export type TurnTimerSeconds = 15 | 30 | 60;
 
-// Globale Settings-Referenz für Nicht-React-Code (Sound-Engine)
-let globalSettings: GameSettings = {
+export interface GameSettings {
+  soundEnabled: boolean;
+  animationsEnabled: boolean;
+  aiSpeed: AISpeed;
+  musicEnabled: boolean;
+  musicVolume: number;
+  effectsVolume: number;
+  defaultAIDifficulty: AIDifficulty;
+  turnTimer: boolean;
+  turnTimerSeconds: TurnTimerSeconds;
+  powerEffects: boolean;
+  table3d: boolean;
+}
+
+export const DEFAULT_SETTINGS: GameSettings = {
   soundEnabled: true,
   animationsEnabled: true,
   aiSpeed: 'normal',
@@ -14,6 +29,9 @@ let globalSettings: GameSettings = {
   powerEffects: false,
   table3d: false,
 };
+
+// Globale Settings-Referenz für Nicht-React-Code (Sound-Engine)
+let globalSettings: GameSettings = { ...DEFAULT_SETTINGS };
 
 export function setGlobalSettings(settings: GameSettings): void {
   globalSettings = settings;

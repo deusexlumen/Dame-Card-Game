@@ -218,7 +218,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                   <div className="flex items-center gap-2">
                     <Globe className="w-4 h-4 text-[hsl(var(--terminal-cyan))]" />
                     <Label htmlFor="language" className="text-sm font-medium text-[hsl(var(--terminal-green))]">
-                      {t('menu.language')}
+                      {t('settings.view')}
                     </Label>
                   </div>
                   <select
@@ -227,8 +227,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                     onChange={(e) => setLanguage(e.target.value as 'de' | 'en')}
                     className="h-8 px-2 rounded-sm bg-[hsl(var(--terminal-dark))] border border-[hsl(var(--terminal-green)/0.25)] text-[hsl(var(--terminal-green))] text-xs font-mono focus:outline-none focus:ring-1 focus:ring-[hsl(var(--terminal-green)/0.5)]"
                   >
-                    <option value="de">Deutsch</option>
-                    <option value="en">English</option>
+                    <option value="de">{t('settings.languageDe')}</option>
+                    <option value="en">{t('settings.languageEn')}</option>
                   </select>
                 </div>
               </div>
@@ -238,7 +238,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium text-[hsl(var(--terminal-green))]">
-                      Musik-Lautstärke
+                      {t('settings.musicVolume')}
                     </Label>
                     <span className="text-xs font-mono text-[hsl(var(--terminal-green)/0.8)]">
                       {settings.musicVolume}%
@@ -250,13 +250,13 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                     max={100}
                     step={1}
                     onValueChange={([value]) => setMusicVolume(value)}
-                    aria-label="Musik-Lautstärke"
+                    aria-label={t('settings.musicVolume')}
                   />
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium text-[hsl(var(--terminal-green))]">
-                      Effekt-Lautstärke
+                      {t('settings.effectsVolume')}
                     </Label>
                     <span className="text-xs font-mono text-[hsl(var(--terminal-green)/0.8)]">
                       {settings.effectsVolume}%
@@ -268,7 +268,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                     max={100}
                     step={1}
                     onValueChange={([value]) => setEffectsVolume(value)}
-                    aria-label="Effekt-Lautstärke"
+                    aria-label={t('settings.effectsVolume')}
                   />
                 </div>
               </div>
@@ -277,20 +277,20 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             {/* Ansicht */}
             <section className="space-y-3">
               <h3 className="text-sm font-bold uppercase tracking-wider text-[hsl(var(--terminal-cyan))]">
-                Ansicht
+                {t('settings.view')}
               </h3>
               <div className="flex items-center justify-between p-3 bg-[hsl(var(--terminal-dark)/0.5)] border border-[hsl(var(--terminal-green)/0.15)] rounded-lg">
                 <div className="flex items-center gap-2">
                   <Box className="w-4 h-4 text-[hsl(var(--terminal-amber))]" />
                   <Label htmlFor="table-3d" className="text-sm font-medium text-[hsl(var(--terminal-green))]">
-                    3D-Tischansicht
+                    {t('settings.table3d')}
                   </Label>
                 </div>
                 <Switch
                   id="table-3d"
                   checked={settings.table3d}
                   onCheckedChange={toggleTable3d}
-                  aria-label="3D-Tischansicht"
+                  aria-label={t('settings.table3d')}
                 />
               </div>
             </section>

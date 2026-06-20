@@ -22,7 +22,7 @@ import {
 } from '@/lib/gameLogic';
 import { decideAIMove, findWorstCardIndex, type AIDifficulty } from '@/lib/aiPlayer';
 import { useI18n } from '@/lib/i18n';
-import type { AISpeed } from '@/hooks/useSettings';
+import type { AISpeed } from '@/lib/settings';
 
 export interface AIPlayerInfo {
   id: string;

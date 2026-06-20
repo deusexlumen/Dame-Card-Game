@@ -20,7 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
 import { useSettings } from '@/hooks/useSettings';
-import { playMusicTrack, startBackgroundMusic } from '@/lib/sounds';
+import { playMusicTrack, startBackgroundMusic, stopMusicTrack } from '@/lib/sounds';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { SkinProvider } from '@/components/SkinProvider';
 import { SkinShop } from '@/components/SkinShop';
@@ -78,12 +78,18 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    if (musicStarted && settings.musicEnabled) {
+    const shouldPlay = gameMode === 'menu' && musicStarted && settings.musicEnabled;
+    if (shouldPlay) {
       playMusicTrack('/sounds/music/menu.mp3').catch(() => {
         startBackgroundMusic();
       });
+    } else {
+      stopMusicTrack();
     }
-  }, [musicStarted, settings.musicEnabled]);
+    return () => {
+      stopMusicTrack();
+    };
+  }, [gameMode, musicStarted, settings.musicEnabled]);
 
   // Add human player
   const addHumanPlayer = () => {
