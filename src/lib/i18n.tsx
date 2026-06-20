@@ -42,6 +42,7 @@ const de = {
     rules: 'Regeln',
     settings: 'Einstellungen',
     language: 'Sprache',
+    shop: 'Shop',
   },
   game: {
     round: 'Runde {{round}}',
@@ -222,6 +223,26 @@ const de = {
     points: 'Punkte: Über 50 = ausgeschieden. Genau 50 = Reset auf 0.',
     close: 'Schließen',
   },
+  skins: {
+    title: 'Skin-Shop',
+    categories: {
+      cardBack: 'Kartenrücken',
+      table: 'Tisch',
+      cardFace: 'Kartengesicht',
+    },
+    price: {
+      free: 'Kostenlos',
+      format: '{{price}} {{currency}}',
+    },
+    buy: 'Kaufen',
+    activate: 'Aktivieren',
+    activated: 'Aktiv',
+    owned: 'Im Besitz',
+    selectCategory: 'Kategorie wählen',
+    noOwnedSkins: 'Keine Skins in dieser Kategorie vorhanden.',
+    selectorTitle: 'Skin auswählen',
+    close: 'Schließen',
+  },
 };
 
 const en = {
@@ -250,6 +271,7 @@ const en = {
     rules: 'Rules',
     settings: 'Settings',
     language: 'Language',
+    shop: 'Shop',
   },
   game: {
     round: 'Round {{round}}',
@@ -428,6 +450,26 @@ const en = {
     king: 'King (K): Reveal an opponent card and swap it deliberately — both cards stay face-down.',
     dameCall: 'Call Dame: Whoever believes they have the lowest points calls "Dame". If wrong, they start the next round with 5 instead of 4 cards.',
     points: 'Points: Over 50 = eliminated. Exactly 50 = reset to 0.',
+    close: 'Close',
+  },
+  skins: {
+    title: 'Skin Shop',
+    categories: {
+      cardBack: 'Card Back',
+      table: 'Table',
+      cardFace: 'Card Face',
+    },
+    price: {
+      free: 'Free',
+      format: '{{price}} {{currency}}',
+    },
+    buy: 'Buy',
+    activate: 'Activate',
+    activated: 'Active',
+    owned: 'Owned',
+    selectCategory: 'Select category',
+    noOwnedSkins: 'No skins owned in this category.',
+    selectorTitle: 'Select Skin',
     close: 'Close',
   },
 };

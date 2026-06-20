@@ -115,7 +115,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
     setGlobalSettings(settings);
   }, [settings]);
 
-  // {t('settings.music')} steuern
+  // Hintergrundmusik steuern
   useEffect(() => {
     if (gameState && settings.musicEnabled) {
       startBackgroundMusic();
@@ -198,7 +198,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
           break;
         case 'z':
         case 'e':
-          // {t('game.endTurn')}
+          // Zug beenden
           e.preventDefault();
           if (!drawnCard) {
             playCardPlace();
@@ -524,7 +524,6 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
 
         {/* Mitte - Spielstapel */}
         <div className="flex justify-center items-center gap-4 sm:gap-8 mb-4 sm:mb-6">
-          {/* {t('game.drawPile')} */}
           <CardStack
             count={gameState.deck.length}
             label={t('game.drawPile')}
@@ -554,7 +553,6 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
             )}
           </div>
 
-          {/* {t('game.discardPile')} */}
           <CardStack
             count={gameState.discardPile.length}
             label={t('game.discardPile')}
@@ -565,7 +563,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
           />
         </div>
 
-        {/* {t('game.drawnCard')} (falls vorhanden) */}
+        {/* Gezogene Karte (falls vorhanden) */}
         <AnimatePresence>
           {drawnCard && isHumanTurn && (
             <motion.div
@@ -955,7 +953,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
             </div>
           )}
 
-          {/* {t('game.swapConfirm')} oder abbrechen */}
+          {/* Tauschen bestätigen oder abbrechen */}
           {selectedHandIndex !== null && kingTargetPlayer && kingTargetCardIndex !== null && (
             <div className="flex gap-2 mt-4">
               <Button
