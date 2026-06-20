@@ -238,6 +238,7 @@ function AppContent() {
   if (gameMode === 'hotseat') {
     return (
       <GameBoard
+        mode="hotseat"
         playerConfigs={hotSeatPlayers}
         onBackToMenu={backToMenu}
         gameConfig={{

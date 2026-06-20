@@ -59,6 +59,9 @@ npm run build
 # ESLint ausführen
 npm run lint
 
+# Tests einmalig ausführen
+pnpm test -- --run
+
 # Produktionsbuild lokal previewen
 npm run preview
 ```
@@ -82,8 +85,10 @@ src/
 │   ├── gameLogic.ts         # Reine Spiellogik (Zustandsfunktionen, keine React-Abhängigkeit)
 │   └── aiPlayer.ts          # KI-Logik mit 3 Schwierigkeitsgraden
 ├── hooks/
-│   ├── useGame.ts           # React-Hook für Spielzustand (menschenonly)
-│   ├── useGameWithAI.ts     # Erweiterter Hook mit automatischer KI-Zugausführung
+│   ├── useGameEngine.ts     # Zentraler React-Hook für Spielzustand, KI und Timer
+│   ├── useGameStats.ts      # Persistente Rundenspielstatistiken
+│   ├── useSettings.ts       # Spiel-Einstellungen (Timer, Sound, KI-Geschwindigkeit)
+│   ├── useSkins.ts          # Aktivierte und gekaufte Skins
 │   └── use-mobile.ts        # Mobile-Breakpoint-Erkennung (768px)
 ├── components/
 │   ├── ui/                  # shadcn/ui-Komponenten (40+ Dateien)
@@ -101,10 +106,10 @@ src/
 1. **Trennung von Logik und UI**
    - `gameLogic.ts` ist vollständig frei von React. Alle Funktionen nehmen einen `GameState` entgegen und geben einen neuen unveränderlichen Zustand zurück.
    - `aiPlayer.ts` ist ebenfalls rein funktional und kennt React nicht.
-   - `useGame.ts` / `useGameWithAI.ts` kapseln den React-Zustand und rufen die puren Logik-Funktionen auf.
+   - `useGameEngine.ts` kapselt den React-Zustand und ruft die puren Logik-Funktionen auf.
 
 2. **KI-Automatisierung**
-   - `useGameWithAI` verwendet `useEffect`, um zu erkennen, wenn ein KI-Spieler am Zug ist.
+   - `useGameEngine` verwendet `useEffect`, um zu erkennen, wenn ein KI-Spieler am Zug ist.
    - KI-Züge werden über `setTimeout` mit Verzögerung ausgeführt (easy: 1.5s, medium: 1s, hard: 0.8s), um menschliches Verhalten zu simulieren.
    - `useRef`-Hooks (`gameStateRef`, `drawnCardRef`) halten den aktuellen Zustand für Timeout-Callbacks verfügbar.
 
@@ -142,14 +147,30 @@ src/
 
 ## Testing
 
-**Aktuell gibt es keine Tests im Projekt.** Es ist kein Test-Framework installiert (kein Jest, Vitest, Playwright o.ä.).
+Das Projekt verwendet **Vitest** für Unit- und Komponententests. Die Tests liegen neben den Quelldateien (z. B. `src/lib/gameLogic.test.ts`, `src/lib/aiPlayer.test.ts`, `src/hooks/useGameEngine.test.ts`, `src/components/GameBoard.test.tsx`).
 
-Wenn Tests hinzugefügt werden sollen:
+### Testbefehle
 
-- **Empfohlen**: Vitest (passt nativ zu Vite) für Unit-Tests der Spiellogik in `gameLogic.ts` und `aiPlayer.ts`.
-- **Optional**: Playwright oder Cypress für E2E-Tests der Spiel-UI.
+```bash
+# Alle Tests einmalig ausführen
+pnpm test -- --run
 
-Die puren Funktionen in `gameLogic.ts` sind ideal für Unit-Tests, da sie keinen React-Zustand oder DOM benötigen.
+# Tests im Watch-Modus
+pnpm test
+
+# Tests mit UI
+pnpm run test:ui
+```
+
+Aktuell gibt es ca. 95 Tests, die vor allem folgende Bereiche abdecken:
+
+- **Spiellogik** (`gameLogic.test.ts`) – Initialisierung, Ziehen, Tauschen, Effekte, Punkteberechnung, Dame-Call.
+- **KI** (`aiPlayer.test.ts`) – Entscheidungen für alle Schwierigkeitsgrade.
+- **Spiel-Engine** (`useGameEngine.test.ts`) – Hook-Verhalten, KI-Züge, Speichern/Laden.
+- **UI-Komponenten** (`GameBoard.test.tsx`, `PlayerTurnOverlay.test.tsx`, `HotSeatSetup.test.tsx`).
+- **Skin-System** (`src/lib/skins/*.test.ts`).
+
+Die puren Funktionen in `gameLogic.ts` bleiben ideal für Unit-Tests, da sie keinen React-Zustand oder DOM benötigen.
 
 ---
 
@@ -190,7 +211,7 @@ Das Projekt ist für statisches Hosting vorkonfiguriert:
 
 ## Hinweise für Agenten
 
-- **Neue Features** am besten durch Hinzufügen reiner Funktionen in `gameLogic.ts` oder `aiPlayer.ts`, gefolgt von Hook-Updates in `useGameWithAI.ts`.
+- **Neue Features** am besten durch Hinzufügen reiner Funktionen in `gameLogic.ts` oder `aiPlayer.ts`, gefolgt von Hook-Updates in `useGameEngine.ts`.
 - **UI-Änderungen** sollten bestehende shadcn/ui-Komponenten aus `src/components/ui/` verwenden, bevor neue Komponenten erstellt werden.
 - **Deutsche Sprache beibehalten** — Alle nutzerseitigen Texte und Kommentare sollten auf Deutsch verfasst werden.
 - **Keine allgemeinen Annahmen über shadcn/ui** — Die vorhandenen Komponenten sind konkret installiert und können direkt importiert werden (`@/components/ui/button`).
