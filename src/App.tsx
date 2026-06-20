@@ -14,16 +14,18 @@ import {
   Zap,
   Target,
   Globe,
-  Settings
+  Settings,
+  ShoppingBag
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
 import { useSettings } from '@/hooks/useSettings';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { SkinProvider } from '@/components/SkinProvider';
+import { SkinShop } from '@/components/SkinShop';
 import type { AIDifficulty } from '@/lib/aiPlayer';
 
-type GameMode = 'menu' | 'game' | 'rules' | 'settings';
+type GameMode = 'menu' | 'game' | 'rules' | 'settings' | 'shop';
 
 interface PlayerConfig {
   name: string;
@@ -182,6 +184,11 @@ function AppContent() {
     return <GameBoard players={players} onBackToMenu={backToMenu} />;
   }
 
+  // Shop
+  if (gameMode === 'shop') {
+    return <SkinShop onClose={() => setGameMode('menu')} />;
+  }
+
   // Main menu
   return (
     <div className="min-h-screen terminal-grid relative flex items-center justify-center p-4">
@@ -312,6 +319,15 @@ function AppContent() {
               >
                 <Settings className="w-4 h-4 mr-2" />
                 {t('menu.settings')}
+              </Button>
+
+              <Button
+                onClick={() => setGameMode('shop')}
+                variant="outline"
+                className="w-full h-11 font-mono border-[hsl(var(--terminal-amber)/0.4)] text-[hsl(var(--terminal-amber))] hover:bg-[hsl(var(--terminal-amber)/0.1)] hover:text-[hsl(var(--terminal-amber))]"
+              >
+                <ShoppingBag className="w-4 h-4 mr-2" />
+                {t('menu.shop')}
               </Button>
             </div>
           </CardContent>

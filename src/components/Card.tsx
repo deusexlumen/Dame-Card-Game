@@ -4,28 +4,83 @@ import { SUIT_COLORS, SUIT_SYMBOLS } from '@/types/game';
 import { cn } from '@/lib/utils';
 import { isAnimationsEnabled } from '@/lib/settings';
 import { useI18n } from '@/lib/i18n';
-
-/** Gemeinsame Barrierefreiheits-Props für klickbare Karten. */
-function getCardClickProps(
-  isClickable: boolean | undefined,
-  onClick: (() => void) | undefined,
-  label = 'Karte auswählen'
-) {
-  if (!isClickable || !onClick) return {};
-  return {
-    role: 'button' as const,
-    tabIndex: 0 as const,
-    onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        onClick();
-      }
-    },
-    'aria-label': label,
-  };
-}
+import { useSkins } from '@/hooks/useSkins';
 
 interface CardProps {
+  card: CardType;
+  faceUp?: boolean;
+  className?: string;
+  onClick?: () => void;
+}
+
+/**
+ * Skin-fähige Kartenkomponente.
+ *
+ * Rendert eine Karte mit dem aktiven Kartenrücken- bzw. Kartengesicht-Asset.
+ * Ist `onClick` vorhanden, wird ein Button gerendert, ansonsten ein div.
+ */
+export function Card({ card, faceUp = false, className, onClick }: CardProps) {
+  const { t } = useI18n();
+  const { activeSkins } = useSkins();
+
+  const backUrl = activeSkins.cardBack?.assets.back ?? '';
+  const faceUrl = activeSkins.cardFace?.assets.face ?? '';
+
+  const suitColor = SUIT_COLORS[card.suit];
+  const suitSymbol = SUIT_SYMBOLS[card.suit];
+
+  const baseClassName = cn(
+    'relative rounded-md border border-[hsl(var(--terminal-green)/0.4)]',
+    'bg-cover bg-center bg-no-repeat',
+    'flex items-center justify-center',
+    'select-none font-mono',
+    onClick ? 'cursor-pointer hover:brightness-110' : 'cursor-default',
+    className
+  );
+
+  const style = { backgroundImage: `url(${faceUp ? faceUrl : backUrl})` };
+
+  const faceOverlay = faceUp && (
+    <>
+      <div className="absolute inset-0.5 border border-[hsl(var(--terminal-green)/0.15)] rounded-sm pointer-events-none" />
+      <span className={cn('absolute top-1 left-1 leading-none font-bold z-10 tracking-tighter', suitColor)}>
+        {card.rank}
+      </span>
+      <span className={cn('text-2xl z-10 drop-shadow-[0_0_6px_currentColor]', suitColor)}>
+        {suitSymbol}
+      </span>
+      <span className={cn('absolute bottom-1 right-1 leading-none font-bold rotate-180 z-10 tracking-tighter', suitColor)}>
+        {card.rank}
+      </span>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className={baseClassName}
+        style={style}
+        onClick={onClick}
+        aria-label={faceUp ? `${card.rank} ${card.suit}` : t('game.selectCard')}
+      >
+        {faceOverlay}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className={baseClassName}
+      style={style}
+      aria-label={faceUp ? `${card.rank} ${card.suit}` : t('game.selectCard')}
+    >
+      {faceOverlay}
+    </div>
+  );
+}
+
+interface CardComponentProps {
   card: CardType;
   isVisible?: boolean;
   isSelected?: boolean;
@@ -37,57 +92,18 @@ interface CardProps {
   layoutId?: string;
 }
 
-function CardBack({
-  size,
-  isSelected,
-  isClickable,
-  onClick,
-}: {
-  size: 'sm' | 'md' | 'lg';
-  isSelected?: boolean;
-  isClickable?: boolean;
-  onClick?: () => void;
-}) {
-  const { t } = useI18n();
-  const sizeClasses = {
-    sm: 'w-10 h-14 text-[8px]',
-    md: 'w-16 h-[5.5rem] text-xs',
-    lg: 'w-24 h-[8.5rem] text-sm',
-  };
+const sizeClasses = {
+  sm: 'w-10 h-14 text-[8px]',
+  md: 'w-16 h-[5.5rem] text-xs',
+  lg: 'w-24 h-[8.5rem] text-sm',
+};
 
-  const content = (
-    <div
-      className={cn(
-        sizeClasses[size],
-        'rounded-md border border-[hsl(var(--terminal-green)/0.4)]',
-        'circuit-pattern terminal-scanlines',
-        'flex items-center justify-center',
-        'terminal-border-glow',
-        'relative overflow-hidden',
-        'select-none',
-        isSelected && 'ring-2 ring-[hsl(var(--terminal-amber))]',
-        isClickable && 'cursor-pointer hover:brightness-125'
-      )}
-      onClick={isClickable ? onClick : undefined}
-      {...getCardClickProps(isClickable, onClick, t('game.selectCard'))}
-    >
-      {/* Leuchtende Ecken als Orientierungshilfen */}
-      <div className="absolute top-0.5 left-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
-      <div className="absolute top-0.5 right-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
-      <div className="absolute bottom-0.5 left-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
-      <div className="absolute bottom-0.5 right-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
-
-      {/* Zentrales System-Symbol */}
-      <div className="relative w-1/2 h-1/2 border border-[hsl(var(--terminal-green)/0.3)] rounded-sm flex items-center justify-center">
-        <div className="w-2/3 h-2/3 border border-[hsl(var(--terminal-green)/0.2)] rotate-45" />
-        <div className="absolute w-1.5 h-1.5 bg-[hsl(var(--terminal-green)/0.8)] rounded-full animate-pulse" />
-      </div>
-    </div>
-  );
-
-  return content;
-}
-
+/**
+ * Legacy-kompatible Kartenkomponente mit Animationen.
+ *
+ * Verwendet intern die neue `Card`-Komponente und ergänzt Größen,
+ * Auswahl-Status und Framer-Motion-Animationen.
+ */
 export function CardComponent({
   card,
   isVisible = true,
@@ -98,20 +114,25 @@ export function CardComponent({
   animate = true,
   index = 0,
   layoutId,
-}: CardProps) {
-  const { t } = useI18n();
-  const animationsOn = isAnimationsEnabled();
-  const sizeClasses = {
-    sm: 'w-10 h-14 text-[8px]',
-    md: 'w-16 h-[5.5rem] text-xs',
-    lg: 'w-24 h-[8.5rem] text-sm',
-  };
+}: CardComponentProps) {
+  const animationsOn = isAnimationsEnabled() && animate;
 
-  const symbolSizeClasses = {
-    sm: 'text-base',
-    md: 'text-2xl',
-    lg: 'text-4xl',
-  };
+  const className = cn(
+    sizeClasses[size],
+    isSelected && 'ring-2 ring-[hsl(var(--terminal-amber))]',
+    isClickable && 'hover:-translate-y-0.5'
+  );
+
+  if (!animationsOn) {
+    return (
+      <Card
+        card={card}
+        faceUp={isVisible}
+        className={className}
+        onClick={isClickable ? onClick : undefined}
+      />
+    );
+  }
 
   const springTransition = {
     type: 'spring' as const,
@@ -120,179 +141,21 @@ export function CardComponent({
     delay: index * 0.05,
   };
 
-  const hoverSpring = {
-    type: 'spring' as const,
-    stiffness: 400,
-    damping: 20,
-  };
-
-  const entranceAnimation = animate && animationsOn
-    ? {
-        initial: { opacity: 0, y: -30, scale: 0.8, rotateY: 0 },
-        animate: {
-          opacity: 1,
-          y: 0,
-          scale: 1,
-          rotateY: isVisible ? 0 : 180,
-          transition: springTransition,
-        },
-      }
-    : {};
-
-  // Wenn Animationen aus sind, verwenden wir einfache divs
-  if (!animationsOn) {
-    if (!isVisible) {
-      return (
-        <CardBack
-          size={size}
-          isSelected={isSelected}
-          isClickable={isClickable}
-          onClick={onClick}
-        />
-      );
-    }
-
-    const suitColor = SUIT_COLORS[card.suit];
-    const suitSymbol = SUIT_SYMBOLS[card.suit];
-
-    return (
-      <div
-        className={cn(
-          sizeClasses[size],
-          'rounded-md border border-[hsl(var(--terminal-green)/0.4)]',
-          'bg-[hsl(var(--terminal-panel))] terminal-scanlines',
-          'flex flex-col items-center justify-between p-1',
-          'terminal-border-glow',
-          'select-none',
-          'relative overflow-hidden font-mono',
-          isSelected && 'ring-2 ring-[hsl(var(--terminal-amber))]',
-          isClickable && 'cursor-pointer hover:brightness-110 hover:-translate-y-0.5'
-        )}
-        onClick={isClickable ? onClick : undefined}
-        {...getCardClickProps(isClickable, onClick, t('game.selectCard'))}
-      >
-        {/* Äußerer Rahmen */}
-        <div className="absolute inset-0.5 border border-[hsl(var(--terminal-green)/0.15)] rounded-sm pointer-events-none" />
-
-        {/* Scanlines */}
-        <div className="absolute inset-0 opacity-30 pointer-events-none terminal-scanlines-static" />
-
-        {/* Obere linke Ecke: Rank */}
-        <div className={cn('self-start leading-none font-bold z-10 tracking-tighter', suitColor)}>
-          {card.rank}
-        </div>
-
-        {/* Zentrales geometrisches Symbol */}
-        <div className={cn(symbolSizeClasses[size], 'z-10 drop-shadow-[0_0_6px_currentColor]', suitColor)}>
-          {suitSymbol}
-        </div>
-
-        {/* Untere rechte Ecke: Rank (gedreht) */}
-        <div className={cn('self-end leading-none font-bold rotate-180 z-10 tracking-tighter', suitColor)}>
-          {card.rank}
-        </div>
-      </div>
-    );
-  }
-
-  if (!isVisible) {
-    return (
-      <motion.div
-        {...entranceAnimation}
-        layoutId={layoutId}
-        className={cn(
-          sizeClasses[size],
-          'rounded-md border border-[hsl(var(--terminal-green)/0.4)]',
-          'circuit-pattern terminal-scanlines',
-          'flex items-center justify-center',
-          'terminal-border-glow',
-          'relative overflow-hidden',
-          isSelected && 'ring-2 ring-[hsl(var(--terminal-amber))]'
-        )}
-        onClick={isClickable ? onClick : undefined}
-        {...getCardClickProps(isClickable, onClick, t('game.selectCard'))}
-        whileHover={isClickable ? { scale: 1.08, rotateY: 10 } : {}}
-        whileTap={isClickable ? { scale: 0.95 } : {}}
-        style={{ transformStyle: 'preserve-3d' }}
-      >
-        {/* Leuchtende Ecken als Orientierungshilfen */}
-        <div className="absolute top-0.5 left-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
-        <div className="absolute top-0.5 right-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
-        <div className="absolute bottom-0.5 left-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
-        <div className="absolute bottom-0.5 right-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
-
-        <div className="relative w-1/2 h-1/2 border border-[hsl(var(--terminal-green)/0.3)] rounded-sm flex items-center justify-center">
-          <div className="w-2/3 h-2/3 border border-[hsl(var(--terminal-green)/0.2)] rotate-45" />
-          <div className="absolute w-1.5 h-1.5 bg-[hsl(var(--terminal-green)/0.8)] rounded-full animate-pulse" />
-        </div>
-      </motion.div>
-    );
-  }
-
-  const suitColor = SUIT_COLORS[card.suit];
-  const suitSymbol = SUIT_SYMBOLS[card.suit];
-
-  const selectedAnimation = {
-    scale: [1, 1.03, 1],
-    boxShadow: [
-      '0 0 8px hsl(var(--terminal-green) / 0.2)',
-      '0 0 20px hsl(var(--terminal-amber) / 0.5)',
-      '0 0 8px hsl(var(--terminal-green) / 0.2)',
-    ],
-    transition: {
-      duration: 1.5,
-      repeat: Infinity,
-      ease: 'easeInOut' as const,
-    },
-  };
-
   return (
     <motion.div
-      {...entranceAnimation}
       layoutId={layoutId}
-      className={cn(
-        sizeClasses[size],
-        'rounded-md border border-[hsl(var(--terminal-green)/0.4)]',
-        'bg-[hsl(var(--terminal-panel))] terminal-scanlines',
-        'flex flex-col items-center justify-between p-1',
-        'terminal-border-glow',
-        'select-none',
-        'relative overflow-hidden font-mono',
-        isSelected && 'ring-2 ring-[hsl(var(--terminal-amber))]'
-      )}
-      onClick={isClickable ? onClick : undefined}
-      {...getCardClickProps(isClickable, onClick, t('game.selectCard'))}
-      whileHover={
-        isClickable
-          ? {
-              scale: 1.08,
-              y: -3,
-              rotateX: -5,
-              transition: hoverSpring,
-            }
-          : {}
-      }
+      initial={{ opacity: 0, y: -30, scale: 0.8 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={springTransition}
+      whileHover={isClickable ? { scale: 1.08, y: -3 } : {}}
       whileTap={isClickable ? { scale: 0.95 } : {}}
-      animate={isSelected ? selectedAnimation : entranceAnimation.animate}
-      style={{ transformStyle: 'preserve-3d' }}
     >
-      {/* Äußerer Rahmen */}
-      <div className="absolute inset-0.5 border border-[hsl(var(--terminal-green)/0.15)] rounded-sm pointer-events-none" />
-
-      {/* Obere linke Ecke: Rank */}
-      <div className={cn('self-start leading-none font-bold z-10 tracking-tighter', suitColor)}>
-        {card.rank}
-      </div>
-
-      {/* Zentrales geometrisches Symbol */}
-      <div className={cn(symbolSizeClasses[size], 'z-10 drop-shadow-[0_0_6px_currentColor]', suitColor)}>
-        {suitSymbol}
-      </div>
-
-      {/* Untere rechte Ecke: Rank (gedreht) */}
-      <div className={cn('self-end leading-none font-bold rotate-180 z-10 tracking-tighter', suitColor)}>
-        {card.rank}
-      </div>
+      <Card
+        card={card}
+        faceUp={isVisible}
+        className={className}
+        onClick={isClickable ? onClick : undefined}
+      />
     </motion.div>
   );
 }
@@ -306,6 +169,11 @@ interface CardStackProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
+/**
+ * Darstellung eines Kartenstapels (Zieh- oder Ablagestapel).
+ *
+ * Verwendet den aktiven Kartenrücken-Skin und zeigt optional die oberste Karte.
+ */
 export function CardStack({
   count = 0,
   label,
@@ -315,35 +183,24 @@ export function CardStack({
   size = 'md',
 }: CardStackProps) {
   const { t } = useI18n();
+  const { activeSkins } = useSkins();
+  const backUrl = activeSkins.cardBack?.assets.back ?? '';
   const animationsOn = isAnimationsEnabled();
-  const sizeClasses = {
-    sm: 'w-10 h-14',
-    md: 'w-16 h-[5.5rem]',
-    lg: 'w-24 h-[8.5rem]',
-  };
+  const sizeClass = sizeClasses[size];
 
   const stackBack = (
     <div
       className={cn(
-        sizeClasses[size],
+        sizeClass,
         'rounded-md border border-[hsl(var(--terminal-green)/0.4)]',
-        'circuit-pattern terminal-scanlines',
+        'bg-cover bg-center bg-no-repeat',
         'flex items-center justify-center',
         'terminal-border-glow',
         'relative overflow-hidden',
         isClickable && 'cursor-pointer hover:brightness-110'
       )}
+      style={{ backgroundImage: `url(${backUrl})` }}
     >
-      <div className="absolute top-0.5 left-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
-      <div className="absolute top-0.5 right-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
-      <div className="absolute bottom-0.5 left-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
-      <div className="absolute bottom-0.5 right-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
-
-      <div className="relative w-1/2 h-1/2 border border-[hsl(var(--terminal-green)/0.3)] rounded-sm flex items-center justify-center">
-        <div className="w-2/3 h-2/3 border border-[hsl(var(--terminal-green)/0.2)] rotate-45" />
-        <div className="absolute w-1.5 h-1.5 bg-[hsl(var(--terminal-green)/0.8)] rounded-full animate-pulse" />
-      </div>
-
       <span className="absolute bottom-1 right-1 text-[10px] font-mono text-[hsl(var(--terminal-green)/0.8)] z-10">
         {count}
       </span>
@@ -354,9 +211,11 @@ export function CardStack({
     return (
       <div className="flex flex-col items-center gap-2">
         <div
-          className={cn('relative', sizeClasses[size], isClickable && 'cursor-pointer hover:scale-105')}
+          className={cn('relative', sizeClass, isClickable && 'cursor-pointer hover:scale-105')}
           onClick={isClickable ? onClick : undefined}
-          {...getCardClickProps(isClickable, onClick, t('game.selectStack'))}
+          role={isClickable ? 'button' : undefined}
+          tabIndex={isClickable ? 0 : undefined}
+          aria-label={isClickable ? t('game.selectStack') : undefined}
         >
           {count > 0 && (
             <>
@@ -366,7 +225,7 @@ export function CardStack({
           )}
           <div className="relative">
             {topCard ? (
-              <CardComponent card={topCard} isVisible={true} size={size} />
+              <Card card={topCard} faceUp className={sizeClass} />
             ) : (
               stackBack
             )}
@@ -385,9 +244,11 @@ export function CardStack({
       whileHover={isClickable ? { scale: 1.05 } : {}}
     >
       <motion.div
-        className={cn('relative', sizeClasses[size])}
+        className={cn('relative', sizeClass)}
         onClick={isClickable ? onClick : undefined}
-        {...getCardClickProps(isClickable, onClick, t('game.selectStack'))}
+        role={isClickable ? 'button' : undefined}
+        tabIndex={isClickable ? 0 : undefined}
+        aria-label={isClickable ? t('game.selectStack') : undefined}
         whileHover={isClickable ? { scale: 1.05 } : {}}
         whileTap={isClickable ? { scale: 0.95 } : {}}
       >
@@ -407,30 +268,21 @@ export function CardStack({
         )}
         <div className="relative">
           {topCard ? (
-            <CardComponent card={topCard} isVisible={true} size={size} />
+            <Card card={topCard} faceUp className={sizeClass} />
           ) : (
             <motion.div
               className={cn(
-                sizeClasses[size],
+                sizeClass,
                 'rounded-md border border-[hsl(var(--terminal-green)/0.4)]',
-                'circuit-pattern terminal-scanlines',
+                'bg-cover bg-center bg-no-repeat',
                 'flex items-center justify-center',
                 'terminal-border-glow',
                 'relative overflow-hidden',
                 isClickable && 'cursor-pointer'
               )}
+              style={{ backgroundImage: `url(${backUrl})` }}
               whileHover={isClickable ? { scale: 1.05 } : {}}
             >
-              <div className="absolute top-0.5 left-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
-              <div className="absolute top-0.5 right-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
-              <div className="absolute bottom-0.5 left-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
-              <div className="absolute bottom-0.5 right-0.5 w-1 h-1 bg-[hsl(var(--terminal-green)/0.6)]" />
-
-              <div className="relative w-1/2 h-1/2 border border-[hsl(var(--terminal-green)/0.3)] rounded-sm flex items-center justify-center">
-                <div className="w-2/3 h-2/3 border border-[hsl(var(--terminal-green)/0.2)] rotate-45" />
-                <div className="absolute w-1.5 h-1.5 bg-[hsl(var(--terminal-green)/0.8)] rounded-full animate-pulse" />
-              </div>
-
               <span className="absolute bottom-1 right-1 text-[10px] font-mono text-[hsl(var(--terminal-green)/0.8)] z-10">
                 {count}
               </span>
