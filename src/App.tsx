@@ -214,7 +214,7 @@ function AppContent() {
 
   // Game
   if (gameMode === 'game') {
-    return <GameBoard players={players} onBackToMenu={backToMenu} />;
+    return <GameBoard playerConfigs={players.map((p) => ({ ...p, isHuman: !p.isAI }))} onBackToMenu={backToMenu} />;
   }
 
   // Shop

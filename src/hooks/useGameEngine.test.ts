@@ -74,12 +74,11 @@ describe('useGameEngine', () => {
   });
 
   it('startet ein Spiel mit den übergebenen Spieler-Konfigurationen', async () => {
-    const { result } = renderHook(() => useGameEngine());
-
     const configs: PlayerConfig[] = [
       { name: 'Mensch', isAI: false, isHuman: true },
       { name: 'KI', isAI: true, isHuman: false, difficulty: 'easy' },
     ];
+    const { result } = renderHook(() => useGameEngine(configs));
 
     await act(async () => {
       result.current.startGame(configs);
@@ -98,13 +97,12 @@ describe('useGameEngine', () => {
   });
 
   it('erkennt menschliche und KI-Spieler anhand der Konfiguration', async () => {
-    const { result } = renderHook(() => useGameEngine());
-
     const configs: PlayerConfig[] = [
       { name: 'Spieler 1', isAI: false, isHuman: true },
       { name: 'Spieler 2', isAI: false, isHuman: true },
       { name: 'KI-Hard', isAI: true, isHuman: false, difficulty: 'hard' },
     ];
+    const { result } = renderHook(() => useGameEngine(configs));
 
     await act(async () => {
       result.current.startGame(configs);
@@ -119,7 +117,12 @@ describe('useGameEngine', () => {
   });
 
   it('setzt das Spiel zurück', async () => {
-    const { result } = renderHook(() => useGameEngine());
+    const { result } = renderHook(() =>
+      useGameEngine([
+        { name: 'Mensch', isAI: false, isHuman: true },
+        { name: 'KI', isAI: true, isHuman: false, difficulty: 'medium' },
+      ])
+    );
 
     await act(async () => {
       result.current.startGame([
@@ -137,5 +140,6 @@ describe('useGameEngine', () => {
     expect(result.current.gameState).toBeNull();
     expect(result.current.drawnCard).toBeNull();
     expect(result.current.isCurrentPlayerHuman).toBe(false);
+    expect(result.current.turnOverlayOpen).toBe(false);
   });
 });
