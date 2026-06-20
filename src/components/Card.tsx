@@ -90,6 +90,7 @@ interface CardComponentProps {
   animate?: boolean;
   index?: number;
   layoutId?: string;
+  className?: string;
 }
 
 const sizeClasses = {
@@ -114,13 +115,15 @@ export function CardComponent({
   animate = true,
   index = 0,
   layoutId,
+  className: extraClassName,
 }: CardComponentProps) {
   const animationsOn = isAnimationsEnabled() && animate;
 
   const className = cn(
     sizeClasses[size],
     isSelected && 'ring-2 ring-[hsl(var(--terminal-amber))]',
-    isClickable && 'hover:-translate-y-0.5'
+    isClickable && 'hover:-translate-y-0.5',
+    extraClassName
   );
 
   if (!animationsOn) {
@@ -167,6 +170,7 @@ interface CardStackProps {
   isClickable?: boolean;
   topCard?: CardType | null;
   size?: 'sm' | 'md' | 'lg';
+  className?: string;
 }
 
 /**
@@ -181,6 +185,7 @@ export function CardStack({
   isClickable = false,
   topCard = null,
   size = 'md',
+  className: extraClassName,
 }: CardStackProps) {
   const { t } = useI18n();
   const { activeSkins } = useSkins();
@@ -197,7 +202,8 @@ export function CardStack({
         'flex items-center justify-center',
         'terminal-border-glow',
         'relative overflow-hidden',
-        isClickable && 'cursor-pointer hover:brightness-110'
+        isClickable && 'cursor-pointer hover:brightness-110',
+        extraClassName
       )}
       style={{ backgroundImage: `url(${backUrl})` }}
     >
@@ -225,7 +231,7 @@ export function CardStack({
           )}
           <div className="relative">
             {topCard ? (
-              <Card card={topCard} faceUp className={sizeClass} />
+              <Card card={topCard} faceUp className={cn(sizeClass, extraClassName)} />
             ) : (
               stackBack
             )}
@@ -268,7 +274,7 @@ export function CardStack({
         )}
         <div className="relative">
           {topCard ? (
-            <Card card={topCard} faceUp className={sizeClass} />
+            <Card card={topCard} faceUp className={cn(sizeClass, extraClassName)} />
           ) : (
             <motion.div
               className={cn(
@@ -278,7 +284,8 @@ export function CardStack({
                 'flex items-center justify-center',
                 'terminal-border-glow',
                 'relative overflow-hidden',
-                isClickable && 'cursor-pointer'
+                isClickable && 'cursor-pointer',
+                extraClassName
               )}
               style={{ backgroundImage: `url(${backUrl})` }}
               whileHover={isClickable ? { scale: 1.05 } : {}}

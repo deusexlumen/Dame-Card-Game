@@ -6,10 +6,13 @@ let globalSettings: GameSettings = {
   animationsEnabled: true,
   aiSpeed: 'normal',
   musicEnabled: true,
+  musicVolume: 50,
+  effectsVolume: 50,
   defaultAIDifficulty: 'medium',
   turnTimer: false,
   turnTimerSeconds: 30,
   powerEffects: false,
+  table3d: false,
 };
 
 export function setGlobalSettings(settings: GameSettings): void {

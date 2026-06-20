@@ -62,6 +62,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
   const { t } = useI18n();
 
   const tableBackgroundUrl = activeSkins.table?.assets.felt ?? '';
+  const card3dClass = settings.table3d ? 'card-3d' : '';
 
   const gameConfig = useMemo(
     () => ({
@@ -373,6 +374,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
               gamePhase={gameState.phase}
               peekPhase={true}
               size="lg"
+              cardClassName={card3dClass}
             />
           </div>
           <Button onClick={handleReady} size="lg" className="w-full sm:w-auto">
@@ -385,8 +387,8 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
   }
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-  const topDiscardCard = gameState.discardPile.length > 0 
-    ? gameState.discardPile[gameState.discardPile.length - 1] 
+  const topDiscardCard = gameState.discardPile.length > 0
+    ? gameState.discardPile[gameState.discardPile.length - 1]
     : null;
 
   const mustTakeQueen =
@@ -416,7 +418,10 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
 
   return (
     <div
-      className="min-h-screen relative p-2 sm:p-4 bg-cover bg-center bg-no-repeat"
+      className={cn(
+        'min-h-screen relative p-2 sm:p-4 bg-cover bg-center bg-no-repeat',
+        settings.table3d && 'table-3d table-surface'
+      )}
       style={{ backgroundImage: tableBackgroundUrl ? `url(${tableBackgroundUrl})` : undefined }}
     >
       {/* Header */}
@@ -508,6 +513,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                   gamePhase={gameState.phase}
                   size="sm"
                   peekedIndices={peekedIndices}
+                  cardClassName={card3dClass}
                 />
                 {isAI && difficulty && (
                   <div className={cn(
@@ -530,6 +536,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
             onClick={() => { playCardDraw(); drawFromDeck(); }}
             isClickable={isHumanTurn && !drawnCard && !isAIThinking && !mustTakeQueen}
             size="md"
+            className={card3dClass}
           />
 
           {/* Spiel-Info */}
@@ -560,6 +567,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
             onClick={() => { playCardDraw(); drawFromDiscard(); }}
             isClickable={isHumanTurn && !drawnCard && !!topDiscardCard && !isAIThinking}
             size="md"
+            className={card3dClass}
           />
         </div>
 
@@ -577,7 +585,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
               <div className="bg-[hsl(var(--terminal-green)/0.15)] border border-[hsl(var(--terminal-green)/0.25)] backdrop-blur-sm rounded-xl p-3 sm:p-4">
                 <p className="text-[hsl(var(--terminal-green))] text-center mb-2 text-sm sm:text-base">{t('game.drawnCard')}</p>
                 <div className="flex justify-center">
-                  <Card card={drawnCard} faceUp className="w-16 h-[5.5rem]" />
+                  <Card card={drawnCard} faceUp className={cn('w-16 h-[5.5rem]', card3dClass)} />
                 </div>
               </div>
             </motion.div>
@@ -698,6 +706,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
             selectedCardIndex={selectedHandIndex}
             gamePhase={gameState.phase}
             size="md"
+            cardClassName={card3dClass}
           />
         </div>
 
@@ -759,6 +768,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                       peekedIndices={playerPeekedIndices}
                       gamePhase={gameState.phase}
                       size="md"
+                      cardClassName={card3dClass}
                     />
                   </div>
                 </div>
@@ -800,7 +810,8 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                     faceUp
                     className={cn(
                       'w-16 h-[5.5rem]',
-                      aceSelectedDeckIndex === index && 'ring-2 ring-[hsl(var(--terminal-amber))]'
+                      aceSelectedDeckIndex === index && 'ring-2 ring-[hsl(var(--terminal-amber))]',
+                      card3dClass
                     )}
                     onClick={() => setAceSelectedDeckIndex(index)}
                   />
@@ -822,6 +833,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                   selectedCardIndex={selectedHandIndex}
                   gamePhase={gameState.phase}
                   size="md"
+                  cardClassName={card3dClass}
                 />
               </div>
             </div>
@@ -890,6 +902,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                 selectedCardIndex={selectedHandIndex}
                 gamePhase={gameState.phase}
                 size="sm"
+                cardClassName={card3dClass}
               />
             </div>
           </div>
@@ -938,6 +951,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                   peekedIndices={kingTargetCardIndex !== null ? [kingTargetCardIndex] : []}
                   gamePhase={gameState.phase}
                   size="md"
+                  cardClassName={card3dClass}
                 />
               </div>
               {kingPeekedCard && (

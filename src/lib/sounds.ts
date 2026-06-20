@@ -1,10 +1,17 @@
 // Sound-Effekte via Web Audio API
-// Keine externen Dateien — alles wird programmatisch generiert
+// Zusätzlich können Datei-basierte Musik-Tracks abgespielt werden.
 
 import { isSoundEnabled, isMusicEnabled } from './settings';
 
 let audioCtx: AudioContext | null = null;
 let bgMusicNodes: { osc: OscillatorNode; gain: GainNode; lfo: OscillatorNode; lfoGain: GainNode } | null = null;
+
+// Lautstärke-Zustand (0..1)
+let musicVolume = 0.5;
+let effectsVolume = 0.5;
+
+// Aktives Musik-Audio-Element (Datei-basiert)
+let musicAudio: HTMLAudioElement | null = null;
 
 function getAudioContext(): AudioContext {
   if (!audioCtx) {
@@ -27,9 +34,80 @@ function createNoiseBuffer(ctx: AudioContext): AudioBuffer {
   return buffer;
 }
 
+// Skaliert einen Effekt-Gain-Wert nach der aktuellen Effekt-Lautstärke
+function E(gain: number): number {
+  return gain * effectsVolume;
+}
+
+export function getMusicVolume(): number {
+  return musicVolume;
+}
+
+export function getEffectsVolume(): number {
+  return effectsVolume;
+}
+
+export function setMusicVolume(vol: number): void {
+  musicVolume = Math.max(0, Math.min(1, vol));
+  if (musicAudio) {
+    musicAudio.volume = musicVolume;
+  }
+  if (bgMusicNodes && audioCtx) {
+    bgMusicNodes.gain.gain.setValueAtTime(0.015 * musicVolume, audioCtx.currentTime);
+  }
+}
+
+export function setEffectsVolume(vol: number): void {
+  effectsVolume = Math.max(0, Math.min(1, vol));
+}
+
+// Datei-basierte Musik abspielen
+export function playMusicTrack(src: string): Promise<void> {
+  if (!isMusicEnabled()) return Promise.resolve();
+  stopBackgroundMusic();
+  stopMusicTrack();
+
+  const audio = new Audio(src);
+  audio.loop = true;
+  audio.volume = musicVolume;
+  musicAudio = audio;
+
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      audio.removeEventListener('canplaythrough', onCanPlay);
+      audio.removeEventListener('error', onError);
+    };
+
+    const onCanPlay = () => {
+      cleanup();
+      audio.play().then(resolve).catch(reject);
+    };
+
+    const onError = () => {
+      cleanup();
+      stopMusicTrack();
+      reject(new Error('Failed to load music track'));
+    };
+
+    audio.addEventListener('canplaythrough', onCanPlay);
+    audio.addEventListener('error', onError);
+    audio.load();
+  });
+}
+
+export function stopMusicTrack(): void {
+  if (musicAudio) {
+    musicAudio.pause();
+    musicAudio.src = '';
+    musicAudio.load();
+    musicAudio = null;
+  }
+}
+
 // Hintergrundmusik starten — leises Casino-Ambiente
 export function startBackgroundMusic() {
   if (!isMusicEnabled() || bgMusicNodes) return;
+  stopMusicTrack();
   try {
     const ctx = getAudioContext();
 
@@ -46,10 +124,10 @@ export function startBackgroundMusic() {
     const lfoGain = ctx.createGain();
     lfoGain.gain.setValueAtTime(3, ctx.currentTime);
 
-    // Haupt-Gain — sehr leise
+    // Haupt-Gain — sehr leise, skaliert mit Musik-Lautstärke
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.015, ctx.currentTime + 2);
+    gain.gain.linearRampToValueAtTime(0.015 * musicVolume, ctx.currentTime + 2);
 
     lfo.connect(lfoGain);
     lfoGain.connect(osc.frequency);
@@ -99,7 +177,7 @@ export function playCardDraw() {
     filter.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.15);
 
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.setValueAtTime(E(0.08), ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
 
     noise.connect(filter);
@@ -123,7 +201,7 @@ export function playCardPlace() {
     osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.08);
 
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.setValueAtTime(E(0.12), ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
 
     osc.connect(gain);
@@ -146,7 +224,7 @@ export function playCardFlip() {
     osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.06);
 
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.06, ctx.currentTime);
+    gain.gain.setValueAtTime(E(0.06), ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
 
     osc.connect(gain);
@@ -172,7 +250,7 @@ export function playDameCall() {
       osc.frequency.setValueAtTime(660, now + i * 0.12 + 0.06);
 
       const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.08, now + i * 0.12);
+      gain.gain.setValueAtTime(E(0.08), now + i * 0.12);
       gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.1);
 
       osc.connect(gain);
@@ -200,7 +278,7 @@ export function playWinSound() {
 
       const gain = ctx.createGain();
       gain.gain.setValueAtTime(0, now + i * 0.12);
-      gain.gain.linearRampToValueAtTime(0.1, now + i * 0.12 + 0.02);
+      gain.gain.linearRampToValueAtTime(E(0.1), now + i * 0.12 + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.35);
 
       osc.connect(gain);
@@ -224,7 +302,7 @@ export function playPenaltySound() {
     osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2);
 
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.setValueAtTime(E(0.08), ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
 
     osc.connect(gain);

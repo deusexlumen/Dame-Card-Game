@@ -2,9 +2,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
 import { useSettings, type AIDifficulty, type AISpeed, type TurnTimerSeconds } from '@/hooks/useSettings';
 import { useI18n } from '@/lib/i18n';
-import { ArrowLeft, Zap, Brain, Target, Clock, Dices, Volume2, Music, Sparkles, Globe } from 'lucide-react';
+import { ArrowLeft, Zap, Brain, Target, Clock, Dices, Volume2, Music, Sparkles, Globe, Box } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SettingsPanelProps {
@@ -17,11 +18,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     toggleSound,
     toggleMusic,
     toggleAnimations,
+    setMusicVolume,
+    setEffectsVolume,
     setAiSpeed,
     setDefaultAIDifficulty,
     toggleTurnTimer,
     setTurnTimerSeconds,
     togglePowerEffects,
+    toggleTable3d,
   } = useSettings();
   const { t, language, setLanguage } = useI18n();
 
@@ -227,6 +231,67 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                     <option value="en">English</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Lautstärke-Regler */}
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium text-[hsl(var(--terminal-green))]">
+                      Musik-Lautstärke
+                    </Label>
+                    <span className="text-xs font-mono text-[hsl(var(--terminal-green)/0.8)]">
+                      {settings.musicVolume}%
+                    </span>
+                  </div>
+                  <Slider
+                    value={[settings.musicVolume]}
+                    min={0}
+                    max={100}
+                    step={1}
+                    onValueChange={([value]) => setMusicVolume(value)}
+                    aria-label="Musik-Lautstärke"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium text-[hsl(var(--terminal-green))]">
+                      Effekt-Lautstärke
+                    </Label>
+                    <span className="text-xs font-mono text-[hsl(var(--terminal-green)/0.8)]">
+                      {settings.effectsVolume}%
+                    </span>
+                  </div>
+                  <Slider
+                    value={[settings.effectsVolume]}
+                    min={0}
+                    max={100}
+                    step={1}
+                    onValueChange={([value]) => setEffectsVolume(value)}
+                    aria-label="Effekt-Lautstärke"
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Ansicht */}
+            <section className="space-y-3">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-[hsl(var(--terminal-cyan))]">
+                Ansicht
+              </h3>
+              <div className="flex items-center justify-between p-3 bg-[hsl(var(--terminal-dark)/0.5)] border border-[hsl(var(--terminal-green)/0.15)] rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Box className="w-4 h-4 text-[hsl(var(--terminal-amber))]" />
+                  <Label htmlFor="table-3d" className="text-sm font-medium text-[hsl(var(--terminal-green))]">
+                    3D-Tischansicht
+                  </Label>
+                </div>
+                <Switch
+                  id="table-3d"
+                  checked={settings.table3d}
+                  onCheckedChange={toggleTable3d}
+                  aria-label="3D-Tischansicht"
+                />
               </div>
             </section>
 

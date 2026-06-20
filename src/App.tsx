@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { GameBoard } from '@/components/GameBoard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
 import { useSettings } from '@/hooks/useSettings';
+import { playMusicTrack, startBackgroundMusic } from '@/lib/sounds';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { SkinProvider } from '@/components/SkinProvider';
 import { SkinShop } from '@/components/SkinShop';
@@ -55,10 +56,34 @@ function AppContent() {
   const { t, language, setLanguage } = useI18n();
   const { settings } = useSettings();
   const [gameMode, setGameMode] = useState<GameMode>('menu');
+  const [musicStarted, setMusicStarted] = useState(false);
   const [players, setPlayers] = useState<PlayerConfig[]>([
     { name: 'Spieler 1', isAI: false },
     { name: 'KI-Gegner', isAI: true, difficulty: 'medium' }
   ]);
+
+  // Nach der ersten Nutzerinteraktion Hintergrundmusik starten
+  useEffect(() => {
+    const handleInteraction = () => {
+      setMusicStarted(true);
+    };
+
+    window.addEventListener('pointerdown', handleInteraction, { once: true });
+    window.addEventListener('keydown', handleInteraction, { once: true });
+
+    return () => {
+      window.removeEventListener('pointerdown', handleInteraction);
+      window.removeEventListener('keydown', handleInteraction);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (musicStarted && settings.musicEnabled) {
+      playMusicTrack('/sounds/music/menu.mp3').catch(() => {
+        startBackgroundMusic();
+      });
+    }
+  }, [musicStarted, settings.musicEnabled]);
 
   // Add human player
   const addHumanPlayer = () => {

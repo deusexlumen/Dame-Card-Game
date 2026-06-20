@@ -1,4 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
+import {
+  setMusicVolume as setSoundMusicVolume,
+  setEffectsVolume as setSoundEffectsVolume,
+} from '@/lib/sounds';
+import { setGlobalSettings } from '@/lib/settings';
 
 export type AISpeed = 'fast' | 'normal' | 'slow';
 export type AIDifficulty = 'easy' | 'medium' | 'hard';
@@ -9,10 +14,13 @@ interface GameSettings {
   animationsEnabled: boolean;
   aiSpeed: AISpeed;
   musicEnabled: boolean;
+  musicVolume: number;
+  effectsVolume: number;
   defaultAIDifficulty: AIDifficulty;
   turnTimer: boolean;
   turnTimerSeconds: TurnTimerSeconds;
   powerEffects: boolean;
+  table3d: boolean;
 }
 
 const STORAGE_KEY = 'dame-game-settings';
@@ -22,10 +30,13 @@ const DEFAULT_SETTINGS: GameSettings = {
   animationsEnabled: true,
   aiSpeed: 'normal',
   musicEnabled: true,
+  musicVolume: 50,
+  effectsVolume: 50,
   defaultAIDifficulty: 'medium',
   turnTimer: false,
   turnTimerSeconds: 30,
   powerEffects: false,
+  table3d: false,
 };
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -74,6 +85,26 @@ export function useSettings() {
     setSettings((prev) => ({ ...prev, musicEnabled: !prev.musicEnabled }));
   }, []);
 
+  const setMusicVolume = useCallback((value: number) => {
+    const clamped = Math.max(0, Math.min(100, value));
+    setSettings((prev) => {
+      const next = { ...prev, musicVolume: clamped };
+      setGlobalSettings(next);
+      return next;
+    });
+    setSoundMusicVolume(clamped / 100);
+  }, []);
+
+  const setEffectsVolume = useCallback((value: number) => {
+    const clamped = Math.max(0, Math.min(100, value));
+    setSettings((prev) => {
+      const next = { ...prev, effectsVolume: clamped };
+      setGlobalSettings(next);
+      return next;
+    });
+    setSoundEffectsVolume(clamped / 100);
+  }, []);
+
   const setAiSpeed = useCallback((speed: AISpeed) => {
     setSettings((prev) => ({ ...prev, aiSpeed: speed }));
   }, []);
@@ -94,16 +125,27 @@ export function useSettings() {
     setSettings((prev) => ({ ...prev, powerEffects: !prev.powerEffects }));
   }, []);
 
+  const toggleTable3d = useCallback(() => {
+    setSettings((prev) => {
+      const next = { ...prev, table3d: !prev.table3d };
+      setGlobalSettings(next);
+      return next;
+    });
+  }, []);
+
   return {
     settings,
     toggleSound,
     toggleAnimations,
     toggleMusic,
+    setMusicVolume,
+    setEffectsVolume,
     setAiSpeed,
     setDefaultAIDifficulty,
     toggleTurnTimer,
     setTurnTimerSeconds,
     togglePowerEffects,
+    toggleTable3d,
   };
 }
 

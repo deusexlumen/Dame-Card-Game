@@ -18,6 +18,7 @@ interface PlayerHandProps {
   size?: 'sm' | 'md' | 'lg';
   peekedIndices?: number[];
   peekPhase?: boolean;
+  cardClassName?: string;
 }
 
 export function PlayerHand({
@@ -34,6 +35,7 @@ export function PlayerHand({
   size = 'md',
   peekedIndices = [],
   peekPhase = false,
+  cardClassName,
 }: PlayerHandProps) {
   const { t } = useI18n();
   // Gegner-Karten immer verdeckt zeigen, auch wenn der Gegner am Zug ist
@@ -87,6 +89,7 @@ export function PlayerHand({
                 isVisible={isOpponent ? false : isVisible}
                 isSelected={selectedCardIndex === index}
                 isClickable={!!isClickable}
+                className={cardClassName}
                 onClick={() => {
                   if (onCardSelectForJack) {
                     onCardSelectForJack(index);
