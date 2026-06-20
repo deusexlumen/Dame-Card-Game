@@ -585,7 +585,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
               <div className="bg-[hsl(var(--terminal-green)/0.15)] border border-[hsl(var(--terminal-green)/0.25)] backdrop-blur-sm rounded-xl p-3 sm:p-4">
                 <p className="text-[hsl(var(--terminal-green))] text-center mb-2 text-sm sm:text-base">{t('game.drawnCard')}</p>
                 <div className="flex justify-center">
-                  <Card card={drawnCard} faceUp className={cn('w-16 h-[5.5rem]', card3dClass)} />
+                  <Card card={drawnCard} faceUp size="md" className={cn('w-16 h-[5.5rem]', card3dClass)} />
                 </div>
               </div>
             </motion.div>
@@ -808,6 +808,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                   <Card
                     card={card}
                     faceUp
+                    size="md"
                     className={cn(
                       'w-16 h-[5.5rem]',
                       aceSelectedDeckIndex === index && 'ring-2 ring-[hsl(var(--terminal-amber))]',

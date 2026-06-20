@@ -218,7 +218,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                   <div className="flex items-center gap-2">
                     <Globe className="w-4 h-4 text-[hsl(var(--terminal-cyan))]" />
                     <Label htmlFor="language" className="text-sm font-medium text-[hsl(var(--terminal-green))]">
-                      {t('settings.view')}
+                      {t('menu.language')}
                     </Label>
                   </div>
                   <select

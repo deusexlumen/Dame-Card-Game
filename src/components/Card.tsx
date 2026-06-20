@@ -9,9 +9,16 @@ import { useSkins } from '@/hooks/useSkins';
 interface CardProps {
   card: CardType;
   faceUp?: boolean;
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
   onClick?: () => void;
 }
+
+const overlaySizeClasses = {
+  sm: { rank: 'text-[10px]', suit: 'text-xl' },
+  md: { rank: 'text-xs', suit: 'text-2xl' },
+  lg: { rank: 'text-base', suit: 'text-4xl' },
+};
 
 /**
  * Skin-fähige Kartenkomponente.
@@ -19,7 +26,7 @@ interface CardProps {
  * Rendert eine Karte mit dem aktiven Kartenrücken- bzw. Kartengesicht-Asset.
  * Ist `onClick` vorhanden, wird ein Button gerendert, ansonsten ein div.
  */
-export function Card({ card, faceUp = false, className, onClick }: CardProps) {
+export function Card({ card, faceUp = false, size = 'md', className, onClick }: CardProps) {
   const { t } = useI18n();
   const { activeSkins } = useSkins();
 
@@ -40,16 +47,18 @@ export function Card({ card, faceUp = false, className, onClick }: CardProps) {
 
   const style = { backgroundImage: `url(${faceUp ? faceUrl : backUrl})` };
 
+  const overlay = overlaySizeClasses[size];
+
   const faceOverlay = faceUp && (
     <>
       <div className="absolute inset-0.5 border border-[hsl(var(--terminal-green)/0.15)] rounded-sm pointer-events-none" />
-      <span className={cn('absolute top-1 left-1 leading-none font-bold z-10 tracking-tighter', suitColor)}>
+      <span className={cn('absolute top-1 left-1 leading-none font-bold z-10 tracking-tighter', suitColor, overlay.rank)}>
         {card.rank}
       </span>
-      <span className={cn('text-2xl z-10 drop-shadow-[0_0_6px_currentColor]', suitColor)}>
+      <span className={cn('z-10 drop-shadow-[0_0_6px_currentColor]', suitColor, overlay.suit)}>
         {suitSymbol}
       </span>
-      <span className={cn('absolute bottom-1 right-1 leading-none font-bold rotate-180 z-10 tracking-tighter', suitColor)}>
+      <span className={cn('absolute bottom-1 right-1 leading-none font-bold rotate-180 z-10 tracking-tighter', suitColor, overlay.rank)}>
         {card.rank}
       </span>
     </>
@@ -131,6 +140,7 @@ export function CardComponent({
       <Card
         card={card}
         faceUp={isVisible}
+        size={size}
         className={className}
         onClick={isClickable ? onClick : undefined}
       />
@@ -156,6 +166,7 @@ export function CardComponent({
       <Card
         card={card}
         faceUp={isVisible}
+        size={size}
         className={className}
         onClick={isClickable ? onClick : undefined}
       />
@@ -231,7 +242,7 @@ export function CardStack({
           )}
           <div className="relative">
             {topCard ? (
-              <Card card={topCard} faceUp className={cn(sizeClass, extraClassName)} />
+              <Card card={topCard} faceUp size={size} className={cn(sizeClass, extraClassName)} />
             ) : (
               stackBack
             )}
@@ -274,7 +285,7 @@ export function CardStack({
         )}
         <div className="relative">
           {topCard ? (
-            <Card card={topCard} faceUp className={cn(sizeClass, extraClassName)} />
+            <Card card={topCard} faceUp size={size} className={cn(sizeClass, extraClassName)} />
           ) : (
             <motion.div
               className={cn(

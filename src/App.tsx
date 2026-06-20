@@ -20,7 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
 import { useSettings } from '@/hooks/useSettings';
-import { playMusicTrack, startBackgroundMusic, stopMusicTrack } from '@/lib/sounds';
+import { playMusicTrack, startBackgroundMusic, stopBackgroundMusic, stopMusicTrack } from '@/lib/sounds';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { SkinProvider } from '@/components/SkinProvider';
 import { SkinShop } from '@/components/SkinShop';
@@ -85,9 +85,11 @@ function AppContent() {
       });
     } else {
       stopMusicTrack();
+      stopBackgroundMusic();
     }
     return () => {
       stopMusicTrack();
+      stopBackgroundMusic();
     };
   }, [gameMode, musicStarted, settings.musicEnabled]);
 
