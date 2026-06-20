@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
 import { useSettings } from '@/hooks/useSettings';
 import { SettingsPanel } from '@/components/SettingsPanel';
+import { SkinProvider } from '@/components/SkinProvider';
 import type { AIDifficulty } from '@/lib/aiPlayer';
 
 type GameMode = 'menu' | 'game' | 'rules' | 'settings';
@@ -48,7 +49,7 @@ const DIFFICULTY_CONFIG: Record<AIDifficulty, { icon: React.ReactNode; color: st
   },
 };
 
-function App() {
+function AppContent() {
   const { t, language, setLanguage } = useI18n();
   const { settings } = useSettings();
   const [gameMode, setGameMode] = useState<GameMode>('menu');
@@ -336,6 +337,14 @@ function App() {
         </div>
       </div>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <SkinProvider>
+      <AppContent />
+    </SkinProvider>
   );
 }
 

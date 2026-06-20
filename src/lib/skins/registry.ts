@@ -10,9 +10,9 @@ export const SKIN_REGISTRY: readonly Skin[] = [
     category: 'cardBack',
     price: 0,
     currency: 'EUR',
-    previewImage: '/skins/card-backs/default-preview.svg',
+    previewImage: '/skins/default/card-back.svg',
     assets: {
-      back: '/skins/card-backs/default-back.svg',
+      back: '/skins/default/card-back.svg',
     },
   },
   {
@@ -21,9 +21,9 @@ export const SKIN_REGISTRY: readonly Skin[] = [
     category: 'cardBack',
     price: 1.99,
     currency: 'EUR',
-    previewImage: '/skins/card-backs/neon-green-preview.svg',
+    previewImage: '/skins/neon-green/card-back.svg',
     assets: {
-      back: '/skins/card-backs/neon-green-back.svg',
+      back: '/skins/neon-green/card-back.svg',
     },
   },
   {
@@ -32,9 +32,9 @@ export const SKIN_REGISTRY: readonly Skin[] = [
     category: 'table',
     price: 0,
     currency: 'EUR',
-    previewImage: '/skins/tables/default-preview.svg',
+    previewImage: '/skins/default/table-bg.jpg',
     assets: {
-      felt: '/skins/tables/default-felt.svg',
+      felt: '/skins/default/table-bg.jpg',
     },
   },
   {
@@ -43,9 +43,9 @@ export const SKIN_REGISTRY: readonly Skin[] = [
     category: 'table',
     price: 2.99,
     currency: 'EUR',
-    previewImage: '/skins/tables/neon-green-preview.svg',
+    previewImage: '/skins/neon-green/table-bg.jpg',
     assets: {
-      felt: '/skins/tables/neon-green-felt.svg',
+      felt: '/skins/neon-green/table-bg.jpg',
     },
   },
   {
@@ -54,9 +54,9 @@ export const SKIN_REGISTRY: readonly Skin[] = [
     category: 'cardFace',
     price: 0,
     currency: 'EUR',
-    previewImage: '/skins/card-faces/default-preview.svg',
+    previewImage: '/skins/default/card-face.svg',
     assets: {
-      face: '/skins/card-faces/default-face.svg',
+      face: '/skins/default/card-face.svg',
     },
   },
   {
@@ -65,9 +65,9 @@ export const SKIN_REGISTRY: readonly Skin[] = [
     category: 'cardFace',
     price: 1.99,
     currency: 'EUR',
-    previewImage: '/skins/card-faces/neon-green-preview.svg',
+    previewImage: '/skins/neon-green/card-face.svg',
     assets: {
-      face: '/skins/card-faces/neon-green-face.svg',
+      face: '/skins/neon-green/card-face.svg',
     },
   },
 ] as const;
