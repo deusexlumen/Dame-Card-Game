@@ -45,8 +45,8 @@ export function SkinShop({ onClose }: SkinShopProps) {
           };
 
           const priceLabel = skin.price === 0
-            ? t('skins.price.free')
-            : t('skins.price.format', { price: skin.price.toFixed(2), currency: skin.currency });
+            ? t('shop.price.free')
+            : t('shop.price.format', { price: skin.price.toFixed(2), currency: skin.currency });
 
           return (
             <UiCard
@@ -83,17 +83,17 @@ export function SkinShop({ onClose }: SkinShopProps) {
                   {active ? (
                     <>
                       <Check className="w-3.5 h-3.5 mr-1.5" />
-                      {t('skins.activated')}
+                      {t('shop.active')}
                     </>
                   ) : owned ? (
                     <>
                       <Check className="w-3.5 h-3.5 mr-1.5" />
-                      {t('skins.activate')}
+                      {t('shop.activate')}
                     </>
                   ) : (
                     <>
                       <ShoppingBag className="w-3.5 h-3.5 mr-1.5" />
-                      {t('skins.buy')}
+                      {t('shop.buy')}
                     </>
                   )}
                 </Button>
@@ -112,14 +112,14 @@ export function SkinShop({ onClose }: SkinShopProps) {
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xl font-mono terminal-glow flex items-center gap-2">
               <ShoppingBag className="w-5 h-5" />
-              {t('skins.title')}
+              {t('shop.title')}
             </CardTitle>
             <Button
               variant="outline"
               size="icon"
               onClick={onClose}
               className="h-9 w-9 border-[hsl(var(--terminal-green)/0.3)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)]"
-              aria-label={t('skins.close')}
+              aria-label={t('shop.close')}
             >
               <X className="w-4 h-4" />
             </Button>
@@ -133,7 +133,7 @@ export function SkinShop({ onClose }: SkinShopProps) {
                     value={category}
                     className="flex-1 font-mono text-xs data-[state=active]:bg-[hsl(var(--terminal-green))] data-[state=active]:text-black"
                   >
-                    {t(`skins.categories.${category}`)}
+                    {t(`shop.category.${category}`)}
                   </TabsTrigger>
                 ))}
               </TabsList>

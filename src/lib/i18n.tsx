@@ -249,6 +249,22 @@ const de = {
     selectorTitle: 'Skin auswählen',
     close: 'Schließen',
   },
+  shop: {
+    title: 'Skin-Shop',
+    category: {
+      cardBack: 'Kartenrücken',
+      table: 'Tisch',
+      cardFace: 'Kartengesicht',
+    },
+    price: {
+      free: 'Kostenlos',
+      format: '{{price}} {{currency}}',
+    },
+    buy: 'Kaufen',
+    activate: 'Aktivieren',
+    active: 'Aktiv',
+    close: 'Schließen',
+  },
 };
 
 const en = {
@@ -482,6 +498,22 @@ const en = {
     selectCategory: 'Select category',
     noOwnedSkins: 'No skins owned in this category.',
     selectorTitle: 'Select Skin',
+    close: 'Close',
+  },
+  shop: {
+    title: 'Skin Shop',
+    category: {
+      cardBack: 'Card Back',
+      table: 'Table',
+      cardFace: 'Card Face',
+    },
+    price: {
+      free: 'Free',
+      format: '{{price}} {{currency}}',
+    },
+    buy: 'Buy',
+    activate: 'Activate',
+    active: 'Active',
     close: 'Close',
   },
 };
