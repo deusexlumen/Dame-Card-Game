@@ -24,10 +24,11 @@ import { decideAIMove, findWorstCardIndex, type AIDifficulty } from '@/lib/aiPla
 import { useI18n } from '@/lib/i18n';
 import type { AISpeed } from '@/lib/settings';
 
-export interface AIPlayerInfo {
-  id: string;
+export interface PlayerConfig {
   name: string;
-  difficulty: AIDifficulty;
+  isAI: boolean;
+  isHuman: boolean;
+  difficulty?: AIDifficulty;
 }
 
 interface StatsActions {
@@ -35,7 +36,7 @@ interface StatsActions {
   recordGame: (won: boolean) => void;
 }
 
-interface UseGameWithAIReturn {
+interface UseGameEngineReturn {
   gameState: GameState | null;
   drawnCard: Card | null;
   selectedHandIndex: number | null;
@@ -44,7 +45,7 @@ interface UseGameWithAIReturn {
   winner: Player | null;
   isAIThinking: boolean;
   currentAIDifficulty: AIDifficulty | null;
-  startGame: (players: Array<{ name: string; isAI?: boolean; difficulty?: AIDifficulty }>) => void;
+  startGame: (playerConfigs: PlayerConfig[]) => void;
   loadSavedGame: () => boolean;
   hasSavedGame: boolean;
   drawFromDeck: () => void;
@@ -148,14 +149,15 @@ function isValidPlayer(value: unknown): value is Player {
     typeof player.id !== 'string' ||
     typeof player.name !== 'string' ||
     !Array.isArray(player.hand) ||
-    player.hand.length === 0 ||
     !player.hand.every(isValidCard) ||
     !Array.isArray(player.visibleCardIndices) ||
     typeof player.score !== 'number' ||
     typeof player.totalScore !== 'number' ||
     typeof player.isActive !== 'boolean' ||
+    typeof player.isHuman !== 'boolean' ||
     typeof player.isEliminated !== 'boolean' ||
     typeof player.hasCalledDame !== 'boolean' ||
+    (player.isAI !== undefined && typeof player.isAI !== 'boolean') ||
     !Array.isArray(player.penaltyCards) ||
     !player.penaltyCards.every(isValidCard) ||
     !Array.isArray(player.memory) ||
@@ -267,7 +269,7 @@ function hasSavedGameState(): boolean {
   }
 }
 
-export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsActions, gameConfig?: GameConfig): UseGameWithAIReturn {
+export function useGameEngine(aiSpeed: AISpeed = 'normal', statsActions?: StatsActions, gameConfig?: GameConfig): UseGameEngineReturn {
   const speedMult = SPEED_MULTIPLIERS[aiSpeed];
   const speedMultRef = useRef(speedMult);
   useEffect(() => {
@@ -362,13 +364,12 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
   }, [gameState, drawnCard, aiPlayers, gameMessage, messageKey, gameConfig]);
 
   // Spiel starten mit KI-Unterstützung
-  const startGame = useCallback((players: Array<{ name: string; isAI?: boolean; difficulty?: AIDifficulty }>) => {
-    const playerNames = players.map((p) => p.name);
-    const newGame = initializeGame(playerNames);
+  const startGame = useCallback((playerConfigs: PlayerConfig[]) => {
+    const newGame = initializeGame(playerConfigs);
 
     // Speichere KI-Informationen
     const aiMap = new Map<string, AIDifficulty>();
-    players.forEach((p, index) => {
+    playerConfigs.forEach((p, index) => {
       if (p.isAI && p.difficulty) {
         aiMap.set(newGame.players[index].id, p.difficulty);
       }
@@ -628,40 +629,6 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     setMessage('game.dameCalled', { name: currentPlayer.name });
   }, [setMessage]);
 
-  const handleTryDiscardExtra = useCallback((cardId: string): boolean => {
-    if (!gameStateRef.current) return false;
-
-    const currentPlayer = gameStateRef.current.players[gameStateRef.current.currentPlayerIndex];
-    const { success, newState } = discardExtraCard(gameStateRef.current, currentPlayer.id, cardId);
-    gameStateRef.current = newState;
-    setGameState(newState);
-
-    const isAI = aiPlayersRef.current.has(currentPlayer.id);
-    if (!isAI) {
-      if (success) {
-        setMessage('game.extraDiscardSuccess');
-      } else {
-        setMessage('game.extraDiscardFail');
-      }
-    }
-
-    // Wenn der Spieler durch das Extra-Ablegen keine Karten mehr hat, Dame automatisch rufen
-    if (success) {
-      const playerAfter = newState.players.find((p) => p.id === currentPlayer.id);
-      if (playerAfter && playerAfter.hand.length === 0) {
-        isAIMovingRef.current = false;
-        const dameState = callDame(newState, currentPlayer.id);
-        const endState = endTurn(dameState);
-        gameStateRef.current = endState;
-        setGameState(endState);
-        setMessage('game.autoDameCall', { name: currentPlayer.name });
-        return true;
-      }
-    }
-
-    return false;
-  }, [setMessage]);
-
   const handleEndTurn = useCallback(() => {
     if (!gameStateRef.current) return;
 
@@ -722,6 +689,40 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
       }
     }
   }, [statsActions, setMessage]);
+
+  const handleTryDiscardExtra = useCallback((cardId: string): boolean => {
+    if (!gameStateRef.current) return false;
+
+    const currentPlayer = gameStateRef.current.players[gameStateRef.current.currentPlayerIndex];
+    const { success, newState } = discardExtraCard(gameStateRef.current, currentPlayer.id, cardId);
+    gameStateRef.current = newState;
+    setGameState(newState);
+
+    const isAI = aiPlayersRef.current.has(currentPlayer.id);
+    if (!isAI) {
+      if (success) {
+        setMessage('game.extraDiscardSuccess');
+      } else {
+        setMessage('game.extraDiscardFail');
+      }
+    }
+
+    // Wenn der Spieler durch das Extra-Ablegen keine Karten mehr hat, Dame automatisch rufen
+    if (success) {
+      const playerAfter = newState.players.find((p) => p.id === currentPlayer.id);
+      if (playerAfter && playerAfter.hand.length === 0) {
+        isAIMovingRef.current = false;
+        const dameState = callDame(newState, currentPlayer.id);
+        gameStateRef.current = dameState;
+        setGameState(dameState);
+        setMessage('game.autoDameCall', { name: currentPlayer.name });
+        handleEndTurn();
+        return true;
+      }
+    }
+
+    return false;
+  }, [setMessage, handleEndTurn]);
 
   // Zug-Timer abgelaufen: Strafkarte ziehen und Zug beenden
   const handleTimerExpired = useCallback(() => {

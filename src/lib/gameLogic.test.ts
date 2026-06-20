@@ -72,7 +72,7 @@ describe('calculateHandScore', () => {
 
 describe('initializeGame', () => {
   it('verteilt 4 Karten pro Spieler', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     expect(state.players).toHaveLength(2);
     state.players.forEach((p) => {
       expect(p.hand).toHaveLength(4);
@@ -81,7 +81,7 @@ describe('initializeGame', () => {
   });
 
   it('setzt Phase auf SETUP und safePhase auf true', () => {
-    const state = initializeGame(['A']);
+    const state = initializeGame(['A'].map(name => ({ name, isAI: false, isHuman: true })));
     expect(state.phase).toBe('SETUP');
     expect(state.safePhase).toBe(true);
     expect(state.round).toBe(1);
@@ -91,7 +91,7 @@ describe('initializeGame', () => {
 
 describe('drawFromDeck', () => {
   it('zieht die oberste Karte', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     const deckBefore = state.deck.length;
     const { card, newState } = drawFromDeck(state);
     expect(card).not.toBeNull();
@@ -100,7 +100,7 @@ describe('drawFromDeck', () => {
   });
 
   it('mischt Ablagestapel um wenn Deck leer', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     // Ablagestapel füllen
     state.discardPile = state.deck.splice(0, 10);
     state.deck = []; // Deck leer
@@ -110,7 +110,7 @@ describe('drawFromDeck', () => {
   });
 
   it('verändert den übergebenen Zustand nicht', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     const deckBefore = state.deck.length;
     const { newState } = drawFromDeck(state);
     expect(state.deck).toHaveLength(deckBefore);
@@ -120,7 +120,7 @@ describe('drawFromDeck', () => {
 
 describe('drawFromDiscard', () => {
   it('nimmt die oberste Karte vom Ablagestapel', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     const top = state.deck[0];
     state.discardPile = [top];
     const { card, newState } = drawFromDiscard(state);
@@ -129,7 +129,7 @@ describe('drawFromDiscard', () => {
   });
 
   it('gibt null bei leerem Ablagestapel', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     const { card } = drawFromDiscard(state);
     expect(card).toBeNull();
   });
@@ -137,7 +137,7 @@ describe('drawFromDiscard', () => {
 
 describe('swapCard', () => {
   it('tauscht Karte und legt alte ab', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     const player = state.players[0];
     const oldCard = player.hand[0];
     const newCard: Card = { id: 'test', suit: 'hearts', rank: '2', value: 2, isVisible: true };
@@ -149,7 +149,7 @@ describe('swapCard', () => {
   });
 
   it('ändert nichts bei ungültigem Index', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     const player = state.players[0];
     const newCard = makeCard({ id: 'test', isVisible: true });
     const handBefore = [...player.hand];
@@ -161,13 +161,13 @@ describe('swapCard', () => {
 
 describe('endTurn', () => {
   it('wechselt zum nächsten Spieler', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     const newState = endTurn(state);
     expect(newState.currentPlayerIndex).toBe(1);
   });
 
   it('erkennt Rundenende korrekt', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     // Spieler 0 war dran, jetzt Spieler 1
     let s = endTurn(state);
     expect(s.currentPlayerIndex).toBe(1);
@@ -179,14 +179,14 @@ describe('endTurn', () => {
   });
 
   it('überspringt eliminierte Spieler', () => {
-    const state = initializeGame(['A', 'B', 'C']);
+    const state = initializeGame(['A', 'B', 'C'].map(name => ({ name, isAI: false, isHuman: true })));
     state.players[1].isEliminated = true;
     const s = endTurn(state);
     expect(s.currentPlayerIndex).toBe(2); // überspringt B
   });
 
   it('setzt GAME_OVER wenn alle Spieler eliminiert sind', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     state.players[0].isEliminated = true;
     state.players[1].isEliminated = true;
     const s = endTurn(state);
@@ -196,7 +196,7 @@ describe('endTurn', () => {
 
 describe('applyJackEffect', () => {
   it('macht eigene Karte sichtbar und speichert sie im Gedächtnis', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     const player = state.players[0];
     player.visibleCardIndices = [0];
     const newState = applyJackEffect(state, player.id, player.id, 2);
@@ -211,7 +211,7 @@ describe('applyJackEffect', () => {
   });
 
   it('speichert gegnerische Karte nur im eigenen Gedächtnis, nicht im gegnerischen', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     const viewer = state.players[0];
     const target = state.players[1];
     const newState = applyJackEffect(state, viewer.id, target.id, 2);
@@ -228,7 +228,7 @@ describe('applyJackEffect', () => {
 
 describe('applyKingEffect', () => {
   it('tauscht Karten zwischen Spielern', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     const aCard = state.players[0].hand[0];
     const bCard = state.players[1].hand[0];
     const newState = applyKingEffect(state, state.players[0].id, state.players[1].id, 0, 0);
@@ -238,7 +238,7 @@ describe('applyKingEffect', () => {
   });
 
   it('verhindert Tausch mit sich selbst im Power-Modus', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     const handBefore = [...state.players[0].hand];
     const newState = applyKingEffect(
       state,
@@ -255,7 +255,7 @@ describe('applyKingEffect', () => {
 
 describe('applyAceEffect', () => {
   it('deckt die obersten 3 Karten auf und tauscht korrekt', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     const deckBefore = [...state.deck];
     const player = state.players[0];
     const handCard = player.hand[2];
@@ -278,7 +278,7 @@ describe('applyAceEffect', () => {
   });
 
   it('deckt die obersten 3 Karten auf, wenn kein Tausch gewählt wird', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     const { revealedCards, newState } = applyAceEffect(state, state.players[0].id, -1, -1);
     expect(revealedCards).toHaveLength(3);
     expect(revealedCards.every((c) => c.isVisible)).toBe(true);
@@ -288,7 +288,7 @@ describe('applyAceEffect', () => {
 
 describe('applyTenEffect', () => {
   it('gibt skipNextPlayer zurück', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     const { skipNextPlayer, newState } = applyTenEffect(state, state.players[0].id);
     expect(skipNextPlayer).toBe(true);
     expect(newState.lastAction).toContain('übersprungen');
@@ -297,7 +297,7 @@ describe('applyTenEffect', () => {
 
 describe('applyJackEffect', () => {
   it('verhindert Selbstbespielung im Power-Modus', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     const handBefore = [...state.players[0].hand];
     const newState = applyJackEffect(
       state,
@@ -314,7 +314,7 @@ describe('applyJackEffect', () => {
 
 describe('peekCard', () => {
   it('zeigt eine gegnerische Karte kurz an, ohne sie dauerhaft aufzudecken', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     const viewer = state.players[0];
     const target = state.players[1];
     const { card, newState } = peekCard(state, viewer.id, target.id, 2);
@@ -336,7 +336,7 @@ describe('peekCard', () => {
 
 describe('applyQueenEffect', () => {
   it('zieht Strafkarte', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     const deckBefore = state.deck.length;
     const newState = applyQueenEffect(state, state.players[0].id);
     expect(newState.players[0].penaltyCards).toHaveLength(1);
@@ -346,7 +346,7 @@ describe('applyQueenEffect', () => {
 
 describe('callDame', () => {
   it('setzt Phase auf DAME_CALLED und dameCallTurnsRemaining', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     state.safePhase = false;
     state.phase = 'REGULAR_PLAY';
     const newState = callDame(state, state.players[0].id);
@@ -358,14 +358,14 @@ describe('callDame', () => {
 
 describe('canCallDame', () => {
   it('erlaubt Call nur in REGULAR_PLAY und wenn niemand gerufen hat', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     state.safePhase = false;
     state.phase = 'REGULAR_PLAY';
     expect(canCallDame(state)).toBe(true);
   });
 
   it('verbietet Call wenn schon gerufen', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     state.safePhase = false;
     state.phase = 'REGULAR_PLAY';
     state.dameCallerId = 'someone';
@@ -375,7 +375,7 @@ describe('canCallDame', () => {
 
 describe('endRound', () => {
   it('berechnet Punkte und eliminiert bei >50', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     state.players[0].totalScore = 45;
     state.players[0].hand = [
       makeCard({ value: 5 }),
@@ -398,7 +398,7 @@ describe('endRound', () => {
   });
 
   it('reset bei genau 50 Punkten', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     state.players[0].totalScore = 30;
     state.players[0].hand = [
       makeCard({ value: 10 }),
@@ -410,14 +410,14 @@ describe('endRound', () => {
   });
 
   it('setzt GAME_OVER bei nur einem verbleibenden Spieler', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     state.players[0].isEliminated = true;
     const newState = endRound(state);
     expect(newState.phase).toBe('GAME_OVER');
   });
 
   it('verteilt neue Karten nach ROUND_END', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     const oldHand = state.players[0].hand.map((c) => c.id);
     const endState = endRound(state);
     expect(endState.phase).toBe('ROUND_END');
@@ -428,7 +428,7 @@ describe('endRound', () => {
   });
 
   it('bewertet Dame Call korrekt (Caller gewinnt)', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     state.dameCallerId = state.players[0].id;
     state.players[0].hand = [
       makeCard({ value: 1 }),
@@ -448,7 +448,7 @@ describe('endRound', () => {
   });
 
   it('bestraft falschen Dame Call mit Strafkarte', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     state.dameCallerId = state.players[0].id;
     state.players[0].hand = [
       makeCard({ value: 10 }),
@@ -467,7 +467,7 @@ describe('endRound', () => {
   });
 
   it('falscher Dame-Call hinterlässt genau eine Strafkarte für die nächste Runde', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     state.dameCallerId = state.players[0].id;
     state.players[0].hand = [
       makeCard({ value: 10 }),
@@ -486,7 +486,7 @@ describe('endRound', () => {
   });
 
   it('gibt einem falschen Caller in der nächsten Runde 5 Karten', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     state.dameCallerId = state.players[0].id;
     state.players[0].hand = [
       makeCard({ value: 10 }),
@@ -512,7 +512,7 @@ describe('endRound', () => {
 
 describe('getWinner', () => {
   it('gibt den letzten verbleibenden Spieler zurück', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     state.players[0].isEliminated = true;
     state.phase = 'GAME_OVER';
     const winner = getWinner(state);
@@ -523,7 +523,7 @@ describe('getWinner', () => {
 
 describe('canDiscardExtraCard', () => {
   it('erlaubt ablegen wenn passender Rank in Hand', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     state.safePhase = false;
     state.discardPile = [makeCard({ rank: '7', value: 7 })];
     state.players[0].hand = [
@@ -539,7 +539,7 @@ describe('canDiscardExtraCard', () => {
 
 describe('discardExtraCard', () => {
   it('legt passende Karte ab und zieht neue', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     state.safePhase = false;
     const matchingCard = state.players[0].hand[0];
     state.discardPile = [makeCard({ rank: matchingCard.rank, value: matchingCard.value })];
@@ -552,7 +552,7 @@ describe('discardExtraCard', () => {
   });
 
   it('bestraft falsches Ablegen mit Strafkarte', () => {
-    const state = initializeGame(['A', 'B']);
+    const state = initializeGame(['A', 'B'].map(name => ({ name, isAI: false, isHuman: true })));
     state.safePhase = false;
     state.discardPile = [makeCard({ rank: '7', value: 7 })];
     // Sicherstellen, dass die gewählte Karte wirklich nicht zum Ablagestapel passt

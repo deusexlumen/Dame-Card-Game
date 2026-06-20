@@ -30,6 +30,7 @@ export interface Player {
   totalScore: number;
   isActive: boolean;
   isHuman: boolean;
+  isAI?: boolean;
   isEliminated: boolean;
   hasCalledDame: boolean;
   penaltyCards: Card[]; // Strafkarten für die nächste Runde

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useGameWithAI } from '@/hooks/useGameWithAI';
+import { useGameEngine } from '@/hooks/useGameEngine';
 import { useGameStats } from '@/hooks/useGameStats';
 import { StatsPanel } from './StatsPanel';
 import { SettingsPanel } from './SettingsPanel';
@@ -109,7 +109,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
     turnTimeLeft,
     pauseTurnTimer,
     resumeTurnTimer,
-  } = useGameWithAI(settings.aiSpeed, statsActions, gameConfig);
+  } = useGameEngine(settings.aiSpeed, statsActions, gameConfig);
 
   // Globale Settings für Sound-Engine synchronisieren
   useEffect(() => {
@@ -262,7 +262,14 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
   // Spiel starten: zeige zuerst die eigenen Karten zum Merken
   const handleStart = () => {
     playCardFlip();
-    startGame(players);
+    startGame(
+      players.map((p) => ({
+        name: p.name,
+        isAI: p.isAI ?? false,
+        isHuman: !p.isAI,
+        difficulty: p.difficulty,
+      }))
+    );
     setShowStartDialog(false);
     setPeekPhase(true);
   };
