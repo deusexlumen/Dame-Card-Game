@@ -142,4 +142,36 @@ describe('useGameEngine', () => {
     expect(result.current.isCurrentPlayerHuman).toBe(false);
     expect(result.current.turnOverlayOpen).toBe(false);
   });
+
+  it('bereinigt den Zug-Timer beim Neustart eines Spiels', async () => {
+    vi.useFakeTimers();
+    const configs: PlayerConfig[] = [
+      { name: 'Mensch', isAI: false, isHuman: true },
+      { name: 'KI', isAI: true, isHuman: false, difficulty: 'easy' },
+    ];
+    const { result } = renderHook(() =>
+      useGameEngine(
+        configs,
+        'normal',
+        undefined,
+        { turnTimer: { enabled: true, seconds: 30 }, powerEffects: true }
+      )
+    );
+
+    await act(async () => {
+      result.current.startGame(configs);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    await act(async () => {
+      result.current.startGame(configs);
+    });
+
+    expect(result.current.turnTimeLeft).toBeNull();
+
+    vi.useRealTimers();
+  });
 });

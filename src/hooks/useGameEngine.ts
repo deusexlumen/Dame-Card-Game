@@ -398,6 +398,9 @@ export function useGameEngine(
     });
 
     clearAITimeouts();
+    isAIMovingRef.current = false;
+    clearTimer();
+    setIsTimerPaused(false);
     setAiPlayers(aiMap);
     setGameState(newGame);
     setDrawnCard(null);
@@ -420,6 +423,9 @@ export function useGameEngine(
     }
 
     clearAITimeouts();
+    isAIMovingRef.current = false;
+    clearTimer();
+    setIsTimerPaused(false);
     setGameState(saved.gameState);
     setDrawnCard(saved.drawnCard);
     setAiPlayers(saved.aiPlayers);
@@ -792,6 +798,8 @@ export function useGameEngine(
   const resetGame = useCallback(() => {
     clearAITimeouts();
     isAIMovingRef.current = false;
+    clearTimer();
+    setIsTimerPaused(false);
     setGameState(null);
     setDrawnCard(null);
     setSelectedHandIndex(null);

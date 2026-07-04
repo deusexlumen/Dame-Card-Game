@@ -247,4 +247,18 @@ describe('GameBoard', () => {
 
     expect(screen.queryByText('Anna ist dran')).not.toBeInTheDocument();
   });
+
+  it('keeps the start dialog open when the overlay is clicked', () => {
+    renderWithProviders(<GameBoard playerConfigs={playerConfigs} onBackToMenu={vi.fn()} />);
+    expect(screen.getByText('Kartenspiel mit Bluff und Strategie')).toBeInTheDocument();
+
+    const overlay = document.querySelector('[data-slot="dialog-overlay"]');
+    if (overlay) {
+      fireEvent.mouseDown(overlay);
+      fireEvent.mouseUp(overlay);
+      fireEvent.click(overlay);
+    }
+
+    expect(screen.getByText('Kartenspiel mit Bluff und Strategie')).toBeInTheDocument();
+  });
 });
