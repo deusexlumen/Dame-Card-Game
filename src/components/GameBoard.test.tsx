@@ -200,6 +200,7 @@ function LanguageSetter() {
 describe('GameBoard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(useGameEngine).mockReturnValue(baseMockReturn);
   });
 
   const playerConfigs: PlayerConfig[] = [
