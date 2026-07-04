@@ -816,6 +816,7 @@ export function GameBoard({ playerConfigs, onBackToMenu, gameConfig: propGameCon
                       gamePhase={gameState.phase}
                       size="md"
                       cardClassName={card3dClass}
+                      testIdPrefix="jack-target-card"
                     />
                   </div>
                 </div>
@@ -945,12 +946,13 @@ export function GameBoard({ playerConfigs, onBackToMenu, gameConfig: propGameCon
               <PlayerHand
                 player={gameState.players[bottomPlayerIndex >= 0 ? bottomPlayerIndex : 0]}
                 isCurrentPlayer={true}
-                isActivePlayer={false}
+                isActivePlayer={true}
                 onCardSelectForSwap={selectHandCard}
                 selectedCardIndex={selectedHandIndex}
                 gamePhase={gameState.phase}
                 size="sm"
                 cardClassName={card3dClass}
+                testIdPrefix="king-own-card"
               />
             </div>
           </div>
@@ -1000,6 +1002,7 @@ export function GameBoard({ playerConfigs, onBackToMenu, gameConfig: propGameCon
                   gamePhase={gameState.phase}
                   size="md"
                   cardClassName={card3dClass}
+                  testIdPrefix="king-opponent-card"
                 />
               </div>
               {kingPeekedCard && (
