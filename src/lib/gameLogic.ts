@@ -1,4 +1,5 @@
 import type { Card, CardSuit, CardRank, Player, GameState, MemoryEntry, GameConfig } from '@/types/game';
+import type { AIDifficulty } from '@/lib/aiPlayer';
 import { CARD_VALUES } from '@/types/game';
 
 // Anzahl der Strafkarten, die bei regelwidrigen Aktionen gezogen werden
@@ -59,6 +60,8 @@ export function createPlayer(id: string, name: string): Player {
     score: 0,
     totalScore: 0,
     isActive: true,
+    isHuman: true,
+    isAI: false,
     isEliminated: false,
     hasCalledDame: false,
     penaltyCards: [],
@@ -67,23 +70,27 @@ export function createPlayer(id: string, name: string): Player {
 }
 
 // Neues Spiel initialisieren
-export function initializeGame(playerNames: string[]): GameState {
-  let deck = createDeck();
-  deck = shuffleDeck(deck);
-  
-  const players = playerNames.map((name) => {
-    const player = createPlayer(generateId(), name);
+export function initializeGame(
+  playerConfigs: Array<{ name: string; isAI: boolean; isHuman: boolean; difficulty?: AIDifficulty }>,
+  deck?: Card[]
+): GameState {
+  const finalDeck = deck ? shuffleDeck([...deck]) : shuffleDeck(createDeck());
+
+  const players = playerConfigs.map((config) => {
+    const player = createPlayer(generateId(), config.name);
+    player.isAI = config.isAI;
+    player.isHuman = config.isHuman;
     // Jeder Spieler bekommt 4 Karten
-    player.hand = deck.splice(0, 4);
+    player.hand = finalDeck.splice(0, 4);
     // Jeder darf 2 Karten sehen
     player.visibleCardIndices = [0, 1];
     return player;
   });
-  
+
   return {
     players,
     currentPlayerIndex: 0,
-    deck,
+    deck: finalDeck,
     discardPile: [],
     phase: 'SETUP',
     round: 1,

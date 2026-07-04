@@ -24,10 +24,11 @@ import { decideAIMove, findWorstCardIndex, type AIDifficulty } from '@/lib/aiPla
 import { useI18n } from '@/lib/i18n';
 import type { AISpeed } from '@/lib/settings';
 
-export interface AIPlayerInfo {
-  id: string;
+export interface PlayerConfig {
   name: string;
-  difficulty: AIDifficulty;
+  isAI: boolean;
+  isHuman: boolean;
+  difficulty?: AIDifficulty;
 }
 
 interface StatsActions {
@@ -35,7 +36,7 @@ interface StatsActions {
   recordGame: (won: boolean) => void;
 }
 
-interface UseGameWithAIReturn {
+interface UseGameEngineReturn {
   gameState: GameState | null;
   drawnCard: Card | null;
   selectedHandIndex: number | null;
@@ -44,7 +45,9 @@ interface UseGameWithAIReturn {
   winner: Player | null;
   isAIThinking: boolean;
   currentAIDifficulty: AIDifficulty | null;
-  startGame: (players: Array<{ name: string; isAI?: boolean; difficulty?: AIDifficulty }>) => void;
+  turnOverlayOpen: boolean;
+  confirmTurn: () => void;
+  startGame: (playerConfigs: PlayerConfig[]) => void;
   loadSavedGame: () => boolean;
   hasSavedGame: boolean;
   drawFromDeck: () => void;
@@ -87,6 +90,7 @@ function saveGameState(
   ai: Map<string, AIDifficulty>,
   msg: string,
   msgKey: string,
+  turnOverlayOpen: boolean,
   config?: GameConfig
 ) {
   try {
@@ -100,6 +104,7 @@ function saveGameState(
       aiPlayers: Array.from(ai.entries()),
       gameMessage: msg,
       messageKey: msgKey,
+      turnOverlayOpen,
       gameConfig: config,
       timestamp: Date.now(),
     };
@@ -148,14 +153,15 @@ function isValidPlayer(value: unknown): value is Player {
     typeof player.id !== 'string' ||
     typeof player.name !== 'string' ||
     !Array.isArray(player.hand) ||
-    player.hand.length === 0 ||
     !player.hand.every(isValidCard) ||
     !Array.isArray(player.visibleCardIndices) ||
     typeof player.score !== 'number' ||
     typeof player.totalScore !== 'number' ||
     typeof player.isActive !== 'boolean' ||
+    typeof player.isHuman !== 'boolean' ||
     typeof player.isEliminated !== 'boolean' ||
     typeof player.hasCalledDame !== 'boolean' ||
+    (player.isAI !== undefined && typeof player.isAI !== 'boolean') ||
     !Array.isArray(player.penaltyCards) ||
     !player.penaltyCards.every(isValidCard) ||
     !Array.isArray(player.memory) ||
@@ -217,6 +223,7 @@ function isValidSaveData(data: unknown): data is {
   aiPlayers: Array<[string, AIDifficulty]>;
   gameMessage: string;
   messageKey?: string;
+  turnOverlayOpen: boolean;
   gameConfig?: GameConfig;
   timestamp: number;
 } {
@@ -230,13 +237,14 @@ function isValidSaveData(data: unknown): data is {
   }
   if (typeof save.gameMessage !== 'string') return false;
   if (save.messageKey !== undefined && typeof save.messageKey !== 'string') return false;
+  if (save.turnOverlayOpen !== undefined && typeof save.turnOverlayOpen !== 'boolean') return false;
   if (save.gameConfig !== undefined && !isValidGameConfig(save.gameConfig)) return false;
   if (typeof save.timestamp !== 'number') return false;
   return true;
 }
 
 function loadGameState():
-  | { gameState: GameState; drawnCard: Card | null; aiPlayers: Map<string, AIDifficulty>; gameMessage: string; messageKey: string; gameConfig?: GameConfig }
+  | { gameState: GameState; drawnCard: Card | null; aiPlayers: Map<string, AIDifficulty>; gameMessage: string; messageKey: string; turnOverlayOpen: boolean; gameConfig?: GameConfig }
   | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
@@ -252,6 +260,7 @@ function loadGameState():
       aiPlayers: new Map(data.aiPlayers),
       gameMessage: data.gameMessage || 'Willkommen zurück!',
       messageKey: data.messageKey || 'game.continueGame',
+      turnOverlayOpen: data.turnOverlayOpen ?? false,
       gameConfig: data.gameConfig,
     };
   } catch {
@@ -267,7 +276,12 @@ function hasSavedGameState(): boolean {
   }
 }
 
-export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsActions, gameConfig?: GameConfig): UseGameWithAIReturn {
+export function useGameEngine(
+  playerConfigs: PlayerConfig[],
+  aiSpeed: AISpeed = 'normal',
+  statsActions?: StatsActions,
+  gameConfig?: GameConfig
+): UseGameEngineReturn {
   const speedMult = SPEED_MULTIPLIERS[aiSpeed];
   const speedMultRef = useRef(speedMult);
   useEffect(() => {
@@ -286,12 +300,14 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
   const [hasSavedGame, setHasSavedGame] = useState(hasSavedGameState);
   const [turnTimeLeft, setTurnTimeLeft] = useState<number | null>(null);
   const [isTimerPaused, setIsTimerPaused] = useState(false);
+  const [turnOverlayOpen, setTurnOverlayOpen] = useState(false);
 
   // Refs für KI-Züge (um State in Timeouts zu aktualisieren)
   const gameStateRef = useRef(gameState);
   const drawnCardRef = useRef(drawnCard);
   const aiPlayersRef = useRef(aiPlayers);
   const gameConfigRef = useRef(gameConfig);
+  const playerConfigsRef = useRef(playerConfigs);
   const aiTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const isAIMovingRef = useRef(false);
 
@@ -322,6 +338,10 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
   useEffect(() => {
     gameConfigRef.current = gameConfig;
   }, [gameConfig]);
+
+  useEffect(() => {
+    playerConfigsRef.current = playerConfigs;
+  }, [playerConfigs]);
 
   const clearAITimeouts = useCallback(() => {
     aiTimeoutsRef.current.forEach((id) => clearTimeout(id));
@@ -356,25 +376,31 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     setIsTimerPaused(false);
   }, [clearTimer]);
 
+  const confirmTurn = useCallback(() => {
+    setTurnOverlayOpen(false);
+  }, []);
+
   // Auto-Save bei State-Änderungen
   useEffect(() => {
-    saveGameState(gameState, drawnCard, aiPlayers, gameMessage, messageKey, gameConfig);
-  }, [gameState, drawnCard, aiPlayers, gameMessage, messageKey, gameConfig]);
+    saveGameState(gameState, drawnCard, aiPlayers, gameMessage, messageKey, turnOverlayOpen, gameConfig);
+  }, [gameState, drawnCard, aiPlayers, gameMessage, messageKey, turnOverlayOpen, gameConfig]);
 
   // Spiel starten mit KI-Unterstützung
-  const startGame = useCallback((players: Array<{ name: string; isAI?: boolean; difficulty?: AIDifficulty }>) => {
-    const playerNames = players.map((p) => p.name);
-    const newGame = initializeGame(playerNames);
+  const startGame = useCallback((configs: PlayerConfig[]) => {
+    const newGame = initializeGame(configs);
 
     // Speichere KI-Informationen
     const aiMap = new Map<string, AIDifficulty>();
-    players.forEach((p, index) => {
+    configs.forEach((p, index) => {
       if (p.isAI && p.difficulty) {
         aiMap.set(newGame.players[index].id, p.difficulty);
       }
     });
 
     clearAITimeouts();
+    isAIMovingRef.current = false;
+    clearTimer();
+    setIsTimerPaused(false);
     setAiPlayers(aiMap);
     setGameState(newGame);
     setDrawnCard(null);
@@ -382,6 +408,10 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     setMessage('game.gameStarted');
     setIsAIThinking(false);
     setHasSavedGame(true);
+
+    // Overlay für menschlichen Startspieler anzeigen
+    const firstPlayer = newGame.players[0];
+    setTurnOverlayOpen(!aiMap.has(firstPlayer.id));
   }, [clearAITimeouts, setMessage]);
 
   // Gespeichertes Spiel laden
@@ -393,6 +423,9 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     }
 
     clearAITimeouts();
+    isAIMovingRef.current = false;
+    clearTimer();
+    setIsTimerPaused(false);
     setGameState(saved.gameState);
     setDrawnCard(saved.drawnCard);
     setAiPlayers(saved.aiPlayers);
@@ -400,6 +433,11 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     setSelectedHandIndex(null);
     setIsAIThinking(false);
     setHasSavedGame(true);
+
+    // Overlay-Status wiederherstellen oder aus aktuellem Spieler ableiten
+    const currentPlayer = saved.gameState.players[saved.gameState.currentPlayerIndex];
+    const isCurrentPlayerAI = saved.aiPlayers.has(currentPlayer.id);
+    setTurnOverlayOpen(saved.turnOverlayOpen ?? (!isCurrentPlayerAI && !currentPlayer.isEliminated));
 
     // Refs aktualisieren
     gameStateRef.current = saved.gameState;
@@ -628,40 +666,6 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     setMessage('game.dameCalled', { name: currentPlayer.name });
   }, [setMessage]);
 
-  const handleTryDiscardExtra = useCallback((cardId: string): boolean => {
-    if (!gameStateRef.current) return false;
-
-    const currentPlayer = gameStateRef.current.players[gameStateRef.current.currentPlayerIndex];
-    const { success, newState } = discardExtraCard(gameStateRef.current, currentPlayer.id, cardId);
-    gameStateRef.current = newState;
-    setGameState(newState);
-
-    const isAI = aiPlayersRef.current.has(currentPlayer.id);
-    if (!isAI) {
-      if (success) {
-        setMessage('game.extraDiscardSuccess');
-      } else {
-        setMessage('game.extraDiscardFail');
-      }
-    }
-
-    // Wenn der Spieler durch das Extra-Ablegen keine Karten mehr hat, Dame automatisch rufen
-    if (success) {
-      const playerAfter = newState.players.find((p) => p.id === currentPlayer.id);
-      if (playerAfter && playerAfter.hand.length === 0) {
-        isAIMovingRef.current = false;
-        const dameState = callDame(newState, currentPlayer.id);
-        const endState = endTurn(dameState);
-        gameStateRef.current = endState;
-        setGameState(endState);
-        setMessage('game.autoDameCall', { name: currentPlayer.name });
-        return true;
-      }
-    }
-
-    return false;
-  }, [setMessage]);
-
   const handleEndTurn = useCallback(() => {
     if (!gameStateRef.current) return;
 
@@ -706,22 +710,62 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
 
       const nextPlayer = roundEndState.players[roundEndState.currentPlayerIndex];
       const isAI = aiPlayersRef.current.has(nextPlayer.id);
-      if (!isAI) {
+      if (!isAI && !nextPlayer.isEliminated) {
+        setTurnOverlayOpen(true);
         if (roundEndState.phase === 'GAME_OVER') {
           setMessage('game.gameOver');
         } else {
           setMessage('game.roundStarts', { round: roundEndState.round, name: nextPlayer.name });
         }
+      } else {
+        setTurnOverlayOpen(false);
       }
     } else {
       setGameState(newState);
       const nextPlayer = newState.players[newState.currentPlayerIndex];
       const isAI = aiPlayersRef.current.has(nextPlayer.id);
-      if (!isAI) {
+      if (!isAI && !nextPlayer.isEliminated) {
+        setTurnOverlayOpen(true);
         setMessage('game.yourTurn', { name: nextPlayer.name });
+      } else {
+        setTurnOverlayOpen(false);
       }
     }
   }, [statsActions, setMessage]);
+
+  const handleTryDiscardExtra = useCallback((cardId: string): boolean => {
+    if (!gameStateRef.current) return false;
+
+    const currentPlayer = gameStateRef.current.players[gameStateRef.current.currentPlayerIndex];
+    const { success, newState } = discardExtraCard(gameStateRef.current, currentPlayer.id, cardId);
+    gameStateRef.current = newState;
+    setGameState(newState);
+
+    const isAI = aiPlayersRef.current.has(currentPlayer.id);
+    if (!isAI) {
+      if (success) {
+        setMessage('game.extraDiscardSuccess');
+      } else {
+        setMessage('game.extraDiscardFail');
+      }
+    }
+
+    // Wenn der Spieler durch das Extra-Ablegen keine Karten mehr hat, Dame automatisch rufen
+    if (success) {
+      const playerAfter = newState.players.find((p) => p.id === currentPlayer.id);
+      if (playerAfter && playerAfter.hand.length === 0) {
+        isAIMovingRef.current = false;
+        const dameState = callDame(newState, currentPlayer.id);
+        gameStateRef.current = dameState;
+        setGameState(dameState);
+        setMessage('game.autoDameCall', { name: currentPlayer.name });
+        handleEndTurn();
+        return true;
+      }
+    }
+
+    return false;
+  }, [setMessage, handleEndTurn]);
 
   // Zug-Timer abgelaufen: Strafkarte ziehen und Zug beenden
   const handleTimerExpired = useCallback(() => {
@@ -754,6 +798,8 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
   const resetGame = useCallback(() => {
     clearAITimeouts();
     isAIMovingRef.current = false;
+    clearTimer();
+    setIsTimerPaused(false);
     setGameState(null);
     setDrawnCard(null);
     setSelectedHandIndex(null);
@@ -761,6 +807,7 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     setIsAIThinking(false);
     setAiPlayers(new Map());
     setHasSavedGame(false);
+    setTurnOverlayOpen(false);
   }, [clearAITimeouts, setMessage]);
 
   // KI-Zug beenden und nächsten prüfen
@@ -1012,6 +1059,8 @@ export function useGameWithAI(aiSpeed: AISpeed = 'normal', statsActions?: StatsA
     winner,
     isAIThinking,
     currentAIDifficulty,
+    turnOverlayOpen,
+    confirmTurn,
     isCurrentPlayerHuman,
     startGame,
     loadSavedGame,

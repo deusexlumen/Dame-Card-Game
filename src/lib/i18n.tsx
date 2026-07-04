@@ -22,7 +22,24 @@ const de = {
     subtitle: 'Gedächtnis, Risiko & Bluff',
     tagline: 'Ein Spiel für 2–6 Spieler • Mit KI-Gegnern!',
   },
+  common: {
+    cancel: 'Abbrechen',
+  },
+  hotSeat: {
+    setupTitle: 'Hot-Seat Spiel',
+    players: 'Spieler',
+    playerName: 'Spielername',
+    playerType: 'Spielertyp',
+    difficulty: 'Schwierigkeit',
+    human: 'Mensch',
+    ai: 'KI',
+    start: 'Spiel starten',
+    playerTurn: '{{name}} ist dran',
+    lookAway: 'Andere Spieler bitte nicht hinschauen.',
+    ready: 'Ich bin bereit',
+  },
   menu: {
+    hotSeat: 'Hot-Seat',
     startGame: 'Spiel starten',
     newGame: 'Neues Spiel',
     addHuman: 'Mensch',
@@ -273,7 +290,24 @@ const en = {
     subtitle: 'Memory, Risk & Bluff',
     tagline: 'A game for 2–6 players • With AI opponents!',
   },
+  common: {
+    cancel: 'Cancel',
+  },
+  hotSeat: {
+    setupTitle: 'Hot-Seat Game',
+    players: 'Players',
+    playerName: 'Player name',
+    playerType: 'Player type',
+    difficulty: 'Difficulty',
+    human: 'Human',
+    ai: 'AI',
+    start: 'Start game',
+    playerTurn: "It's {{name}}'s turn",
+    lookAway: 'Other players, please do not look.',
+    ready: 'I am ready',
+  },
   menu: {
+    hotSeat: 'Hot-Seat',
     startGame: 'Start Game',
     newGame: 'New Game',
     addHuman: 'Human',
@@ -552,8 +586,14 @@ function saveLanguage(lang: Language): void {
   }
 }
 
-export function I18nProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>(() => loadLanguage());
+export function I18nProvider({
+  children,
+  language: initialLanguage,
+}: {
+  children: ReactNode;
+  language?: Language;
+}) {
+  const [language, setLanguageState] = useState<Language>(() => initialLanguage ?? loadLanguage());
 
   const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);

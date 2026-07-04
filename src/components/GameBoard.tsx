@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useGameWithAI } from '@/hooks/useGameWithAI';
+import { useGameEngine, type PlayerConfig } from '@/hooks/useGameEngine';
 import { useGameStats } from '@/hooks/useGameStats';
 import { StatsPanel } from './StatsPanel';
 import { SettingsPanel } from './SettingsPanel';
 import { SkinSelector } from './SkinSelector';
+import { PlayerTurnOverlay } from './PlayerTurnOverlay';
 import { Card, CardComponent, CardStack } from './Card';
 import { PlayerHand } from './PlayerHand';
 import { Button } from '@/components/ui/button';
@@ -30,7 +31,7 @@ import {
   Palette,
 } from 'lucide-react';
 import type { AIDifficulty } from '@/lib/aiPlayer';
-import type { Card as CardType } from '@/types/game';
+import type { Card as CardType, GameConfig } from '@/types/game';
 import type { SkinCategory } from '@/lib/skins/types';
 import { playCardDraw, playCardPlace, playCardFlip, playDameCall, playWinSound, playPenaltySound, startBackgroundMusic, stopBackgroundMusic } from '@/lib/sounds';
 import { setGlobalSettings } from '@/lib/settings';
@@ -39,8 +40,10 @@ import { useSkins } from '@/hooks/useSkins';
 import { Toaster, toast } from 'sonner';
 
 interface GameBoardProps {
-  players: Array<{ name: string; isAI?: boolean; difficulty?: AIDifficulty }>;
+  playerConfigs: PlayerConfig[];
   onBackToMenu: () => void;
+  gameConfig?: GameConfig;
+  mode?: 'singleplayer' | 'hotseat';
 }
 
 const DIFFICULTY_ICONS: Record<AIDifficulty, React.ReactNode> = {
@@ -55,7 +58,7 @@ const DIFFICULTY_COLORS: Record<AIDifficulty, string> = {
   hard: 'text-red-400',
 };
 
-export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
+export function GameBoard({ playerConfigs, onBackToMenu, gameConfig: propGameConfig, mode = 'singleplayer' }: GameBoardProps) {
   const { stats, clear, recordRound, recordGame } = useGameStats();
   const { settings } = useSettings();
   const { activeSkins } = useSkins();
@@ -64,12 +67,13 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
   const tableBackgroundUrl = activeSkins.table?.assets.felt ?? '';
   const card3dClass = settings.table3d ? 'card-3d' : '';
 
-  const gameConfig = useMemo(
-    () => ({
-      turnTimer: { enabled: settings.turnTimer, seconds: settings.turnTimerSeconds },
-      powerEffects: settings.powerEffects,
-    }),
-    [settings]
+  const effectiveGameConfig = useMemo(
+    () =>
+      propGameConfig ?? {
+        turnTimer: { enabled: settings.turnTimer, seconds: settings.turnTimerSeconds },
+        powerEffects: settings.powerEffects,
+      },
+    [propGameConfig, settings]
   );
 
   const statsActions = useMemo(
@@ -86,6 +90,8 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
     winner,
     isAIThinking,
     currentAIDifficulty,
+    turnOverlayOpen,
+    confirmTurn,
     startGame,
     loadSavedGame,
     hasSavedGame,
@@ -109,7 +115,15 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
     turnTimeLeft,
     pauseTurnTimer,
     resumeTurnTimer,
-  } = useGameWithAI(settings.aiSpeed, statsActions, gameConfig);
+  } = useGameEngine(playerConfigs, settings.aiSpeed, statsActions, effectiveGameConfig);
+
+  const bottomPlayerIndex = useMemo(() => {
+    if (mode === 'hotseat') {
+      return gameState?.currentPlayerIndex ?? 0;
+    }
+    const humanIndex = playerConfigs.findIndex((p) => !p.isAI);
+    return humanIndex >= 0 ? humanIndex : (gameState?.currentPlayerIndex ?? 0);
+  }, [mode, playerConfigs, gameState?.currentPlayerIndex]);
 
   // Globale Settings für Sound-Engine synchronisieren
   useEffect(() => {
@@ -130,6 +144,8 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
 
   const [showStartDialog, setShowStartDialog] = useState(true);
   const [peekPhase, setPeekPhase] = useState(false);
+  const [peekedPlayerIds, setPeekedPlayerIds] = useState<Set<string>>(new Set());
+  const [peekPlayerIndex, setPeekPlayerIndex] = useState<number | null>(null);
   const [showJackEffect, setShowJackEffect] = useState(false);
   const [showKingEffect, setShowKingEffect] = useState(false);
   const [showAceEffect, setShowAceEffect] = useState(false);
@@ -145,11 +161,11 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
   // Prüfe ob aktueller Spieler ein menschlicher Spieler ist
   const isHumanTurn = isCurrentPlayerHuman;
 
-  // Keyboard-Shortcuts
+  // Tastatur-Shortcuts während des Overlays deaktivieren
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Nur wenn kein Dialog offen ist
-      if (showStartDialog || showJackEffect || showKingEffect || showAceEffect || showTutorial || winner) return;
+      // Nur wenn kein Dialog oder Overlay offen ist
+      if (showStartDialog || turnOverlayOpen || showJackEffect || showKingEffect || showAceEffect || showTutorial || winner) return;
       // Nur wenn menschlicher Spieler am Zug
       if (!isHumanTurn || isAIThinking) return;
       // Ignorieren wenn Input-Feld fokussiert
@@ -212,7 +228,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
-    showStartDialog, showJackEffect, showKingEffect, showAceEffect, showTutorial, winner,
+    showStartDialog, turnOverlayOpen, showJackEffect, showKingEffect, showAceEffect, showTutorial, winner,
     isHumanTurn, isAIThinking, drawnCard, selectedHandIndex, canCallDameNow,
     drawFromDeck, discardDrawnCard, selectHandCard, confirmSwap, callDame, endTurn
   ]);
@@ -262,15 +278,24 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
   // Spiel starten: zeige zuerst die eigenen Karten zum Merken
   const handleStart = () => {
     playCardFlip();
-    startGame(players);
+    startGame(playerConfigs);
     setShowStartDialog(false);
-    setPeekPhase(true);
+    setPeekedPlayerIds(new Set());
+    setPeekPlayerIndex(null);
+    if (mode === 'singleplayer') {
+      setPeekPhase(true);
+    }
   };
 
   // Peek-Phase beenden und ins eigentliche Spiel wechseln
   const handleReady = () => {
     playCardFlip();
-    setPeekPhase(false);
+    if (peekPlayerIndex !== null) {
+      setPeekedPlayerIds((prev) => new Set(prev).add(gameState!.players[peekPlayerIndex].id));
+      setPeekPlayerIndex(null);
+    } else {
+      setPeekPhase(false);
+    }
   };
 
   // Spiel zurücksetzen
@@ -279,12 +304,12 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
     resetGame();
     setShowStartDialog(true);
     setPeekPhase(false);
+    setPeekedPlayerIds(new Set());
+    setPeekPlayerIndex(null);
   };
 
-  // Index des menschlichen Spielers in gameState.players
-  const humanPlayerIndex = players.findIndex(p => !p.isAI);
-  const isHumanEliminated = humanPlayerIndex >= 0
-    ? (gameState?.players[humanPlayerIndex]?.isEliminated ?? false)
+  const isBottomPlayerEliminated = bottomPlayerIndex >= 0
+    ? (gameState?.players[bottomPlayerIndex]?.isEliminated ?? false)
     : false;
 
   if (!gameState) {
@@ -316,7 +341,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                 {t('game.aiOpponents')}
               </p>
               <p className="text-[hsl(var(--terminal-green)/0.85)] text-sm">
-                {t('game.aiOpponentsDescription', { count: players.filter(p => p.isAI).length })}
+                {t('game.aiOpponentsDescription', { count: playerConfigs.filter(p => p.isAI).length })}
               </p>
             </div>
             <div className="flex justify-center">
@@ -327,7 +352,11 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                 onClick={() => {
                   playCardFlip();
                   const loaded = loadSavedGame();
-                  if (loaded) setShowStartDialog(false);
+                  if (loaded) {
+                    setShowStartDialog(false);
+                    setPeekedPlayerIds(new Set());
+                    setPeekPlayerIndex(null);
+                  }
                 }}
                 variant="secondary"
                 className="w-full"
@@ -355,8 +384,9 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
   }
 
   // Peek-Phase: Spieler darf seine beiden gesehenen Karten kurz anschauen
-  if (peekPhase && humanPlayerIndex >= 0) {
-    const humanPlayer = gameState.players[humanPlayerIndex];
+  const effectivePeekIndex = mode === 'hotseat' ? peekPlayerIndex : (peekPhase ? bottomPlayerIndex : null);
+  if (effectivePeekIndex !== null && effectivePeekIndex >= 0) {
+    const peekPlayer = gameState.players[effectivePeekIndex];
     return (
       <div className="min-h-screen terminal-grid p-4 flex flex-col items-center justify-center">
         <div className="max-w-2xl w-full bg-[hsl(var(--terminal-panel))] border border-[hsl(var(--terminal-green)/0.3)] rounded-xl p-6 sm:p-8 text-center space-y-6">
@@ -368,7 +398,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
           </p>
           <div className="flex justify-center">
             <PlayerHand
-              player={humanPlayer}
+              player={peekPlayer}
               isCurrentPlayer={true}
               isActivePlayer={false}
               gamePhase={gameState.phase}
@@ -399,8 +429,8 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
     gameState.phase !== 'GAME_OVER' &&
     !drawnCard;
 
-  // Wenn menschlicher Spieler eliminiert wurde, zeige Zuschauer-Modus
-  if (isHumanEliminated) {
+  // Wenn der untere Spieler eliminiert wurde, zeige Zuschauer-Modus
+  if (isBottomPlayerEliminated) {
     return (
       <div className="min-h-screen terminal-grid p-4">
         <div className="flex flex-col items-center justify-center h-screen">
@@ -424,6 +454,23 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
       )}
       style={{ backgroundImage: tableBackgroundUrl ? `url(${tableBackgroundUrl})` : undefined }}
     >
+      {/* Weitergeben-Overlay für menschliche Spieler */}
+      {turnOverlayOpen && gameState && (
+        <PlayerTurnOverlay
+          playerName={gameState.players[gameState.currentPlayerIndex].name}
+          onReady={() => {
+            if (
+              mode === 'hotseat' &&
+              !peekedPlayerIds.has(gameState.players[gameState.currentPlayerIndex].id) &&
+              !winner
+            ) {
+              setPeekPlayerIndex(gameState.currentPlayerIndex);
+            }
+            confirmTurn();
+          }}
+        />
+      )}
+
       {/* Header */}
       <div className="flex justify-between items-start sm:items-center mb-3 sm:mb-4 gap-2">
         <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap">
@@ -452,7 +499,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
               {t('game.aiThinking', { name: currentPlayer.name })}
             </motion.div>
           )}
-          {gameConfig.turnTimer.enabled && turnTimeLeft !== null && isCurrentPlayerHuman && !isAIThinking && (
+          {effectiveGameConfig.turnTimer.enabled && turnTimeLeft !== null && isCurrentPlayerHuman && !isAIThinking && (
             <div className={cn(
               "px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-white text-[10px] sm:text-sm font-mono",
               turnTimeLeft <= 5 ? "bg-red-500/90 animate-pulse" : "bg-[hsl(var(--terminal-cyan)/0.8)]"
@@ -485,13 +532,13 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
       <div className="max-w-6xl mx-auto">
         {/* Obere Reihe - Gegner */}
         <div className="flex justify-center gap-2 sm:gap-4 mb-4 sm:mb-6 flex-wrap">
-          {gameState.players.filter((_, idx) => idx !== humanPlayerIndex).map((player) => {
+          {gameState.players.filter((_, idx) => idx !== bottomPlayerIndex).map((player) => {
             const originalIdx = gameState.players.indexOf(player);
-            const originalPlayer = players[originalIdx];
+            const originalPlayer = playerConfigs[originalIdx];
             const isAI = originalPlayer?.isAI;
             const difficulty = originalPlayer?.difficulty;
-            const humanPlayer = gameState.players[humanPlayerIndex >= 0 ? humanPlayerIndex : 0];
-            const peekedIndices = humanPlayer?.memory
+            const bottomPlayer = gameState.players[bottomPlayerIndex >= 0 ? bottomPlayerIndex : 0];
+            const peekedIndices = bottomPlayer?.memory
               .filter((entry) => entry.targetPlayerId === player.id)
               .map((entry) => entry.index) ?? [];
 
@@ -617,7 +664,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
                   <Crown className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5" />
                   {t('game.king')}
                 </Button>
-                {gameConfig.powerEffects && (
+                {effectiveGameConfig.powerEffects && (
                   <>
                     <Button
                       onClick={() => setShowAceEffect(true)}
@@ -688,14 +735,14 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
         {/* Untere Reihe - Eigene Hand */}
         <div className="flex justify-center px-2">
           <PlayerHand
-            player={gameState.players[humanPlayerIndex >= 0 ? humanPlayerIndex : 0]}
+            player={gameState.players[bottomPlayerIndex >= 0 ? bottomPlayerIndex : 0]}
             isCurrentPlayer={true}
             isActivePlayer={isHumanTurn}
             onCardSelectForSwap={drawnCard && isHumanTurn ? selectHandCard : undefined}
             onCardSelectForExtraDiscard={
-              topDiscardCard && isHumanTurn && !drawnCard && !isAIThinking && humanPlayerIndex >= 0
+              topDiscardCard && isHumanTurn && !drawnCard && !isAIThinking && bottomPlayerIndex >= 0
                 ? (idx) => {
-                    const card = gameState.players[humanPlayerIndex].hand[idx];
+                    const card = gameState.players[bottomPlayerIndex].hand[idx];
                     if (card.rank === topDiscardCard.rank) {
                       playCardPlace();
                       tryDiscardExtra(card.id);
@@ -745,20 +792,20 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
           </p>
           <div className="space-y-4 max-h-[60vh] overflow-y-auto">
             {gameState.players.map((player) => {
-              const humanPlayer = gameState.players[humanPlayerIndex >= 0 ? humanPlayerIndex : 0];
-              const playerPeekedIndices = humanPlayer?.memory
+              const bottomPlayer = gameState.players[bottomPlayerIndex >= 0 ? bottomPlayerIndex : 0];
+              const playerPeekedIndices = bottomPlayer?.memory
                 .filter((entry) => entry.targetPlayerId === player.id)
                 .map((entry) => entry.index) ?? [];
 
               return (
                 <div key={player.id} className="space-y-1">
                   <p className="text-[hsl(var(--terminal-cyan))] text-sm font-medium">
-                    {player.id === humanPlayer?.id ? t('game.yourCards') : t('game.opponentCards', { name: player.name })}
+                    {player.id === bottomPlayer?.id ? t('game.yourCards') : t('game.opponentCards', { name: player.name })}
                   </p>
                   <div className="flex justify-center">
                     <PlayerHand
                       player={player}
-                      isCurrentPlayer={player.id === humanPlayer?.id}
+                      isCurrentPlayer={player.id === bottomPlayer?.id}
                       isActivePlayer={true}
                       onCardSelectForJack={(idx) => {
                         playCardFlip();
@@ -827,7 +874,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
               <p className="text-sm font-medium mb-2 text-[hsl(var(--terminal-cyan))]">{t('game.aceChooseHandCard')}</p>
               <div className="flex justify-center">
                 <PlayerHand
-                  player={gameState.players[humanPlayerIndex >= 0 ? humanPlayerIndex : 0]}
+                  player={gameState.players[bottomPlayerIndex >= 0 ? bottomPlayerIndex : 0]}
                   isCurrentPlayer={true}
                   isActivePlayer={false}
                   onCardSelectForSwap={selectHandCard}
@@ -896,7 +943,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
             <p className="text-sm font-medium mb-2 text-[hsl(var(--terminal-cyan))]">{t('game.yourCards')}</p>
             <div className="flex justify-center">
               <PlayerHand
-                player={gameState.players[humanPlayerIndex >= 0 ? humanPlayerIndex : 0]}
+                player={gameState.players[bottomPlayerIndex >= 0 ? bottomPlayerIndex : 0]}
                 isCurrentPlayer={true}
                 isActivePlayer={false}
                 onCardSelectForSwap={selectHandCard}
@@ -913,7 +960,7 @@ export function GameBoard({ players, onBackToMenu }: GameBoardProps) {
             <div className="mb-4">
               <p className="text-sm font-medium mb-2 text-[hsl(var(--terminal-cyan))]">{t('game.chooseOpponent')}</p>
               <div className="flex gap-2 flex-wrap">
-                {gameState.players.filter((_, idx) => idx !== humanPlayerIndex).map((player) => (
+                {gameState.players.filter((_, idx) => idx !== bottomPlayerIndex).map((player) => (
                   <Button
                     key={player.id}
                     variant="outline"

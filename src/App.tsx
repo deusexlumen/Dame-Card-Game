@@ -24,15 +24,11 @@ import { playMusicTrack, startBackgroundMusic, stopBackgroundMusic, stopMusicTra
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { SkinProvider } from '@/components/SkinProvider';
 import { SkinShop } from '@/components/SkinShop';
+import { HotSeatSetup } from '@/components/HotSeatSetup';
+import type { PlayerConfig } from '@/hooks/useGameEngine';
 import type { AIDifficulty } from '@/lib/aiPlayer';
 
-type GameMode = 'menu' | 'game' | 'rules' | 'settings' | 'shop';
-
-interface PlayerConfig {
-  name: string;
-  isAI: boolean;
-  difficulty?: AIDifficulty;
-}
+type GameMode = 'menu' | 'game' | 'rules' | 'settings' | 'shop' | 'hotseat-setup' | 'hotseat';
 
 const DIFFICULTY_CONFIG: Record<AIDifficulty, { icon: React.ReactNode; color: string; descriptionKey: string }> = {
   easy: { 
@@ -58,8 +54,13 @@ function AppContent() {
   const [gameMode, setGameMode] = useState<GameMode>('menu');
   const [musicStarted, setMusicStarted] = useState(false);
   const [players, setPlayers] = useState<PlayerConfig[]>([
-    { name: 'Spieler 1', isAI: false },
-    { name: 'KI-Gegner', isAI: true, difficulty: 'medium' }
+    { name: 'Spieler 1', isAI: false, isHuman: true },
+    { name: 'KI-Gegner', isAI: true, isHuman: false, difficulty: 'medium' }
+  ]);
+
+  const [hotSeatPlayers, setHotSeatPlayers] = useState<PlayerConfig[]>([
+    { name: 'Spieler 1', isAI: false, isHuman: true },
+    { name: 'Spieler 2', isAI: false, isHuman: true },
   ]);
 
   // Nach der ersten Nutzerinteraktion Hintergrundmusik starten
@@ -96,7 +97,7 @@ function AppContent() {
   // Add human player
   const addHumanPlayer = () => {
     if (players.length < 6) {
-      setPlayers([...players, { name: `${t('menu.player')} ${players.filter(p => !p.isAI).length + 1}`, isAI: false }]);
+      setPlayers([...players, { name: `${t('menu.player')} ${players.filter(p => !p.isAI).length + 1}`, isAI: false, isHuman: true }]);
     }
   };
 
@@ -107,6 +108,7 @@ function AppContent() {
       setPlayers([...players, { 
         name: `KI-${aiCount + 1}`, 
         isAI: true, 
+        isHuman: false,
         difficulty: settings.defaultAIDifficulty 
       }]);
     }
@@ -214,7 +216,37 @@ function AppContent() {
 
   // Game
   if (gameMode === 'game') {
-    return <GameBoard players={players} onBackToMenu={backToMenu} />;
+    return <GameBoard playerConfigs={players} onBackToMenu={backToMenu} />;
+  }
+
+  // Hot-Seat setup
+  if (gameMode === 'hotseat-setup') {
+    return (
+      <div className="min-h-screen terminal-grid relative flex items-center justify-center p-4">
+        <HotSeatSetup
+          onStart={(players) => {
+            setHotSeatPlayers(players);
+            setGameMode('hotseat');
+          }}
+          onCancel={() => setGameMode('menu')}
+        />
+      </div>
+    );
+  }
+
+  // Hot-Seat game
+  if (gameMode === 'hotseat') {
+    return (
+      <GameBoard
+        mode="hotseat"
+        playerConfigs={hotSeatPlayers}
+        onBackToMenu={backToMenu}
+        gameConfig={{
+          turnTimer: { enabled: settings.turnTimer, seconds: settings.turnTimerSeconds },
+          powerEffects: settings.powerEffects,
+        }}
+      />
+    );
   }
 
   // Shop
@@ -336,6 +368,15 @@ function AppContent() {
                 {t('menu.startGame')}
               </Button>
               
+              <Button
+                onClick={() => setGameMode('hotseat-setup')}
+                variant="outline"
+                className="w-full h-11 font-mono border-[hsl(var(--terminal-green)/0.4)] text-[hsl(var(--terminal-green))] hover:bg-[hsl(var(--terminal-green)/0.1)] hover:text-[hsl(var(--terminal-green))]"
+              >
+                <Users className="w-4 h-4 mr-2" />
+                {t('menu.hotSeat')}
+              </Button>
+
               <Button
                 onClick={() => setGameMode('rules')}
                 variant="outline"
