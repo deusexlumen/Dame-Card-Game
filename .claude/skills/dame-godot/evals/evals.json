@@ -1,0 +1,43 @@
+{
+  "skill": "dame-godot",
+  "test_cases": [
+    {
+      "name": "rules_before_scenes",
+      "input": "Bau die DAME-Regeln in godot/ als erstes Stück.",
+      "assertions": [
+        "Reads references/rules.md before writing scripts",
+        "Puts transitions in a RefCounted with no Node dependency",
+        "Does not create MTG untap or combat phases",
+        "Keeps Q at 0 points distinct from the Dame call"
+      ]
+    },
+    {
+      "name": "hidden_info_ai",
+      "input": "Schreib die harte KI so dass sie gut blufft.",
+      "assertions": [
+        "AI receives DameView for its own viewer id",
+        "Policy function does not accept raw opponent hands",
+        "Difficulty changes policy only"
+      ]
+    },
+    {
+      "name": "table_ui_keys",
+      "input": "Mach die Tischszene mit den gleichen Tasten wie die Webversion.",
+      "assertions": [
+        "Uses res://scenes/table.tscn",
+        "Maps 1-4 Space Enter D Z E Esc",
+        "Does not put score math in the button handler",
+        "Keeps GL Compatibility and German labels"
+      ]
+    },
+    {
+      "name": "wrong_dame_penalty",
+      "input": "Wenn Dame falsch gerufen wird, muss die nächste Runde eine Strafkarte geben.",
+      "assertions": [
+        "Wrong call appends penalty cards on next deal",
+        "Exactly 50 resets total_score to 0",
+        "Over 50 sets is_eliminated"
+      ]
+    }
+  ]
+}
