@@ -13,7 +13,8 @@
     "test:ui": "vitest --ui",
     "test:e2e": "playwright test",
     "test:e2e:ci": "pnpm run build && pnpm exec playwright install --with-deps chromium && pnpm exec playwright test",
-    "generate-pwa-assets": "pwa-assets-generator"
+    "generate-pwa-assets": "pwa-assets-generator",
+    "test:godot": "node scripts/godot-test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

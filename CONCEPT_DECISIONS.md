@@ -37,7 +37,7 @@ Es gibt keine "Schnappreaktion" anderer Spieler außerhalb ihres Zuges.
 - **König:** Eine eigene verdeckte Karte ansehen, dann blind mit einer gegnerischen Karte tauschen. Die Gegnerkarte bleibt ungesehen, beide liegen danach verdeckt.
 - **Ass und Zehn:** Keine Sonderwirkung.
 - **Dame-Ansage:** Ansager gewinnt nur mit strikt weniger Punkten als jeder andere. Gleichstand = falsch.
-- **Safe Phase:** Die ersten zwei Umläufe jeder Ausgabe. Keine Ansage, kein Dame-Zwangszug, kein Extra-Ablegen.
+- **Safe Phase:** Die ersten zwei Umläufe jeder Ausgabe. Keine Ansage, kein Dame-Zwangszug.
 
 ## 7. Spielende
 

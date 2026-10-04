@@ -29,7 +29,7 @@ Q having 0 points does not make it the Dame call. See [[architecture]] for the n
 - `phase`: `play`, `dame_called`, `round_end`, `game_over`
 - `turn_step`: `draw`, `play`, `jack`, `king`, `extra`
 - `current_index`, `round_start_index`, `dame_caller_index`, `dame_turns_left`, `winner_index`
-- `safe_phase`: first two circuits of every deal. Dame call, forced queen and extra discard are off.
+- `safe_phase`: first two circuits of every deal. Dame call and forced queen are off. Extra discard stays allowed.
 - `last_action` (German), `log[]`
 
 ## Setup

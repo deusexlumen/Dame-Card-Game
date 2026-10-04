@@ -1,0 +1,26 @@
+name: Godot
+
+on:
+  push:
+    paths: ['godot/**', 'scripts/godot-*.mjs', '.github/workflows/godot.yml']
+  pull_request:
+    paths: ['godot/**', 'scripts/godot-*.mjs', '.github/workflows/godot.yml']
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Godot 4.7.2
+        run: |
+          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          echo "GODOT_BIN=$PWD/Godot_v4.7.2-stable_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Import project
+        run: $GODOT_BIN --headless --path godot --import || true
+      - name: Headless tests
+        run: node scripts/godot-test.mjs

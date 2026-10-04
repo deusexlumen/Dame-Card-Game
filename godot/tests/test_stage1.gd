@@ -1,57 +1,20 @@
-extends Node
+extends RefCounted
+
+# Portiert aus scripts/round_check.gd (Stufe 1). Regeln, Sonderkarten, volle Runde.
 
 const DameRulesScript = preload("res://scripts/dame_rules.gd")
 const DameAIScript = preload("res://scripts/dame_ai.gd")
 
-var failures: Array = []
+var t
 
-func _ready() -> void:
-	_run()
-	if failures.is_empty():
-		print("STUFE1_OK")
-		call_deferred("_quit", 0)
-	else:
-		for line in failures:
-			print("STUFE1_FAIL ", line)
-		call_deferred("_quit", 1)
-
-func _quit(code: int) -> void:
-	get_tree().quit(code)
-
-func _run() -> void:
-	_check_view_nodes()
+func run(ctx) -> void:
+	t = ctx
 	_check_extra_and_single_penalty()
 	_check_rank_effects()
 	_check_full_round()
 
 func _expect(cond: bool, message: String) -> void:
-	if not cond:
-		failures.append(message)
-
-func _check_view_nodes() -> void:
-	var packed: PackedScene = load("res://scenes/table.tscn")
-	var table = packed.instantiate()
-	add_child(table)
-	_expect(table.get_view_mode() == "first_person", "Sicht ist nicht first person")
-	_expect(table.get_node_or_null("OwnHand") != null, "OwnHand fehlt")
-	_expect(table.get_node_or_null("DiscardPile") != null, "DiscardPile fehlt")
-	_expect(table.get_node_or_null("OppositeSeat") != null, "OppositeSeat fehlt")
-	_expect(table.get_node("HUD/SideSeatLeft") is Label, "linker Platz ist kein Namens-/Zaehler-Label")
-	_expect(table.get_node("HUD/SideSeatRight") is Label, "rechter Platz ist kein Namens-/Zaehler-Label")
-	var view: Dictionary = table.rules.display_state(0)
-	_expect(str(view.view) == "first_person", "display_state nicht first person")
-	var ai_count := 0
-	var seats := 0
-	for entry in view.players:
-		seats += 1
-		if bool(entry.is_ai):
-			ai_count += 1
-		if str(entry.role) == "left" or str(entry.role) == "right":
-			_expect(entry.cards.is_empty(), "Seitensitz zeigt Karten statt nur Zaehler")
-	_expect(seats == 4, "nicht vier Plaetze in der Sicht")
-	_expect(ai_count == 1, "nicht genau eine KI in der Sicht")
-	table.queue_free()
-
+	t.expect(cond, message)
 func _check_extra_and_single_penalty() -> void:
 	var rules = DameRulesScript.new()
 	rules.start_match({
