@@ -35,9 +35,9 @@ const MIN_SEATS := 2
 const SAVE_VERSION := 1
 const DIFFICULTIES := ["easy", "medium", "hard"]
 const DEFAULT_NAMES := {
-	2: ["Du", "Gegenüber"],
-	3: ["Du", "Links", "Rechts"],
-	4: ["Du", "Links", "Gegenüber", "Rechts"],
+	2: ["Spieler", "Gegenüber"],
+	3: ["Spieler", "Links", "Rechts"],
+	4: ["Spieler", "Links", "Gegenüber", "Rechts"],
 }
 # Pflichtfelder fuer from_dict.
 const REQUIRED_STATE_KEYS := [
@@ -107,6 +107,7 @@ func start_match(config: Dictionary = {}) -> void:
 			"hand": hands[seat],
 			"known": known,
 			"seen_ids": [],
+			"deal_penalties": 0,
 			"penalty_cards": [],
 			"score": 0,
 			"total_score": 0,
@@ -423,7 +424,10 @@ func _draw(from_discard: bool) -> Dictionary:
 	state.drawn_card = card
 	state.drawn_from = "discard" if from_discard else "deck"
 	state.turn_step = "play"
-	return _ok("Karte gezogen: %s %s" % [str(card.rank), str(card.suit)])
+	# Verdeckt gezogene Karte nie ins oeffentliche Protokoll.
+	if from_discard:
+		return _ok("%s nimmt %s von der Ablage." % [_who(), card_label(card)])
+	return _ok("%s zieht vom Stapel." % _who())
 
 
 func _swap(hand_index: int) -> Dictionary:
@@ -440,7 +444,7 @@ func _swap(hand_index: int) -> Dictionary:
 		player.known.append(hand_index)
 	state.drawn_card = null
 	_place_on_discard(discarded, player)
-	return _ok(_played_message("Getauscht, abgelegt: %s" % str(discarded.rank)))
+	return _ok(_played_message("%s tauscht und legt %s ab" % [_who(), card_label(discarded)]))
 
 
 func _discard_drawn() -> Dictionary:
@@ -449,7 +453,7 @@ func _discard_drawn() -> Dictionary:
 	var card: Dictionary = state.drawn_card
 	state.drawn_card = null
 	_place_on_discard(card, current_player())
-	return _ok(_played_message("Abgelegt: %s" % str(card.rank)))
+	return _ok(_played_message("%s legt %s ab" % [_who(), card_label(card)]))
 
 
 func _discard_extra(hand_index: int) -> Dictionary:
@@ -476,7 +480,7 @@ func _discard_extra(hand_index: int) -> Dictionary:
 	if player.hand.is_empty() and str(state.phase) == "play" and int(state.dame_caller_index) < 0:
 		# Leere Hand: Dame wird automatisch gerufen.
 		return _ok("Extra-Karte abgelegt, Hand leer. " + _call_dame_now())
-	return _ok(_played_message("Extra-Karte abgelegt: %s" % str(card.rank)))
+	return _ok(_played_message("%s legt extra %s ab" % [_who(), card_label(card)]))
 
 
 func _call_dame() -> Dictionary:
@@ -566,7 +570,7 @@ func _resolve_round() -> void:
 	if not caller_wins:
 		_give_one_penalty(caller, "false_call")
 		state.false_call_penalties_given = int(state.false_call_penalties_given) + 1
-		state.last_action = "%s lag falsch. Naechste Ausgabe: 5 statt 4." % str(caller.name)
+		state.last_action = "%s lag falsch. Nächste Ausgabe: 5 statt 4 Karten." % str(caller.name)
 	else:
 		state.last_action = "%s hat Dame richtig gerufen." % str(caller.name)
 	state.phase = "round_end"
@@ -624,6 +628,7 @@ func _start_next_round() -> Dictionary:
 	_shuffle(deck, rng)
 	for p in state.players:
 		p.seen_ids = []
+		p.deal_penalties = 0
 		if bool(p.eliminated):
 			p.hand = []
 			p.known = []
@@ -858,6 +863,7 @@ func _give_one_penalty(player: Dictionary, source: String) -> Dictionary:
 		_log("Keine Strafkarte mehr verfügbar (%s)." % source)
 		return {}
 	card.face_up = false
+	player.deal_penalties = int(player.get("deal_penalties", 0)) + 1
 	# Genau eine Karte, nie eine Schleife ueber mehrere.
 	if PENALTY_CARD_COUNT != 1:
 		push_error("PENALTY_CARD_COUNT muss 1 sein")
@@ -952,6 +958,18 @@ func _shuffle(deck: Array, rng: RandomNumberGenerator) -> void:
 		var tmp = deck[i]
 		deck[i] = deck[j]
 		deck[j] = tmp
+
+
+const SUIT_NAMES := {"hearts": "Herz", "diamonds": "Karo", "clubs": "Kreuz", "spades": "Pik"}
+const RANK_NAMES := {"J": "Bube", "Q": "Dame", "K": "König", "A": "Ass"}
+
+static func card_label(card: Dictionary) -> String:
+	var rank := str(card.rank)
+	return "%s %s" % [SUIT_NAMES.get(str(card.suit), "?"), RANK_NAMES.get(rank, rank)]
+
+
+func _who() -> String:
+	return str(current_player().name)
 
 
 func _ok(reason: String) -> Dictionary:

@@ -8,9 +8,13 @@ const SUITES := [
 	"res://tests/test_stage1.gd",
 	"res://tests/test_rules_core.gd",
 	"res://tests/test_ai.gd",
+	"res://tests/test_table_ui.gd",
 ]
 
 func _ready() -> void:
+	var app := get_node_or_null("/root/App")
+	if app != null:
+		app.use_test_storage()
 	var ctx = TestContext.new()
 	ctx.root = self
 	for path in SUITES:

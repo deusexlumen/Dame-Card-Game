@@ -51,6 +51,8 @@ func _check_drawn_card_privacy() -> void:
 	var other: Dictionary = DameViewScript.for_viewer(rules, 1)
 	t.expect(mine.drawn != null and bool(mine.drawn.known), "Ziehender sieht eigene Karte nicht")
 	t.expect(other.drawn != null and not bool(other.drawn.known), "Mitspieler sieht verdeckt gezogene Karte")
+	var label: String = rules.card_label(rules.state.drawn_card)
+	t.expect(label not in var_to_str(other.log) and label not in str(other.last_action), "Protokoll verraet die gezogene Karte: " + label)
 	rules.apply_action({"type": "discard_drawn", "seat": 0})
 	while str(rules.state.turn_step) != "extra":
 		var step := str(rules.state.turn_step)

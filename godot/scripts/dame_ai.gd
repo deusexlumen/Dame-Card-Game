@@ -27,7 +27,7 @@ func step(rules) -> Dictionary:
 		return result
 	# Ungueltige Policy-Entscheidung: sichere Ersatzaktion fuer diesen Schritt.
 	last_error = str(result.get("reason", "KI-Zug gescheitert"))
-	return rules.apply_action(_fallback(rules, seat))
+	return rules.apply_action(fallback_action(rules, seat))
 
 
 func complete_turn(rules) -> bool:
@@ -56,7 +56,8 @@ func complete_turn(rules) -> bool:
 	return last_completed
 
 
-func _fallback(rules, seat: int) -> Dictionary:
+# Sichere Standardaktion fuer den aktuellen Schritt (auch fuer abgelaufene Zugzeit).
+func fallback_action(rules, seat: int) -> Dictionary:
 	var view: Dictionary = DameViewScript.for_viewer(rules, seat)
 	match str(view.turn_step):
 		"draw":
