@@ -13,7 +13,7 @@ config_version=5
 config/name="Dame"
 config/description="Dame Kartenspiel Stufe 1. Lokal, vier Plaetze, kein Server."
 run/main_scene="res://scenes/table.tscn"
-config/features=PackedStringArray("4.5", "GL Compatibility")
+config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [display]
 
