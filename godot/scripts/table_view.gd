@@ -697,6 +697,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if key == KEY_ENTER or key == KEY_KP_ENTER or key == KEY_SPACE:
 			confirm_handoff()
 			accept_event()
+		elif key == KEY_ESCAPE:
+			toggle_pause()
+			accept_event()
 		return
 	var phase := str(rules.state.phase) if rules != null else ""
 	if phase == "round_end" and (key == KEY_ENTER or key == KEY_KP_ENTER):
@@ -966,6 +969,8 @@ func _update_actions() -> void:
 			_action_button("Vom Stapel ziehen", _on_deck, not bool(_view.must_take_queen) and int(_view.deck_count) + int(_view.discard_count) > 1)
 			_action_button("Ablage nehmen", func() -> void: act({"type": "draw_discard"}), _view.discard_top != null)
 			_action_button("Dame rufen", call_dame, bool(_view.can_call_dame))
+			if int(_view.deck_count) == 0 and int(_view.discard_count) == 0:
+				_action_button("Aussetzen (nichts zu ziehen)", end_turn, true)
 		"play":
 			_action_button("Gezogene ablegen", func() -> void: act({"type": "discard_drawn"}), true)
 		"king":

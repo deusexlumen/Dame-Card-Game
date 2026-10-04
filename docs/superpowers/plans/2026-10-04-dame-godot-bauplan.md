@@ -345,3 +345,25 @@ git commit -m "ci(godot): Headless-Regeltests lokal und in CI"
 - `npm run test:godot` grün auf 4.7.2.
 - `grep -rn "4\.5" .claude/skills/dame-godot godot/project.godot` ohne Treffer (außer CHANGELOG).
 - CI-Job „Godot“ grün nach Push.
+
+---
+
+## Stand und Abweichungen (2026-10-04)
+
+Umgesetzt auf Branch `feat/godot-release`: M0–M6 komplett, M7 Export eingerichtet. Prüfen mit `npm run test:godot` (Suites + echter Szenenfluss), `npm run export:godot` (Windows + Web + Windows-Smoke), `npm run test:godot:web` (Web-Smoke in Chromium).
+
+Abweichungen vom Plan, bewusst entschieden:
+
+- **Detailpläne M1–M7** nicht als eigene Dateien geschrieben; Umsetzung direkt mit Tests je Meilenstein, Entscheidungen hier und in `SESSION_NOTES.md`.
+- **Tests:** ein Einstieg `tests/run_all.tscn` mit Suites `test_stage1`, `test_rules_core`, `test_ai`, `test_table_ui`, `test_meta` statt einer Datei je Regelgruppe. `round_check` ist in `test_stage1` aufgegangen. Zusätzlich `tools/flow_smoke.gd` mit echten Szenenwechseln.
+- **Einstellungen** als JSON (`user://settings.json`) statt `ConfigFile`; **Spielstand** als `var_to_str` in `user://save.dat` (JSON würde int zu float machen).
+- **Audiobusse** werden zur Laufzeit angelegt (kein `default_bus_layout.tres`). **Sounds und Musik** synthetisch erzeugt (`tools/gen_audio.gd`), keine CC0-Dateien nötig.
+- **Dienste** (Einstellungen, Statistik, Spielstand, Profil, Audio) schon in M3 gebaut, weil der Tisch sie braucht.
+- **Schrift:** DejaVu Sans Mono (enthält ♥♦♣♠) statt VT323/IBM Plex Mono; Lizenz in `assets/fonts/DejaVu-LICENSE.txt`.
+- **Regeln präzisiert:** Ausgabe-Zähler `deal`, Runde und Safe Phase je Ausgabe neu; Extra-Ablegen füllt die Hand weiter aus dem Stapel auf (Stufe-1-Verhalten); Spielende auch, wenn kein Mensch mehr im Spiel ist; scheiden alle zugleich aus, gewinnt der mit den wenigsten Punkten.
+- **Statistik und Chips** zählen nur Partien mit genau einem Menschen (Hot-Seat zählt nicht).
+- **Standardname** „Spieler“ statt „Du“ (Protokollsätze wie „Du zieht“ wären falsch).
+- **Gedächtnishilfe** als Einstellung: an = bekannte Karten bleiben offen, aus = nur kurz gezeigt.
+- **Bildröhren-Effekt** als Shader-Overlay (abschaltbar).
+
+Offen und nur durch den Nutzer zu entscheiden: Push/PR des Branches (CI lief noch nie), Veröffentlichung des Web-Builds (itch.io / GitHub Pages), Echtgeld-Anbieter, Multiplayer.

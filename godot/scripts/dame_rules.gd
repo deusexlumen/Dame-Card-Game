@@ -403,7 +403,15 @@ func _call_dame_now() -> String:
 	return "%s hat Dame gerufen. Jeder andere Spieler hat noch genau einen Zug." % str(caller.name)
 
 
+# Stapel und Ablage leer: Ziehen unmoeglich, der Zug darf ausgesetzt werden.
+func nothing_to_draw() -> bool:
+	return state.deck.is_empty() and state.discard.is_empty()
+
+
 func _end_turn() -> Dictionary:
+	if str(state.turn_step) == "draw" and state.drawn_card == null and nothing_to_draw():
+		_log("%s kann nicht ziehen und setzt aus." % _who())
+		state.turn_step = "extra"
 	if state.drawn_card != null or str(state.turn_step) == "draw" or str(state.turn_step) == "play":
 		return _fail("Der Zug ist noch nicht fertig")
 	if str(state.turn_step) != "extra":

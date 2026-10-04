@@ -16,6 +16,7 @@ func _ready() -> void:
 	bg.color = app.table_color() if app != null else Color(0.02, 0.035, 0.02)
 	add_child(bg)
 	build()
+	print("SCREEN_READY ", name)
 
 
 func app_node() -> Node:

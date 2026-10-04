@@ -93,6 +93,14 @@ func _check_empty_piles() -> void:
 	var pen: Dictionary = rules._give_one_penalty(rules.state.players[0], "test")
 	t.expect(pen.is_empty(), "Strafkarte aus leerem Stapel erfunden")
 	t.expect(rules.state.players[0].penalty_cards.size() == before, "Phantom-Strafkarte angehaengt")
+	t.expect(rules.nothing_to_draw(), "leere Stapel nicht erkannt")
+	var skip: Dictionary = rules.apply_action({"type": "end_turn", "seat": 0})
+	t.expect(bool(skip.ok) and int(rules.state.current_index) == 1, "Aussetzen bei leeren Stapeln nicht moeglich: " + str(skip.reason))
+	var ai_rules = _new_rules({"seed": 3, "ai_seats": [0, 1, 2, 3]})
+	ai_rules.state.deck.clear()
+	ai_rules.state.discard.clear()
+	var driver = preload("res://scripts/dame_ai.gd").new(1)
+	t.expect(driver.complete_turn(ai_rules), "KI haengt bei leeren Stapeln: " + driver.last_error)
 
 
 func _check_false_call_penalty_unique() -> void:

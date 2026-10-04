@@ -7,3 +7,6 @@ dame-*.png
 .worktrees/
 test-results/
 playwright-report/
+
+# Godot-Exporte
+build/

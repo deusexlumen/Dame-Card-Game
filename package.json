@@ -14,7 +14,9 @@
     "test:e2e": "playwright test",
     "test:e2e:ci": "pnpm run build && pnpm exec playwright install --with-deps chromium && pnpm exec playwright test",
     "generate-pwa-assets": "pwa-assets-generator",
-    "test:godot": "node scripts/godot-test.mjs"
+    "test:godot": "node scripts/godot-test.mjs",
+    "export:godot": "node scripts/godot-export.mjs",
+    "test:godot:web": "playwright test -c playwright.godot.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

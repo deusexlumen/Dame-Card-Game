@@ -14,6 +14,7 @@ config/name="Dame"
 config/description="Dame Kartenspiel Stufe 1. Lokal, vier Plaetze, kein Server."
 run/main_scene="res://scenes/main_menu.tscn"
 config/version="1.0.0"
+config/icon="res://assets/icon.svg"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [autoload]
