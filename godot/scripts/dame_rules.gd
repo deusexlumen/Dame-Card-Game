@@ -421,6 +421,7 @@ func _draw(from_discard: bool) -> Dictionary:
 			return _fail("Keine Karten mehr im Stapel")
 	card.face_up = true
 	state.drawn_card = card
+	state.drawn_from = "discard" if from_discard else "deck"
 	state.turn_step = "play"
 	return _ok("Karte gezogen: %s %s" % [str(card.rank), str(card.suit)])
 
@@ -799,6 +800,9 @@ func _king_swap(opponent_seat: int, opponent_index: int, chosen_index: int) -> D
 		"own": true,
 	}
 	state.last_look_by = me_seat
+	# Der Tauschende weiss, wohin seine angesehene Karte wandert.
+	if not me.seen_ids.has(seen_id):
+		me.seen_ids.append(seen_id)
 	my_hand[chosen_index] = opp_card
 	opp_hand[opponent_index] = chosen_card
 	opp_card.face_up = false
