@@ -3,6 +3,7 @@ Session 2 | Date: 2026-10-04
 
 ## Entscheidungen des Owners
 - **Online-Multiplayer ist das Ziel.** Nur gegen KI zu spielen macht auf Dauer keinen Spaß.
+- **Nur live, kein Langzeitschach.** Kurze Funklöcher dürfen nicht bestraft werden, Weggehen schon.
 - **Ein Backend ist okay.** Das README-Versprechen „ohne Backend" fällt (das Versprechen „ohne Tracking" kann bleiben).
 - **Geld ist nicht das Ziel, aber willkommen.** Monetarisierung darf nie das Spiel stören, also kein Pay-to-win.
 
@@ -14,7 +15,7 @@ Die „Link-Partie" wandert von *Explore* an **Platz 1**. Alles andere wird dana
 - **Anonymous Auth** heißt: kein Account-Zwang, ein Spieler ist ein Gerät plus ein optionaler Name. Login (Google/E-Mail) kann später kommen, z. B. für Freundesliste oder gekaufte Skins.
 - **Postgres + Row Level Security** speichert den Spielzustand. Verdeckte Karten liegen in einer Tabelle, die der Client nicht direkt lesen darf.
 - **Edge Functions** führen die Züge aus. `gameLogic.ts` ist React-frei und pur und kann dort im Kern unverändert laufen. Damit ist der Server die Autorität: Clients sehen nur ihre eigenen erlaubten Karten, und Schummeln über die DevTools ist unmöglich.
-- **Realtime** pusht neue Züge sofort an alle in der Partie. Dasselbe System trägt auch asynchrone Partien (Zug machen, App schließen, später weiter).
+- **Realtime** pusht neue Züge sofort an alle in der Partie; **Presence** erkennt, wer online bzw. im Vordergrund ist (Grundlage für die Abbruch-Regeln).
 - Kosten: Der Free-Tier reicht für die ersten tausenden Partien.
 
 Alternative: Cloudflare Durable Objects (stärker für Echtzeit, aber mehr Eigenbau). Nicht empfohlen, solange Supabase reicht.
@@ -29,13 +30,14 @@ Alternative: Cloudflare Durable Objects (stärker für Echtzeit, aber mehr Eigen
 ### Online v1: „Private Partie per Link"
 1. Lobby: Partie erstellen → Link/Code teilen → Freunde treten bei (2–6), offene Plätze werden mit KI aufgefüllt.
 2. Server-autoritative Züge über eine Edge Function, Updates per Realtime.
-3. Live **und** asynchron: Zug-Timer optional; wer offline ist, wird nach Timeout von der KI vertreten.
-4. Reconnect: Tab neu laden → zurück in der Partie.
-5. Share-Button und „Nochmal!" mit derselben Gruppe.
+3. **Nur live**, kein Langzeit-/Async-Modus (Owner-Entscheidung). Zug-Timer online immer an.
+4. Verbindungsabbruch in 3 Stufen: Funkloch straffrei → KI übernimmt, Wiedereinstieg mit Strafkarte → Abbruch = Aufgabe. Verbindliche Regeln: `CONCEPT_DECISIONS.md` Abschnitt 6 und 7.
+5. Reconnect: Tab neu laden → zurück am Platz (innerhalb der Fristen).
+6. Share-Button und „Nochmal!" mit derselben Gruppe.
 
 ### Online v2: Wachstum
 1. **Schnelles Spiel**: Matchmaking mit Fremden (2–4 Spieler).
-2. Freundesliste, Rematch-Einladungen, Push-Benachrichtigung „Du bist dran" (PWA).
+2. Freundesliste, Rematch-Einladungen, Push „Deine Freunde starten eine Partie" (PWA).
 3. **Tagesdame** mit globaler Rangliste.
 4. Ranglisten/ELO pro Saison.
 
