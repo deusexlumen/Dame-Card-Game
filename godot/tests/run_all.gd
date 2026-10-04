@@ -6,6 +6,7 @@ extends Node
 const TestContext = preload("res://tests/test_context.gd")
 const SUITES := [
 	"res://tests/test_stage1.gd",
+	"res://tests/test_rules_core.gd",
 ]
 
 func _ready() -> void:

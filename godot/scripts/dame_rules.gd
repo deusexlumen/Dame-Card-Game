@@ -31,12 +31,32 @@ const STAGE1_PLAIN_RANKS := {
 	"10": "Zehn",
 }
 
+const MIN_SEATS := 2
+const SAVE_VERSION := 1
+const DIFFICULTIES := ["easy", "medium", "hard"]
+const DEFAULT_NAMES := {
+	2: ["Du", "Gegenüber"],
+	3: ["Du", "Links", "Rechts"],
+	4: ["Du", "Links", "Gegenüber", "Rechts"],
+}
+# Pflichtfelder fuer from_dict.
+const REQUIRED_STATE_KEYS := [
+	"players", "seat_count", "seed", "deal", "current_index", "round_start_index",
+	"deck", "discard", "phase", "round", "safe_phase", "turn_step", "drawn_card",
+	"dame_caller_index", "dame_turns_left", "winner_index", "last_action", "log",
+]
+const PHASES := ["play", "dame_called", "round_end", "game_over"]
+const TURN_STEPS := ["draw", "play", "jack", "king", "extra"]
+
 var state: Dictionary = {}
+var zone_error := ""
 
 func start_match(config: Dictionary = {}) -> void:
 	var seed := int(config.get("seed", 1))
-	var ai_seat := int(config.get("ai_seat", 2))
-	var names: Array = config.get("names", ["Du", "Links", "Gegenüber", "Rechts"])
+	var seat_count := clampi(int(config.get("seat_count", SEAT_COUNT)), MIN_SEATS, SEAT_COUNT)
+	var ai_seats: Array = config.get("ai_seats", [int(config.get("ai_seat", mini(2, seat_count - 1)))])
+	var difficulties: Dictionary = config.get("difficulties", {})
+	var names: Array = config.get("names", DEFAULT_NAMES[seat_count])
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
 	var pool := _fresh_pool()
@@ -44,14 +64,14 @@ func start_match(config: Dictionary = {}) -> void:
 	var preset_hands = config.get("preset_hands", null)
 	var draw_first = config.get("draw_first", null)
 	if preset_hands != null:
-		for seat in range(SEAT_COUNT):
+		for seat in range(seat_count):
 			var built: Array = []
 			for spec in preset_hands[seat]:
 				built.append(_take_spec(pool, str(spec.suit), str(spec.rank)))
 			hands.append(built)
 	else:
 		_shuffle(pool, rng)
-		for seat in range(SEAT_COUNT):
+		for seat in range(seat_count):
 			var dealt: Array = []
 			for _i in range(HAND_SIZE):
 				dealt.append(pool.pop_back())
@@ -70,18 +90,23 @@ func start_match(config: Dictionary = {}) -> void:
 		if preset_hands != null:
 			_shuffle(deck, rng)
 	var players: Array = []
-	for seat in range(SEAT_COUNT):
+	for seat in range(seat_count):
 		var known: Array = []
 		if hands[seat].size() > 0:
 			known.append(0)
 		if hands[seat].size() > 1:
 			known.append(1)
+		var difficulty := str(difficulties.get(seat, "medium"))
+		if not DIFFICULTIES.has(difficulty):
+			difficulty = "medium"
 		players.append({
 			"seat": seat,
-			"name": str(names[seat]),
-			"is_ai": seat == ai_seat,
+			"name": str(names[seat]) if seat < names.size() else "Platz %d" % (seat + 1),
+			"is_ai": ai_seats.has(seat),
+			"difficulty": difficulty,
 			"hand": hands[seat],
 			"known": known,
+			"seen_ids": [],
 			"penalty_cards": [],
 			"score": 0,
 			"total_score": 0,
@@ -91,6 +116,10 @@ func start_match(config: Dictionary = {}) -> void:
 		})
 	state = {
 		"players": players,
+		"seat_count": seat_count,
+		"seed": seed,
+		"deal": 1,
+		"winner_index": -1,
 		"current_index": 0,
 		"round_start_index": 0,
 		"deck": deck,
@@ -102,7 +131,7 @@ func start_match(config: Dictionary = {}) -> void:
 		"drawn_card": null,
 		"dame_caller_index": -1,
 		"dame_turns_left": 0,
-		"last_action": "Runde gestartet. Vier Plaetze.",
+		"last_action": "Runde gestartet. %d Plätze." % seat_count,
 		"last_queen_penalty": null,
 		"queen_penalties_given": 0,
 		"false_call_penalties_given": 0,
@@ -111,7 +140,7 @@ func start_match(config: Dictionary = {}) -> void:
 		"last_look": null,
 		"last_look_by": -1,
 		"last_king_swap": null,
-		"log": ["Vier Plaetze. Ein Platz ist KI. Runde 1, Safe Phase."],
+		"log": ["%d Plätze. Ausgabe 1, Runde 1, Safe Phase." % seat_count],
 	}
 
 
@@ -190,6 +219,74 @@ func current_player() -> Dictionary:
 	return state.players[int(state.current_index)]
 
 
+func seat_count() -> int:
+	return int(state.get("seat_count", SEAT_COUNT))
+
+
+# Jede Karten-ID genau einmal in Stapel, Ablage, gezogener Karte, Hand oder Strafkarten.
+func assert_zones() -> bool:
+	zone_error = ""
+	var seen := {}
+	var zones: Array = [["Stapel", state.deck], ["Ablage", state.discard]]
+	if state.drawn_card != null:
+		zones.append(["gezogen", [state.drawn_card]])
+	for p in state.players:
+		zones.append(["Hand %d" % int(p.seat), p.hand])
+		zones.append(["Strafe %d" % int(p.seat), p.penalty_cards])
+	for zone in zones:
+		for card in zone[1]:
+			var id := str(card.id)
+			if seen.has(id):
+				zone_error = "Karte %s in %s und %s" % [id, seen[id], zone[0]]
+				return false
+			seen[id] = zone[0]
+	if seen.size() != 52:
+		zone_error = "%d statt 52 Karten im Spiel" % seen.size()
+		return false
+	return true
+
+
+func to_dict() -> Dictionary:
+	return {"save_version": SAVE_VERSION, "state": state.duplicate(true)}
+
+
+# Laedt einen Spielstand. Ungueltige Daten: false, Zustand bleibt unveraendert.
+func from_dict(data) -> bool:
+	if typeof(data) != TYPE_DICTIONARY:
+		zone_error = "Spielstand ist kein Dictionary"
+		return false
+	if int(data.get("save_version", -1)) != SAVE_VERSION:
+		zone_error = "Spielstand-Version passt nicht"
+		return false
+	var incoming = data.get("state", null)
+	if typeof(incoming) != TYPE_DICTIONARY:
+		zone_error = "Spielstand ohne Zustand"
+		return false
+	for key in REQUIRED_STATE_KEYS:
+		if not incoming.has(key):
+			zone_error = "Spielstand ohne Feld %s" % key
+			return false
+	var n := int(incoming.seat_count)
+	if n < MIN_SEATS or n > SEAT_COUNT or typeof(incoming.players) != TYPE_ARRAY or incoming.players.size() != n:
+		zone_error = "Spielstand mit falscher Platzzahl"
+		return false
+	if not PHASES.has(str(incoming.phase)) or not TURN_STEPS.has(str(incoming.turn_step)):
+		zone_error = "Spielstand mit unbekannter Phase"
+		return false
+	var current := int(incoming.current_index)
+	if current < 0 or current >= n:
+		zone_error = "Spielstand mit ungueltigem Platz am Zug"
+		return false
+	var previous := state
+	state = incoming.duplicate(true)
+	if not assert_zones():
+		var reason := zone_error
+		state = previous
+		zone_error = reason
+		return false
+	return true
+
+
 func display_state(viewer_seat: int) -> Dictionary:
 	# Nur das, was die First-Person-Sicht zeigen darf.
 	var players_out: Array = []
@@ -248,6 +345,9 @@ func display_state(viewer_seat: int) -> Dictionary:
 		"dame_caller_index": int(state.dame_caller_index),
 		"last_action": str(state.last_action),
 		"last_round_false_call": bool(state.last_round_false_call),
+		"winner_index": int(state.winner_index),
+		"deal": int(state.deal),
+		"seat_count": seat_count(),
 		"players": players_out,
 		"must_take_queen": must_take_queen(),
 		"can_call_dame": can_call_dame() and int(state.current_index) == viewer_seat,
@@ -259,11 +359,15 @@ func display_state(viewer_seat: int) -> Dictionary:
 func _seat_role(viewer: int, seat: int) -> String:
 	if seat == viewer:
 		return "self"
-	if seat == (viewer + 2) % SEAT_COUNT:
+	var n := seat_count()
+	var offset := (seat - viewer + n) % n
+	if n == 2:
 		return "opposite"
-	if seat == (viewer + 1) % SEAT_COUNT:
-		return "left"
-	return "right"
+	if n == 3:
+		return "left" if offset == 1 else "right"
+	if offset == 2:
+		return "opposite"
+	return "left" if offset == 1 else "right"
 
 
 func _viewer_cards(player: Dictionary, reveal_all: bool) -> Array:
@@ -314,7 +418,7 @@ func _draw(from_discard: bool) -> Dictionary:
 	else:
 		card = _pull_deck()
 		if card == null:
-			return _fail("Keine Karte zum Ziehen")
+			return _fail("Keine Karten mehr im Stapel")
 	card.face_up = true
 	state.drawn_card = card
 	state.turn_step = "play"
@@ -368,12 +472,19 @@ func _discard_extra(hand_index: int) -> Dictionary:
 		replacement.face_up = false
 		player.hand.append(replacement)
 	_place_on_discard(card, player)
+	if player.hand.is_empty() and str(state.phase) == "play" and int(state.dame_caller_index) < 0:
+		# Leere Hand: Dame wird automatisch gerufen.
+		return _ok("Extra-Karte abgelegt, Hand leer. " + _call_dame_now())
 	return _ok(_played_message("Extra-Karte abgelegt: %s" % str(card.rank)))
 
 
 func _call_dame() -> Dictionary:
 	if not can_call_dame():
 		return _fail("Dame ist jetzt nicht rufbar")
+	return _ok(_call_dame_now())
+
+
+func _call_dame_now() -> String:
 	var caller: Dictionary = current_player()
 	caller.has_called_dame = true
 	caller.locked = true
@@ -386,7 +497,7 @@ func _call_dame() -> Dictionary:
 	state.drawn_card = null
 	if bool(caller.is_ai):
 		state.ai_turns_finished = int(state.ai_turns_finished) + 1
-	return _ok("%s hat Dame gerufen. Jeder andere Spieler hat noch genau einen Zug." % str(caller.name))
+	return "%s hat Dame gerufen. Jeder andere Spieler hat noch genau einen Zug." % str(caller.name)
 
 
 func _end_turn() -> Dictionary:
@@ -444,6 +555,10 @@ func _resolve_round() -> void:
 			p.total_score = 0
 		elif int(p.total_score) > 50:
 			p.eliminated = true
+		# Gewertete Strafkarten unten in die Ablage, damit keine Karte verschwindet.
+		for pen in p.penalty_cards:
+			pen.face_up = true
+			state.discard.push_front(pen)
 		p.penalty_cards = []
 		p.has_called_dame = false
 	state.last_round_false_call = not caller_wins
@@ -457,19 +572,61 @@ func _resolve_round() -> void:
 	state.turn_step = "draw"
 	state.drawn_card = null
 	_log(str(state.last_action))
+	_check_game_over()
+
+
+func _check_game_over() -> void:
+	var alive: Array = []
+	var humans_total := 0
+	var humans_alive := 0
+	for p in state.players:
+		if not bool(p.is_ai):
+			humans_total += 1
+		if bool(p.eliminated):
+			continue
+		alive.append(p)
+		if not bool(p.is_ai):
+			humans_alive += 1
+	var over := alive.size() <= 1 or (humans_total > 0 and humans_alive == 0)
+	if not over:
+		return
+	# Scheiden alle gleichzeitig aus, gewinnt der mit den wenigsten Punkten.
+	var candidates: Array = alive if not alive.is_empty() else state.players
+	var best = null
+	for p in candidates:
+		if best == null or int(p.total_score) < int(best.total_score):
+			best = p
+	state.phase = "game_over"
+	state.winner_index = int(best.seat) if best != null else -1
+	if best != null:
+		state.last_action = "Spielende. %s gewinnt mit %d Punkten." % [str(best.name), int(best.total_score)]
+	else:
+		state.last_action = "Spielende. Niemand ist übrig."
+	_log(str(state.last_action))
 
 
 func _start_next_round() -> Dictionary:
 	if str(state.phase) != "round_end":
 		return _fail("Keine abgeschlossene Runde")
 	var rng := RandomNumberGenerator.new()
-	rng.seed = int(state.round) * 1000 + 17
-	var deck := _fresh_pool()
+	state.deal = int(state.deal) + 1
+	rng.seed = int(state.seed) * 7919 + int(state.deal)
+	# Strafkarten aus falscher Ansage wandern mit: aus dem neuen Blatt entfernen.
+	var carried := {}
+	for p in state.players:
+		for pen in p.penalty_cards:
+			carried[str(pen.id)] = true
+	var deck: Array = []
+	for card in _fresh_pool():
+		if not carried.has(str(card.id)):
+			deck.append(card)
 	_shuffle(deck, rng)
 	for p in state.players:
+		p.seen_ids = []
 		if bool(p.eliminated):
 			p.hand = []
 			p.known = []
+			p.penalty_cards = []
 			continue
 		var hand: Array = []
 		for _i in range(HAND_SIZE):
@@ -498,7 +655,8 @@ func _start_next_round() -> Dictionary:
 	state.last_king_swap = null
 	state.round_start_index = _next_active(int(state.round_start_index))
 	state.current_index = int(state.round_start_index)
-	state.safe_phase = int(state.round) <= SAFE_CIRCUITS
+	state.round = 1
+	state.safe_phase = true
 	state.phase = "play"
 	return _ok("Neue Ausgabe. Am Zug: %s" % str(current_player().name))
 
@@ -529,20 +687,49 @@ func _place_on_discard(card: Dictionary, player: Dictionary) -> void:
 		_give_queen_penalty(player)
 		state.turn_step = "extra"
 	elif rank == "J":
-		state.turn_step = "jack"
+		state.turn_step = "jack" if _has_jack_target() else "extra"
 	elif rank == "K":
-		state.turn_step = "king"
+		state.turn_step = "king" if _has_king_target() else "extra"
 	else:
 		state.turn_step = "extra"
+
+
+func _face_down_count(player: Dictionary) -> int:
+	var n := 0
+	for c in player.hand:
+		if not bool(c.face_up):
+			n += 1
+	return n
+
+
+func _has_jack_target() -> bool:
+	for p in state.players:
+		if not bool(p.eliminated) and _face_down_count(p) > 0:
+			return true
+	return false
+
+
+func _has_king_target() -> bool:
+	var me: Dictionary = current_player()
+	if _face_down_count(me) == 0:
+		return false
+	for p in state.players:
+		if int(p.seat) == int(me.seat) or bool(p.eliminated) or bool(p.locked):
+			continue
+		if _face_down_count(p) > 0:
+			return true
+	return false
 
 
 func _look_card(target_seat: int, hand_index: int) -> Dictionary:
 	# README: Bube schaut eine beliebige verdeckte Karte an. Kein Tausch.
 	if str(state.turn_step) != "jack":
 		return _fail("Bube: Anschauen ist jetzt nicht dran")
-	if target_seat < 0 or target_seat >= SEAT_COUNT:
+	if target_seat < 0 or target_seat >= seat_count():
 		return _fail("Ungültiger Platz")
 	var target: Dictionary = state.players[target_seat]
+	if bool(target.eliminated):
+		return _fail("Spieler ist ausgeschieden")
 	var hand: Array = target.hand
 	if hand_index < 0 or hand_index >= hand.size():
 		return _fail("Ungültiger Kartenindex")
@@ -561,10 +748,12 @@ func _look_card(target_seat: int, hand_index: int) -> Dictionary:
 	}
 	state.last_look_by = int(state.current_index)
 	state.last_king_swap = null
+	var me: Dictionary = current_player()
 	if target_seat == int(state.current_index):
-		var me: Dictionary = current_player()
 		if not me.known.has(hand_index):
 			me.known.append(hand_index)
+	elif not me.seen_ids.has(before_id):
+		me.seen_ids.append(before_id)
 	if str(hand[hand_index].id) != before_id:
 		return _fail("Bube hat die Position veraendert")
 	if bool(hand[hand_index].face_up):
@@ -579,8 +768,12 @@ func _king_swap(opponent_seat: int, opponent_index: int, chosen_index: int) -> D
 	if str(state.turn_step) != "king":
 		return _fail("König: Tausch ist jetzt nicht dran")
 	var me_seat := int(state.current_index)
-	if opponent_seat < 0 or opponent_seat >= SEAT_COUNT or opponent_seat == me_seat:
+	if opponent_seat < 0 or opponent_seat >= seat_count() or opponent_seat == me_seat:
 		return _fail("König tauscht blind mit einer gegnerischen Karte")
+	if bool(state.players[opponent_seat].locked):
+		return _fail("Karten des Ansagers sind gelockt")
+	if bool(state.players[opponent_seat].eliminated):
+		return _fail("Spieler ist ausgeschieden")
 	var me: Dictionary = state.players[me_seat]
 	var opp: Dictionary = state.players[opponent_seat]
 	var my_hand: Array = me.hand
@@ -649,7 +842,7 @@ func _give_queen_penalty(player: Dictionary) -> void:
 	if top != null:
 		top.face_up = true
 	var card := _give_one_penalty(player, "queen")
-	state.last_queen_penalty = card
+	state.last_queen_penalty = null if card.is_empty() else card
 	state.queen_penalties_given = int(state.queen_penalties_given) + 1
 	_log("Dame offen. Genau eine Strafkarte.")
 
@@ -657,7 +850,9 @@ func _give_queen_penalty(player: Dictionary) -> void:
 func _give_one_penalty(player: Dictionary, source: String) -> Dictionary:
 	var card = _pull_deck()
 	if card == null:
-		card = {"id": "penalty-empty-%s" % source, "suit": "clubs", "rank": "A", "value": 1, "face_up": false}
+		# Keine Karte mehr da: keine Strafe, nie eine erfundene Karte.
+		_log("Keine Strafkarte mehr verfügbar (%s)." % source)
+		return {}
 	card.face_up = false
 	# Genau eine Karte, nie eine Schleife ueber mehrere.
 	if PENALTY_CARD_COUNT != 1:
@@ -674,7 +869,7 @@ func _pull_deck():
 		var rest: Array = state.discard.duplicate()
 		state.discard = [top]
 		var rng := RandomNumberGenerator.new()
-		rng.seed = rest.size() + int(state.round) * 13
+		rng.seed = int(state.seed) * 104729 + rest.size() + int(state.deal) * 131 + int(state.round) * 13
 		_shuffle(rest, rng)
 		state.deck = rest
 	if state.deck.is_empty():
@@ -701,8 +896,8 @@ func _other_active_count(caller_index: int) -> int:
 
 func _next_active(index: int) -> int:
 	var n := index
-	for _i in range(SEAT_COUNT):
-		n = (n + 1) % SEAT_COUNT
+	for _i in range(seat_count()):
+		n = (n + 1) % seat_count()
 		if not bool(state.players[n].eliminated):
 			return n
 	return index
