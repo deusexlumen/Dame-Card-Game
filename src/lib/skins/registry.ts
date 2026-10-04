@@ -1,5 +1,8 @@
 import type { Skin, SkinCategory } from './types';
 
+// Asset-Pfade relativ zur Vite-Base auflösen (GitHub Pages läuft unter /Dame-Card-Game/)
+const asset = (path: string): string => `${import.meta.env.BASE_URL}${path}`;
+
 /**
  * Globale Skin-Registry. Enthält alle im Spiel verfügbaren Skins.
  */
@@ -10,9 +13,9 @@ export const SKIN_REGISTRY: readonly Skin[] = [
     category: 'cardBack',
     price: 0,
     currency: 'EUR',
-    previewImage: '/skins/default/card-back.svg',
+    previewImage: asset('skins/default/card-back.svg'),
     assets: {
-      back: '/skins/default/card-back.svg',
+      back: asset('skins/default/card-back.svg'),
     },
   },
   {
@@ -21,9 +24,9 @@ export const SKIN_REGISTRY: readonly Skin[] = [
     category: 'cardBack',
     price: 1.99,
     currency: 'EUR',
-    previewImage: '/skins/neon-green/card-back.svg',
+    previewImage: asset('skins/neon-green/card-back.svg'),
     assets: {
-      back: '/skins/neon-green/card-back.svg',
+      back: asset('skins/neon-green/card-back.svg'),
     },
   },
   {
@@ -32,9 +35,9 @@ export const SKIN_REGISTRY: readonly Skin[] = [
     category: 'table',
     price: 0,
     currency: 'EUR',
-    previewImage: '/skins/default/table-bg.jpg',
+    previewImage: asset('skins/default/table-bg.jpg'),
     assets: {
-      felt: '/skins/default/table-bg.jpg',
+      felt: asset('skins/default/table-bg.jpg'),
     },
   },
   {
@@ -43,9 +46,9 @@ export const SKIN_REGISTRY: readonly Skin[] = [
     category: 'table',
     price: 2.99,
     currency: 'EUR',
-    previewImage: '/skins/neon-green/table-bg.jpg',
+    previewImage: asset('skins/neon-green/table-bg.jpg'),
     assets: {
-      felt: '/skins/neon-green/table-bg.jpg',
+      felt: asset('skins/neon-green/table-bg.jpg'),
     },
   },
   {
@@ -54,9 +57,9 @@ export const SKIN_REGISTRY: readonly Skin[] = [
     category: 'cardFace',
     price: 0,
     currency: 'EUR',
-    previewImage: '/skins/default/card-face.svg',
+    previewImage: asset('skins/default/card-face.svg'),
     assets: {
-      face: '/skins/default/card-face.svg',
+      face: asset('skins/default/card-face.svg'),
     },
   },
   {
@@ -65,9 +68,9 @@ export const SKIN_REGISTRY: readonly Skin[] = [
     category: 'cardFace',
     price: 1.99,
     currency: 'EUR',
-    previewImage: '/skins/neon-green/card-face.svg',
+    previewImage: asset('skins/neon-green/card-face.svg'),
     assets: {
-      face: '/skins/neon-green/card-face.svg',
+      face: asset('skins/neon-green/card-face.svg'),
     },
   },
 ] as const;

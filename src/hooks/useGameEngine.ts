@@ -400,6 +400,7 @@ export function useGameEngine(
     clearAITimeouts();
     isAIMovingRef.current = false;
     clearTimer();
+    setTurnTimeLeft(null);
     setIsTimerPaused(false);
     setAiPlayers(aiMap);
     setGameState(newGame);
