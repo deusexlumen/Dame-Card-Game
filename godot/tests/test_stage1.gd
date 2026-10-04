@@ -3,6 +3,7 @@ extends RefCounted
 # Portiert aus scripts/round_check.gd (Stufe 1). Regeln, Sonderkarten, volle Runde.
 
 const DameRulesScript = preload("res://scripts/dame_rules.gd")
+const DameViewScript = preload("res://scripts/dame_view.gd")
 const DameAIScript = preload("res://scripts/dame_ai.gd")
 
 var t
@@ -183,7 +184,7 @@ func _check_king_swap() -> void:
 	_expect(bool(rules.state.last_look.face_up) == false, "König-Blick ist nicht verdeckt gemerkt")
 	_expect(str(rules.state.last_look.id) != opp_id, "König hat die Gegnerkarte offengelegt")
 	_expect(not rules.state.players[0].known.has(1), "König zeigt die getauschte Gegnerkarte als bekannt")
-	var view: Dictionary = rules.display_state(0)
+	var view: Dictionary = DameViewScript.for_viewer(rules, 0)
 	var self_cards: Array = []
 	for entry in view.players:
 		if str(entry.role) == "self":

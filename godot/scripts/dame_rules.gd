@@ -288,75 +288,6 @@ func from_dict(data) -> bool:
 	return true
 
 
-func display_state(viewer_seat: int) -> Dictionary:
-	# Nur das, was die First-Person-Sicht zeigen darf.
-	var players_out: Array = []
-	for p in state.players:
-		var seat := int(p.seat)
-		var entry := {
-			"seat": seat,
-			"name": str(p.name),
-			"is_ai": bool(p.is_ai),
-			"card_count": p.hand.size(),
-			"penalty_count": p.penalty_cards.size(),
-			"score": int(p.score),
-			"total_score": int(p.total_score),
-			"locked": bool(p.locked),
-			"is_current": seat == int(state.current_index),
-			"role": _seat_role(viewer_seat, seat),
-		}
-		if seat == viewer_seat:
-			entry["cards"] = _viewer_cards(p, true)
-		elif _seat_role(viewer_seat, seat) == "opposite" and str(state.phase) == "round_end":
-			entry["cards"] = _viewer_cards(p, true)
-		elif _seat_role(viewer_seat, seat) == "opposite":
-			entry["cards"] = _backs(p.hand.size())
-		else:
-			entry["cards"] = []
-		players_out.append(entry)
-	var top = top_discard()
-	var top_view = null
-	if top != null:
-		top_view = {
-			"rank": str(top.rank),
-			"suit": str(top.suit),
-			"face_up": true,
-			"is_queen": str(top.rank) == "Q",
-		}
-	var penalty_view = null
-	if top_view != null and bool(top_view.is_queen) and state.last_queen_penalty != null:
-		penalty_view = {
-			"face_up": false,
-			"label": "Strafkarte",
-			"count": PENALTY_CARD_COUNT,
-		}
-	return {
-		"view": "first_person",
-		"viewer_seat": viewer_seat,
-		"phase": str(state.phase),
-		"round": int(state.round),
-		"safe_phase": bool(state.safe_phase),
-		"turn_step": str(state.turn_step),
-		"current_index": int(state.current_index),
-		"current_name": str(current_player().name),
-		"drawn": _card_public(state.drawn_card) if state.drawn_card != null else null,
-		"discard_top": top_view,
-		"queen_penalty": penalty_view,
-		"dame_turns_left": int(state.dame_turns_left),
-		"dame_caller_index": int(state.dame_caller_index),
-		"last_action": str(state.last_action),
-		"last_round_false_call": bool(state.last_round_false_call),
-		"winner_index": int(state.winner_index),
-		"deal": int(state.deal),
-		"seat_count": seat_count(),
-		"players": players_out,
-		"must_take_queen": must_take_queen(),
-		"can_call_dame": can_call_dame() and int(state.current_index) == viewer_seat,
-		"private_look": _private_look(viewer_seat),
-		"log": state.log.duplicate(),
-	}
-
-
 func _seat_role(viewer: int, seat: int) -> String:
 	if seat == viewer:
 		return "self"
@@ -369,39 +300,6 @@ func _seat_role(viewer: int, seat: int) -> String:
 	if offset == 2:
 		return "opposite"
 	return "left" if offset == 1 else "right"
-
-
-func _viewer_cards(player: Dictionary, reveal_all: bool) -> Array:
-	var out: Array = []
-	var known: Array = player.known
-	for i in range(player.hand.size()):
-		var card: Dictionary = player.hand[i]
-		var show := reveal_all or known.has(i) or bool(card.face_up)
-		# Blinde König-Karte bleibt zu, auch wenn die eigene Hand sonst offen gezeichnet wird.
-		if bool(card.get("unseen", false)) and not known.has(i) and not bool(card.face_up):
-			if str(state.phase) != "round_end" and str(state.phase) != "game_over":
-				show = false
-		if show:
-			out.append({
-				"index": i,
-				"face_up": true,
-				"rank": str(card.rank),
-				"suit": str(card.suit),
-			})
-		else:
-			out.append({"index": i, "face_up": false, "rank": "", "suit": ""})
-	return out
-
-
-func _backs(count: int) -> Array:
-	var out: Array = []
-	for i in range(count):
-		out.append({"index": i, "face_up": false, "rank": "", "suit": ""})
-	return out
-
-
-func _card_public(card: Dictionary) -> Dictionary:
-	return {"rank": str(card.rank), "suit": str(card.suit), "value": int(card.value), "face_up": true}
 
 
 func _draw(from_discard: bool) -> Dictionary:

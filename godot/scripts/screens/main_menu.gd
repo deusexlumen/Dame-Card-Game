@@ -62,6 +62,8 @@ func build() -> void:
 		if b.visible:
 			b.grab_focus()
 			break
+	# Marker fuer Smoke-Tests der exportierten Builds.
+	print("DAME_READY")
 
 
 func _menu_button(parent: Control, text: String, cb: Callable) -> Button:

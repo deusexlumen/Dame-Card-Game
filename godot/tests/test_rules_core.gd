@@ -3,6 +3,7 @@ extends RefCounted
 # M1: Plaetze 2-4, Zonen, Spielende, Speichern, Seeds, leere Stapel.
 
 const DameRulesScript = preload("res://scripts/dame_rules.gd")
+const DameViewScript = preload("res://scripts/dame_view.gd")
 
 var t
 
@@ -43,7 +44,7 @@ func _check_seat_counts() -> void:
 			expected.append(i % n)
 		t.expect(order == expected, "%d Plaetze: Zugreihenfolge %s" % [n, str(order)])
 		t.expect(int(rules.state.round) == 3, "%d Plaetze: nach zwei Umlaeufen Runde %d" % [n, int(rules.state.round)])
-		t.expect(rules.display_state(0).players.size() == n, "%d Plaetze: Sicht hat falsche Platzzahl" % n)
+		t.expect(DameViewScript.for_viewer(rules, 0).players.size() == n, "%d Plaetze: Sicht hat falsche Platzzahl" % n)
 	var too_many = _new_rules({"seat_count": 9})
 	t.expect(too_many.seat_count() == 4, "seat_count wird nicht auf 4 begrenzt")
 	var too_few = _new_rules({"seat_count": 1})
@@ -152,7 +153,7 @@ func _check_game_over() -> void:
 	t.expect(int(rules.state.winner_index) == 0, "Sieger falsch: %d" % int(rules.state.winner_index))
 	var r: Dictionary = rules.apply_action({"type": "start_next_round"})
 	t.expect(not bool(r.ok), "nach game_over startet neue Ausgabe")
-	var view: Dictionary = rules.display_state(0)
+	var view: Dictionary = DameViewScript.for_viewer(rules, 0)
 	t.expect(int(view.winner_index) == 0, "Sicht nennt Sieger nicht")
 	# Kein Mensch mehr im Spiel: Ende, Sieger ist die KI mit den wenigsten Punkten.
 	var solo = _new_rules({"seed": 10, "seat_count": 3, "ai_seats": [1, 2]})
@@ -196,7 +197,7 @@ func _check_save_roundtrip() -> void:
 	var back = str_to_var(text)
 	var copy = DameRulesScript.new()
 	t.expect(copy.from_dict(back), "gueltiger Spielstand abgelehnt: " + copy.zone_error)
-	t.expect(var_to_str(copy.display_state(0)) == var_to_str(rules.display_state(0)), "Sicht nach Laden anders")
+	t.expect(var_to_str(DameViewScript.for_viewer(copy, 0)) == var_to_str(DameViewScript.for_viewer(rules, 0)), "Sicht nach Laden anders")
 	_auto_turn(copy, 999)
 	_auto_turn(rules, 999)
 	t.expect(var_to_str(copy.state) == var_to_str(rules.state), "Spiel laeuft nach Laden anders weiter")

@@ -28,11 +28,9 @@ func _ready() -> void:
 		_pool.append(p)
 	_music = AudioStreamPlayer.new()
 	_music.bus = "Music"
+	# Schleife kommt aus den Import-Einstellungen (music.wav.import, loop_mode Forward).
 	var m = load("res://assets/audio/music.wav")
-	if m is AudioStreamWAV:
-		m.loop_mode = AudioStreamWAV.LOOP_FORWARD
-		m.loop_begin = 0
-		m.loop_end = m.data.size() / 2
+	if m != null:
 		_music.stream = m
 	add_child(_music)
 
