@@ -64,7 +64,7 @@ static func build(accent: Color) -> Theme:
 		th.set_color("font_hover_color", type, accent.lightened(0.35))
 		th.set_color("font_pressed_color", type, BG)
 		th.set_color("font_focus_color", type, accent.lightened(0.25))
-		th.set_color("font_disabled_color", type, faint)
+		th.set_color("font_disabled_color", type, dim(accent, 0.42))
 		th.set_color("font_hover_pressed_color", type, BG)
 
 	th.set_stylebox("panel", "Panel", box(PANEL_BG, dim_c, 1, 6))

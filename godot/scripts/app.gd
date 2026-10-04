@@ -25,6 +25,9 @@ var audio
 # Auftrag fuer den Tisch: {"mode": "new", "config": {...}} oder {"mode": "resume"}.
 var pending: Dictionary = {}
 var last_config: Dictionary = {}
+# Tests: Szenenwechsel nur merken, nicht ausfuehren.
+var test_mode := false
+var last_goto := ""
 var _crt: ColorRect
 
 func _ready() -> void:
@@ -62,6 +65,7 @@ func _build_crt() -> void:
 
 # Tests: alle Dienste auf eigene Dateien umlenken und leeren.
 func use_test_storage() -> void:
+	test_mode = true
 	for f in ["settings.json", "stats.json", "save.dat", "profile.json"]:
 		var path: String = "user://test_" + f
 		for suffix in ["", ".bak", ".tmp"]:
@@ -123,6 +127,9 @@ func click() -> void:
 
 
 func goto(path: String) -> void:
+	last_goto = path
+	if test_mode:
+		return
 	get_tree().paused = false
 	get_tree().change_scene_to_file(path)
 

@@ -41,7 +41,9 @@ static func read_json(path: String) -> Dictionary:
 	var text := read_text(path)
 	if text == "":
 		return {}
-	var parsed = JSON.parse_string(text)
+	# JSON-Instanz statt parse_string: meldet Fehler still ueber den Rueckgabewert.
+	var json := JSON.new()
+	var parsed = json.data if json.parse(text) == OK else null
 	if typeof(parsed) != TYPE_DICTIONARY:
 		backup_corrupt(path)
 		return {}
