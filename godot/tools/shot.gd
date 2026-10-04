@@ -59,3 +59,10 @@ func _apply_setup() -> void:
 			scene._after_change()
 		"pause":
 			scene.toggle_pause()
+		"hotseat":
+			scene.start({"seed": 9, "seat_count": 3, "ai_seats": [2], "names": ["Anna", "Ben", "Kurt"]})
+		"king":
+			scene.rules.state.turn_step = "king"
+			scene.king_own = 1
+			scene.selected = 1
+			scene._refresh()

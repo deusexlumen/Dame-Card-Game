@@ -115,6 +115,11 @@ func _draw() -> void:
 		_draw_face(r, border, width, radius)
 	else:
 		_draw_back(r, border, width, radius)
+	if selected:
+		# Gewaehlte Karte: leicht getoent und mit Pfeil darueber.
+		_draw_round_rect(r.grow(-3), Color(accent.r, accent.g, accent.b, 0.14), Color(0, 0, 0, 0), 0, radius)
+		var tip := Vector2(r.get_center().x, r.position.y - 1)
+		draw_colored_polygon(PackedVector2Array([tip, tip + Vector2(-7, -9), tip + Vector2(7, -9)]), accent)
 	if targetable:
 		# Zielmarkierung: Ecken.
 		var c := accent.lightened(0.3)
