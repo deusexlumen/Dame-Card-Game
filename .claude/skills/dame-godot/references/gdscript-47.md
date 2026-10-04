@@ -1,11 +1,11 @@
 ---
-description: "Godot 4.5 and GL Compatibility traps for the DAME stub. Read when porting a 4.7 snippet or when a node call returns null."
+description: "Godot 4.7 and GL Compatibility traps for DAME. Read when a node call returns null or an API call fails."
 connections: [architecture, ui]
 ---
 
-# Godot 4.5 traps
+# Godot 4.7 traps
 
-Project features are `4.5` and `GL Compatibility`. A 4.7 skill is not authoritative here.
+Project features are `4.7` and `GL Compatibility`.
 
 | Trap | Do |
 |---|---|

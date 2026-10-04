@@ -1,6 +1,6 @@
 ---
 description: "Scene boundary, autoload, and hidden-info projection for DAME. Read before creating nodes."
-connections: [rules, ui, gdscript-45]
+connections: [rules, ui, gdscript-47]
 ---
 
 # Architecture
@@ -20,7 +20,7 @@ Seat emits slot_pressed(index)
 DameTable validates, then calls rules
 ```
 
-No autoload for state. An autoload may hold audio bus names only. State in an autoload leaks across tests.
+No autoload for match state. The autoload `App` holds only services (settings, stats, profile, saves, audio) and scene switching. Match state in an autoload leaks across tests.
 
 ## Projection
 
