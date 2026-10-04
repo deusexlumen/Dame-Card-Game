@@ -11,3 +11,8 @@
 - Regeldetails: Runde + Safe Phase je Ausgabe neu; Spielende auch ohne Menschen im Spiel; Statistik/Chips nur bei genau einem Menschen; Standardname „Spieler“.
 - Tests/Screenshots schreiben nur `user://test_*` (App.use_test_storage).
 - Offen (Nutzer): Push/PR, Web-Veröffentlichung, Echtgeld-Anbieter, Multiplayer.
+
+### Nächster Einstieg
+1. Export-Templates fehlen noch (nur `version.txt` in `%APPDATA%/Godot/export_templates/4.7.2.stable/`). Download per HTTP-Range nur der nötigen Dateien (`windows_release_x86_64*.exe`, `web_nothreads_*.zip`, `icudt_godot.dat`); Volldownload 1,28 GB war zu langsam, Range-Download wurde wegen RAM-Knappheit abgebrochen.
+2. Dann `npm run export:godot` und `npm run test:godot:web`.
+3. Offen (Nutzer): Push/PR von `feat/godot-release` (enthält auch `chore/p1-hardening`-Commits), Web-Veröffentlichung, ACCEPTANCE_LOG-Urteil.
