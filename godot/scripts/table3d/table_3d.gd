@@ -580,11 +580,11 @@ func sync(view: Dictionary, opts: Dictionary) -> void:
 			pstack.rotation.y = 0.25
 		_update_figure(seat, p)
 		if seat == _viewer:
-			var txt := "%s  ·  Gesamt %d" % [str(p.name), int(p.total_score)]
+			var txt := tr("%s  ·  Gesamt %d") % [str(p.name), int(p.total_score)]
 			if pc > 0:
-				txt += "  ·  Strafe +%d" % pc
+				txt += tr("  ·  Strafe +%d") % pc
 			if bool(p.locked):
-				txt += "  ·  DAME!"
+				txt += tr("  ·  DAME!")
 			_self_label.text = txt
 
 	# Stapel und Ablage.
@@ -597,7 +597,7 @@ func sync(view: Dictionary, opts: Dictionary) -> void:
 	_deck_top.global_transform = Transform3D(Basis(Vector3.UP, 0.04), DECK_POS + Vector3(0, TABLE_Y + deck_h + Card3DScript.T / 2.0, 0))
 	_deck_top.set_marker("target" if bool(opts.get("deck_target", false)) else "")
 	_markers["deck"] = "target" if bool(opts.get("deck_target", false)) else ""
-	_deck_label.text = "Stapel %d" % deck_n
+	_deck_label.text = tr("Stapel %d") % deck_n
 
 	var disc_n := int(view.discard_count)
 	var disc_h := maxf(0.0004 * maxi(disc_n - 1, 0), 0.0)
@@ -610,7 +610,7 @@ func sync(view: Dictionary, opts: Dictionary) -> void:
 	_move(_discard_top, disc_target, 0.36, 0.0, from.get("discard"))
 	_discard_top.set_marker("target" if bool(opts.get("discard_target", false)) else "")
 	_markers["discard"] = "target" if bool(opts.get("discard_target", false)) else ""
-	_discard_label.text = "Ablage %d" % disc_n
+	_discard_label.text = tr("Ablage %d") % disc_n
 
 	# Gezogene Karte: in der eigenen Hand oder ueber dem Platz des Gegners.
 	var drawn = view.drawn
@@ -685,13 +685,13 @@ func _update_figure(seat: int, p: Dictionary) -> void:
 	var f: Dictionary = _figures[seat]
 	var tags: Array = []
 	if bool(p.is_ai):
-		tags.append({"easy": "KI leicht", "medium": "KI mittel", "hard": "KI schwer"}.get(str(p.difficulty), "KI"))
-	tags.append("%d Pkt" % int(p.total_score))
+		tags.append(tr({"easy": "KI leicht", "medium": "KI mittel", "hard": "KI schwer"}.get(str(p.difficulty), "KI")))
+	tags.append(tr("%d Pkt") % int(p.total_score))
 	if int(p.penalty_count) > 0:
-		tags.append("Strafe +%d" % int(p.penalty_count))
+		tags.append(tr("Strafe +%d") % int(p.penalty_count))
 	var title := ("▶ " if bool(p.is_current) else "") + str(p.name)
 	if bool(p.locked):
-		title += "  DAME!"
+		title += tr("  DAME!")
 	var label: Label3D = f.label
 	label.text = title + "\n" + " · ".join(PackedStringArray(tags))
 	label.modulate = accent if bool(p.is_current) else (Color(1, 1, 1, 0.4) if bool(p.eliminated) else Color(0.92, 0.9, 0.86))

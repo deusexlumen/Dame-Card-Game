@@ -22,7 +22,7 @@ func build() -> void:
 	frame("Shop", 980)
 	chips_label = label("", 22)
 	content.add_child(chips_label)
-	content.add_child(label("Chips verdienst du durch Spielen: %d pro Ausgabe, %d für eine richtige Dame-Ansage, %d für einen Sieg (doppelt gegen KI Schwer). Alles hier ist rein optisch." % [CatalogScript.REWARD_ROUND, CatalogScript.REWARD_CORRECT_CALL, CatalogScript.REWARD_WIN], 14))
+	content.add_child(label(tr("Chips verdienst du durch Spielen: %d pro Ausgabe, %d für eine richtige Dame-Ansage, %d für einen Sieg (doppelt gegen KI Schwer). Alles hier ist rein optisch.") % [CatalogScript.REWARD_ROUND, CatalogScript.REWARD_CORRECT_CALL, CatalogScript.REWARD_WIN], 14))
 	message = label("", 16)
 	content.add_child(message)
 	for cat in CatalogScript.CATEGORIES:
@@ -46,7 +46,7 @@ func refresh() -> void:
 	if app == null:
 		return
 	var profile = app.profile
-	chips_label.text = "Kontostand: %d Chips" % profile.chips()
+	chips_label.text = tr("Kontostand: %d Chips") % profile.chips()
 	item_buttons.clear()
 	for cat in lists:
 		var flow: HFlowContainer = lists[cat]
@@ -77,7 +77,7 @@ func _item_card(it: Dictionary, profile, app) -> Control:
 		b.text = "Ausrüsten"
 		b.pressed.connect(func() -> void: equip(id))
 	else:
-		b.text = "%d Chips" % int(it.price)
+		b.text = tr("%d Chips") % int(it.price)
 		b.disabled = profile.chips() < int(it.price)
 		b.tooltip_text = "Kaufen"
 		b.pressed.connect(func() -> void: ask_buy(id))
@@ -130,7 +130,7 @@ func equip(id: String) -> void:
 	if app == null:
 		return
 	app.profile.equip(id)
-	message.text = "Ausgerüstet: %s" % str(CatalogScript.item(id).name)
+	message.text = tr("Ausgerüstet: %s") % str(CatalogScript.item(id).name)
 	refresh()
 
 
@@ -161,7 +161,7 @@ func ask_buy(id: String) -> void:
 	if it.is_empty():
 		return
 	_pending_id = id
-	_confirm_label.text = "„%s“ für %d Chips kaufen?" % [str(it.name), int(it.price)]
+	_confirm_label.text = tr("„%s“ für %d Chips kaufen?") % [str(it.name), int(it.price)]
 	confirm_panel.visible = true
 	confirm_panel.reset_size()
 	_confirm_ok.grab_focus()

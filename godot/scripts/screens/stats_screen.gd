@@ -44,7 +44,7 @@ func refresh() -> void:
 		["Dame gerufen", str(int(v.dame_calls))],
 		["davon richtig", str(int(v.successful_dame_calls))],
 		["Strafkarten", str(int(v.total_penalty_cards))],
-		["Beste Ausgabe", "–" if best < 0 else "%d Punkte" % best],
+		["Beste Ausgabe", "–" if best < 0 else tr("%d Punkte") % best],
 		["Chips", str(app.profile.chips())],
 		["Zuletzt gespielt", "–" if str(v.last_played_at) == "" else str(v.last_played_at).replace("T", " ")],
 	]

@@ -13,6 +13,7 @@ const CardViewScript = preload("res://scripts/ui/card_view.gd")
 const UiThemeScript = preload("res://scripts/ui/ui_theme.gd")
 const CatalogScript = preload("res://scripts/services/catalog.gd")
 const Table3DScript = preload("res://scripts/table3d/table_3d.gd")
+const I18nScript = preload("res://scripts/i18n.gd")
 
 const REVEAL_DEAL_MS := 5000
 const REVEAL_PEEK_MS := 3000
@@ -586,8 +587,8 @@ func _begin_handoff(seat: int) -> void:
 	if _table3d != null:
 		_table3d.clear_faces()
 	var name := str(rules.state.players[seat].name)
-	_handoff_label.text = "Gerät an %s weitergeben.\nNiemand sonst schaut hin." % name
-	_handoff_button.text = "Ich bin %s – Karten zeigen [Enter]" % name
+	_handoff_label.text = tr("Gerät an %s weitergeben.\nNiemand sonst schaut hin.") % name
+	_handoff_button.text = tr("Ich bin %s – Karten zeigen [Enter]") % name
 	_handoff.visible = true
 	_handoff_button.grab_focus()
 
@@ -668,7 +669,7 @@ func _after_human_action(action: Dictionary) -> void:
 		"king_swap":
 			var look = rules.state.last_look
 			if look != null:
-				_toast_text("König: angesehen %s, dann blind getauscht." % _card_name(look))
+				_toast_text(tr("König: angesehen %s, dann blind getauscht.") % _card_name(look))
 
 
 func _snapshot() -> Dictionary:
@@ -1007,7 +1008,7 @@ func _refresh() -> void:
 	# Stapel, Ablage, gezogene Karte.
 	_deck_view.set_card({"known": false} if int(_view.deck_count) > 0 else {}, false)
 	_deck_view.targetable = _human_turn() and str(rules.state.turn_step) == "draw" and not bool(_view.must_take_queen)
-	_deck_label.text = "Stapel (%d)" % int(_view.deck_count)
+	_deck_label.text = tr("Stapel (%d)") % int(_view.deck_count)
 	var top = _view.discard_top
 	var top_changed := var_to_str(top) != var_to_str(_discard_view.card if not _discard_view.card.is_empty() else null)
 	_discard_view.set_card(top if top != null else {}, top != null)
@@ -1015,7 +1016,7 @@ func _refresh() -> void:
 		_discard_view.pop()
 	var step := str(rules.state.turn_step)
 	_discard_view.targetable = _human_turn() and ((step == "draw" and top != null) or step == "play")
-	_discard_label.text = "Ablage (%d)" % int(_view.discard_count)
+	_discard_label.text = tr("Ablage (%d)") % int(_view.discard_count)
 	var drawn = _view.drawn
 	var drawn_face: bool = drawn != null and bool(drawn.known) and not spectating and not handoff_pending
 	_drawn_view.set_card(drawn if drawn != null else {}, drawn_face)
@@ -1026,7 +1027,10 @@ func _refresh() -> void:
 		_sync_3d()
 	_info.text = _info_text()
 	_prompt.text = _prompt_text()
-	_log.text = "\n".join(PackedStringArray(_view.log.slice(maxi(0, _view.log.size() - 9))))
+	var lines: Array = []
+	for l in _view.log.slice(maxi(0, _view.log.size() - 9)):
+		lines.append(I18nScript.line(str(l)))
+	_log.text = "\n".join(PackedStringArray(lines))
 	_update_actions()
 	_round_panel.visible = phase == "round_end"
 	_over_panel.visible = phase == "game_over"
@@ -1043,11 +1047,11 @@ func _refresh() -> void:
 
 
 func _info_text() -> String:
-	var parts: Array = ["Ausgabe %d" % int(_view.deal), "Runde %d" % int(_view.round)]
+	var parts: Array = [tr("Ausgabe %d") % int(_view.deal), tr("Runde %d") % int(_view.round)]
 	if bool(_view.safe_phase) and str(_view.phase) == "play":
 		parts.append("Safe Phase (Dame ab Runde 3)")
 	if str(_view.phase) == "dame_called":
-		parts.append("DAME gerufen – noch %d Züge" % int(_view.dame_turns_left))
+		parts.append(tr("DAME gerufen – noch %d Züge") % int(_view.dame_turns_left))
 	return "  ·  ".join(PackedStringArray(parts))
 
 
@@ -1062,9 +1066,9 @@ func _prompt_text() -> String:
 	var current := int(_view.current_index)
 	var name := str(_view.current_name)
 	if bool(rules.state.players[current].is_ai):
-		return "%s ist am Zug …" % name
+		return tr("%s ist am Zug …") % name
 	if current != viewer_seat:
-		return "%s ist am Zug." % name
+		return tr("%s ist am Zug.") % name
 	match str(rules.state.turn_step):
 		"draw":
 			if bool(_view.must_take_queen):
@@ -1131,11 +1135,11 @@ func _round_summary() -> String:
 			if me:
 				lines.append("[b]Du hast dich verrechnet![/b] Strafkarte in der nächsten Ausgabe.")
 			else:
-				lines.append("[b]%s hat sich verrechnet![/b] Strafkarte in der nächsten Ausgabe." % cname)
+				lines.append(tr("[b]%s hat sich verrechnet![/b] Strafkarte in der nächsten Ausgabe.") % cname)
 		elif me:
 			lines.append("[b]Du hast Dame richtig gerufen![/b]")
 		else:
-			lines.append("[b]%s hat Dame richtig gerufen.[/b]" % cname)
+			lines.append(tr("[b]%s hat Dame richtig gerufen.[/b]") % cname)
 	lines.append("")
 	lines.append("Spieler          Ausgabe  Gesamt")
 	for p in _view.players:
@@ -1155,7 +1159,7 @@ func _game_summary() -> String:
 		if w == _local_seat():
 			lines.append("[b]Du gewinnst![/b]")
 		else:
-			lines.append("[b]%s gewinnt![/b]" % str(_view.players[w].name))
+			lines.append(tr("[b]%s gewinnt![/b]") % str(_view.players[w].name))
 	lines.append("")
 	var order: Array = _view.players.duplicate()
 	order.sort_custom(func(a, b) -> bool:
@@ -1164,17 +1168,18 @@ func _game_summary() -> String:
 		return int(a.total_score) < int(b.total_score))
 	var place := 1
 	for p in order:
-		lines.append("%d. %-16s %4d Punkte%s" % [place, str(p.name).substr(0, 16), int(p.total_score), "  (raus)" if bool(p.eliminated) else ""])
+		lines.append(tr("%d. %-16s %4d Punkte%s") % [place, str(p.name).substr(0, 16), int(p.total_score), "  (raus)" if bool(p.eliminated) else ""])
 		place += 1
 	var earned := int(config.get("_chips_earned", 0))
 	if earned > 0:
 		lines.append("")
-		lines.append("Verdient in dieser Partie: %d Chips" % earned)
+		lines.append(tr("Verdient in dieser Partie: %d Chips") % earned)
 	return "\n".join(PackedStringArray(lines))
 
 
 func _toast_text(text: String) -> void:
-	_toast.text = text
+	# Gruende aus den Regeln sind deutsch: Muster-Uebersetzung fuer Englisch.
+	_toast.text = I18nScript.line(text)
 	_toast.modulate.a = 1.0
 	var tw := create_tween()
 	tw.tween_interval(2.2)
@@ -1183,7 +1188,7 @@ func _toast_text(text: String) -> void:
 
 func _card_name(card: Dictionary) -> String:
 	var rank := str(card.rank)
-	return "%s %s" % [CardViewScript.SUIT_NAMES.get(str(card.suit), ""), CardViewScript.RANK_NAMES.get(rank, rank)]
+	return I18nScript.card_name("%s %s" % [CardViewScript.SUIT_NAMES.get(str(card.suit), ""), CardViewScript.RANK_NAMES.get(rank, rank)])
 
 
 # ---------------------------------------------------------------- Speichern, Statistik, Chips
@@ -1231,7 +1236,7 @@ func _record_round_once() -> void:
 		earned += CatalogScript.REWARD_CORRECT_CALL
 	config["_chips_earned"] = int(config.get("_chips_earned", 0)) + earned
 	if earned > 0:
-		_toast_text("+%d Chips" % earned)
+		_toast_text(tr("+%d Chips") % earned)
 		_sound("chips")
 	_save()
 

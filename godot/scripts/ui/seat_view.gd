@@ -60,9 +60,9 @@ func update(data: Dictionary, face_for: Callable, targets: Array, selected_index
 	if bool(data.eliminated):
 		tags.append("ausgeschieden")
 	_title.text = marker + str(data.name) + ("  [" + ", ".join(PackedStringArray(tags)) + "]" if not tags.is_empty() else "")
-	var info := "Gesamt %d" % int(data.total_score)
+	var info := tr("Gesamt %d") % int(data.total_score)
 	if int(data.penalty_count) > 0:
-		info += "  ·  Strafe +%d" % int(data.penalty_count)
+		info += tr("  ·  Strafe +%d") % int(data.penalty_count)
 	_info.text = info
 	modulate = Color(1, 1, 1, 0.45) if bool(data.eliminated) else Color.WHITE
 	if ghost:

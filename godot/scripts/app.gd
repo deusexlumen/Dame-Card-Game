@@ -8,6 +8,7 @@ const SaveServiceScript = preload("res://scripts/services/save_service.gd")
 const ProfileServiceScript = preload("res://scripts/services/profile_service.gd")
 const AudioServiceScript = preload("res://scripts/services/audio_service.gd")
 const UiThemeScript = preload("res://scripts/ui/ui_theme.gd")
+const I18nScript = preload("res://scripts/i18n.gd")
 
 const MAIN_MENU := "res://scenes/main_menu.tscn"
 const TABLE := "res://scenes/table.tscn"
@@ -39,6 +40,7 @@ func _ready() -> void:
 		profile = ProfileServiceScript.new()
 		settings.changed.connect(_on_setting_changed)
 		profile.changed.connect(apply_theme)
+	I18nScript.install(str(settings.get_value("language")))
 	audio = AudioServiceScript.new()
 	audio.name = "Audio"
 	add_child(audio)
@@ -109,6 +111,11 @@ func _apply_window() -> void:
 func _on_setting_changed(key: String, _value) -> void:
 	if key == "fullscreen":
 		_apply_window()
+	elif key == "language":
+		I18nScript.install(str(settings.get_value("language")))
+		# Offene Ansicht neu aufbauen, damit alle Texte wechseln.
+		if not test_mode and get_tree().current_scene != null:
+			get_tree().reload_current_scene()
 	elif key in ["sound_enabled", "music_enabled", "music_volume", "effects_volume"] and audio != null:
 		audio.apply_settings(settings)
 

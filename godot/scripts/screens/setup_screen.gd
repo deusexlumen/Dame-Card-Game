@@ -52,7 +52,7 @@ func _rebuild_rows() -> void:
 	for seat in range(seat_count()):
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 12)
-		var tag := label("Platz %d" % (seat + 1), 17)
+		var tag := label(tr("Platz %d") % (seat + 1), 17)
 		tag.custom_minimum_size = Vector2(90, 0)
 		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
 		h.add_child(tag)
@@ -67,7 +67,7 @@ func _rebuild_rows() -> void:
 		if seat == 0:
 			name_edit.text = player_name
 		elif is_human:
-			name_edit.text = "Spieler %d" % (seat + 1)
+			name_edit.text = tr("Spieler %d") % (seat + 1)
 		else:
 			name_edit.text = AI_NAMES[seat - 1]
 		h.add_child(name_edit)
@@ -90,10 +90,10 @@ func build_config() -> Dictionary:
 		var r: Dictionary = rows[seat]
 		var n := str(r.name.text).strip_edges()
 		if n == "":
-			error_label.text = "Platz %d braucht einen Namen." % (seat + 1)
+			error_label.text = tr("Platz %d braucht einen Namen.") % (seat + 1)
 			return {}
 		if names.has(n):
-			error_label.text = "Der Name „%s“ ist doppelt." % n
+			error_label.text = tr("Der Name „%s“ ist doppelt.") % n
 			return {}
 		names.append(n)
 		if r.kind.selected == 1:

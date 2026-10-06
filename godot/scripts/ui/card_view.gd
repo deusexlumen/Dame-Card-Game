@@ -75,10 +75,10 @@ func describe() -> String:
 	if card.is_empty():
 		return ""
 	if not shows_face():
-		return "Verdeckte Karte"
+		return tr("Verdeckte Karte")
 	var rank := str(card.rank)
 	var name := str(RANK_NAMES.get(rank, rank))
-	return "%s %s (%d Punkte)" % [SUIT_NAMES.get(str(card.suit), ""), name, int(card.value)]
+	return tr("%s %s (%d Punkte)") % [tr(SUIT_NAMES.get(str(card.suit), "")), tr(name), int(card.value)]
 
 
 func pop() -> void:

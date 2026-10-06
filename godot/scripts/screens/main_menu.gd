@@ -57,7 +57,7 @@ func build() -> void:
 	version.modulate = Color(1, 1, 1, 0.5)
 	add_child(version)
 	if app != null:
-		chips_label.text = "%d Chips" % app.profile.chips()
+		chips_label.text = tr("%d Chips") % app.profile.chips()
 	for b in buttons:
 		if b.visible:
 			b.grab_focus()
