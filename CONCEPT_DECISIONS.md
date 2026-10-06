@@ -92,3 +92,7 @@ Als „abwesend" gilt: Verbindung getrennt **oder** App/Tab im Hintergrund.
 - Sind alle menschlichen Spieler abwesend, wird die Partie pausiert und nach 5 Minuten ohne Wertung beendet (passt zu §7: ohne Menschen kein Weiterspielen).
 - Während einer Dame-Ansage gelten dieselben Regeln. Der Ansager ist ohnehin gelockt.
 - Alle Zeitwerte sind Startwerte und werden nach ersten Testpartien justiert.
+
+## 12. Plattformen (Entscheidung 2026-10-06)
+
+Wo und wie gespielt wird, ist egal (Browser, als App installiert, Windows, später weitere). **Das Spiel muss überall gleich sein:** gleiche Regeln, gleicher Look, gleicher Ablauf. Plattformen dürfen nur Bedienung und Technik anpassen, nie das Spiel.

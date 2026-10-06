@@ -25,7 +25,8 @@ The table is a **first-person 3D scene** (`scripts/table3d/`): you sit at a roun
 6. Rules live in a `RefCounted` with no `Node`, no `get_tree()`, no `await`. UI only projects a public view.
 7. Engine is Godot 4.7.2. `config/features=PackedStringArray("4.7", "GL Compatibility")`. Do not switch renderer.
 8. Rules source is the existing Godot code plus `CONCEPT_DECISIONS.md`. Jack: peek any face-down card. King: peek own card, then blind swap with opponent. Ace and Ten: no effect.
-9. No real-money purchase code. Only the `PurchaseProvider` stub. No multiplayer.
+9. No real-money purchase code. Only the `PurchaseProvider` stub.
+10. Online multiplayer is wanted (live only): rules in `CONCEPT_DECISIONS.md` §10/§11, plan in `.claude/docs/ai/dame/10x/session-3.md` (headless Godot server, `DameRules` + `DameView` over `WebSocketMultiplayerPeer`). Never write a second rules implementation for the server.
 
 ## Build order
 

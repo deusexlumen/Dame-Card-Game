@@ -15,6 +15,7 @@ Seit 2026-10-04 ist der Godot-Client das Hauptprojekt. Die React-App unten bleib
 - Web-Smoke: `npm run test:godot:web`
 - Godot-Pfad lokal per `GODOT_BIN` überschreibbar
 - Bauplan und Stand: `docs/superpowers/plans/2026-10-04-dame-godot-bauplan.md`
+- **Online-Multiplayer ist gewollt** (nur live): Regeln `CONCEPT_DECISIONS.md` §10/§11, Plan `.claude/docs/ai/dame/10x/session-3.md` (Headless-Godot-Server, `DameRules`/`DameView` über WebSocket). Kein zweiter Regelcode für den Server.
 
 ---
 
