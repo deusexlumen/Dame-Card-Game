@@ -39,7 +39,6 @@ func build() -> void:
 	content.add_child(label("Darstellung", 20))
 	_check("table_3d", "3D-Tisch (Egoperspektive)", s)
 	_check("animations", "Animationen", s)
-	_check("crt_effect", "Bildröhren-Effekt", s)
 	if not app.is_web():
 		_check("fullscreen", "Vollbild", s)
 	controls["sound_enabled"].grab_focus()

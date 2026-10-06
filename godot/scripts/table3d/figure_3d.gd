@@ -61,6 +61,7 @@ func build(p_look: Dictionary, with_anim: bool = true) -> void:
 	var body: Node3D = (load(BODY_DIR + str(spec.scene)) as PackedScene).instantiate()
 	add_child(body)
 	skeleton = body.get_node("Armature/Skeleton3D")
+	_slim(skeleton)
 	var mesh: MeshInstance3D = skeleton.get_node(str(spec.mesh))
 	var src_mat := mesh.get_active_material(0) as BaseMaterial3D
 	body_mat = ShaderMaterial.new()
@@ -154,3 +155,24 @@ func reach(target: Transform3D, dur: float = 0.35) -> void:
 	tw.tween_method(func(f: float) -> void: ik.set_arm("r", start.interpolate_with(target, f), 0.15, 0.2), 0.0, 1.0, dur).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	tw.tween_interval(0.12)
 	tw.tween_method(func(f: float) -> void: ik.set_arm("r", target.interpolate_with(start, f), 0.45, 0.3), 0.0, 1.0, dur).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+# Die Gratis-Koerper sind Superhelden-Proportionen: Brust, Schultern und Arme
+# schmaler machen, damit Pullover nicht wie Bodybuilder-Stretch aussehen.
+const SLIM := {
+	"spine_03": Vector3(0.88, 1.0, 0.9),
+	"upperarm_l": Vector3(0.84, 1.0, 0.84), "upperarm_r": Vector3(0.84, 1.0, 0.84),
+	"hand_l": Vector3(1.12, 1.0, 1.12), "hand_r": Vector3(1.12, 1.0, 1.12),
+	"thigh_l": Vector3(0.9, 1.0, 0.9), "thigh_r": Vector3(0.9, 1.0, 0.9),
+	"neck_01": Vector3(1.0 / 0.88, 1.0, 1.0 / 0.9),
+}
+
+static func _slim(sk: Skeleton3D) -> void:
+	for n in SLIM:
+		var b := sk.find_bone(n)
+		if b < 0:
+			continue
+		var rest := sk.get_bone_rest(b)
+		rest.basis = rest.basis.scaled_local(SLIM[n])
+		sk.set_bone_rest(b, rest)
+		sk.set_bone_pose_scale(b, SLIM[n])

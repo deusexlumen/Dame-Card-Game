@@ -40,7 +40,9 @@ var _game_recorded := false
 var _turn_left := 0.0
 var _turn_owner := -1
 var _accent := Color(0.55, 1.0, 0.55)
-var _back_style := "raster"
+var _back_style := "bordeaux"
+var _face_skin := "klassisch"
+var _lang := "de"
 # 3D-Tisch in Egoperspektive. Die 2D-Plaetze bleiben unsichtbar fuer Fokus und Tests.
 var _use_3d := true
 var _view3d: SubViewportContainer
@@ -134,7 +136,9 @@ func _load_cosmetics() -> void:
 	var app := _app()
 	if app != null:
 		_accent = app.accent()
-		_back_style = app.back_style()
+		_back_style = app.back_skin()
+		_face_skin = app.face_skin()
+		_lang = app.language()
 
 
 # ---------------------------------------------------------------- Spielstart
@@ -482,7 +486,7 @@ func _build_3d(bg: Color) -> void:
 	_view3d.add_child(vp)
 	_table3d = Table3DScript.new()
 	vp.add_child(_table3d)
-	_table3d.build(_accent, _back_style, bg)
+	_table3d.build({"accent": _accent, "back": _back_style, "face": _face_skin, "felt": bg, "lang": _lang})
 	_view3d.gui_input.connect(_on_view3d_input)
 
 

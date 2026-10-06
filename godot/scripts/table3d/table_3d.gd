@@ -22,8 +22,10 @@ const FIGURE_COLORS := [Color(0.48, 0.2, 0.2), Color(0.2, 0.32, 0.5), Color(0.5,
 const HAIR_COLORS := [Color(0.12, 0.08, 0.05), Color(0.45, 0.3, 0.15), Color(0.6, 0.58, 0.55), Color(0.25, 0.12, 0.07)]
 const SKIN_TONES := [Color(0.85, 0.66, 0.54), Color(0.62, 0.45, 0.34), Color(0.93, 0.76, 0.64), Color(0.48, 0.33, 0.24)]
 
-var accent := Color(0.55, 1.0, 0.55)
-var back_style := "raster"
+var accent := Color(0.86, 0.7, 0.4)
+var back_skin := "bordeaux"
+var face_skin := "klassisch"
+var lang := "de"
 var felt := Color(0.07, 0.3, 0.16)
 var animate := true
 
@@ -53,10 +55,13 @@ var _hover: Dictionary = {}
 var _markers := {}
 var _built := false
 
-func build(p_accent: Color, p_back: String, table_color: Color) -> void:
-	accent = p_accent
-	back_style = p_back
-	felt = _felt_from(table_color)
+# cos: {"accent", "back", "face", "felt", "lang"} aus Profil und Einstellungen.
+func build(cos: Dictionary) -> void:
+	accent = cos.get("accent", accent)
+	back_skin = str(cos.get("back", back_skin))
+	face_skin = str(cos.get("face", face_skin))
+	lang = str(cos.get("lang", lang))
+	felt = _felt_from(cos.get("felt", Color(0.12, 0.35, 0.23)))
 	_build_room()
 	_build_table()
 	_build_piles()
@@ -80,12 +85,7 @@ func build(p_accent: Color, p_back: String, table_color: Color) -> void:
 
 # Filzfarbe aus der Tischfarbe des Profils, aber nie so dunkel, dass Karten verschwinden.
 static func _felt_from(c: Color) -> Color:
-	var h := c.h
-	var s := c.s
-	if s < 0.15:
-		h = 0.38
-		s = 0.55
-	return Color.from_hsv(h, clampf(s, 0.45, 0.7), 0.2)
+	return Color.from_hsv(c.h, c.s, clampf(c.v, 0.14, 0.38))
 
 
 func _mat(c: Color, rough: float = 0.8, metal: float = 0.0) -> StandardMaterial3D:
@@ -117,93 +117,177 @@ func _cyl(top: float, bottom: float, height: float, segs: int = 48) -> CylinderM
 func _build_room() -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.015, 0.014, 0.016)
+	env.background_color = Color(0.012, 0.01, 0.012)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.5, 0.45, 0.42)
-	env.ambient_light_energy = 0.16
+	env.ambient_light_color = Color(0.55, 0.45, 0.4)
+	env.ambient_light_energy = 0.12
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 0.95
+	env.tonemap_exposure = 1.0
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 
+	# Holzboden und runder Teppich unter dem Tisch.
 	var floor_mesh := PlaneMesh.new()
-	floor_mesh.size = Vector2(12, 12)
-	_mesh(floor_mesh, _mat(Color(0.13, 0.085, 0.06), 0.85), Vector3.ZERO)
-	# Waende des kleinen Hinterzimmers.
-	var wall_m := _mat(Color(0.11, 0.1, 0.095), 1.0)
-	for i in range(4):
-		var wall := MeshInstance3D.new()
-		var wm := PlaneMesh.new()
-		wm.size = Vector2(9, 4)
-		wm.orientation = PlaneMesh.FACE_Z
-		wall.mesh = wm
-		wall.material_override = wall_m
-		var ang := i * PI / 2.0
-		wall.rotation.y = ang
-		wall.position = Vector3(sin(ang) * -3.6, 2.0, cos(ang) * -3.6)
-		add_child(wall)
+	floor_mesh.size = Vector2(10, 10)
+	_mesh(floor_mesh, _tex("res://assets/room/floor.png", 0.6, Vector3(5, 5, 1)), Vector3.ZERO)
+	var rug := PlaneMesh.new()
+	rug.size = Vector2(3.4, 3.4)
+	var rug_m := _tex("res://assets/room/rug.png", 0.95)
+	rug_m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	_mesh(rug, rug_m, Vector3(0, 0.004, 0))
 
-	# Haengelampe ueber dem Tisch.
+	# Waende: Tapete oben, Holzvertaefelung unten, Abschlussleiste.
+	var wall_m := _tex("res://assets/room/wallpaper.png", 0.9, Vector3(9, 2.2, 1))
+	var panel_m := _mat(Color(0.16, 0.085, 0.05), 0.5)
+	var rail_m := _mat(Color(0.3, 0.18, 0.09), 0.35, 0.1)
+	for i in range(4):
+		var ang := i * PI / 2.0
+		var holder := Node3D.new()
+		holder.rotation.y = ang
+		add_child(holder)
+		var wm := PlaneMesh.new()
+		wm.size = Vector2(8, 3.2)
+		wm.orientation = PlaneMesh.FACE_Z
+		_mesh(wm, wall_m, Vector3(0, 2.0, -3.4), holder)
+		var wain := BoxMesh.new()
+		wain.size = Vector3(8, 1.0, 0.06)
+		_mesh(wain, panel_m, Vector3(0, 0.5, -3.37), holder)
+		var rail := BoxMesh.new()
+		rail.size = Vector3(8, 0.06, 0.1)
+		_mesh(rail, rail_m, Vector3(0, 1.02, -3.35), holder)
+		for k in range(-3, 4):
+			var inset := BoxMesh.new()
+			inset.size = Vector3(0.9, 0.7, 0.02)
+			_mesh(inset, rail_m, Vector3(k * 1.1, 0.5, -3.33), holder)
+		# Bilder mit Goldrahmen und Wandleuchten.
+		for side in [-1.0, 1.0]:
+			var frame := BoxMesh.new()
+			frame.size = Vector3(0.9, 0.65, 0.04)
+			_mesh(frame, _mat(Color(0.55, 0.42, 0.18), 0.3, 0.6), Vector3(side * 1.7, 1.9, -3.36), holder)
+			var art := BoxMesh.new()
+			art.size = Vector3(0.78, 0.53, 0.02)
+			var art_m := _mat(Color.from_hsv(fmod(0.02 + i * 0.13 + side * 0.05 + 1.0, 1.0), 0.45, 0.22), 0.8)
+			_mesh(art, art_m, Vector3(side * 1.7, 1.9, -3.33), holder)
+			var sconce := OmniLight3D.new()
+			sconce.position = Vector3(side * 0.6, 2.3, -3.2)
+			sconce.omni_range = 1.6
+			sconce.light_energy = 0.55
+			sconce.light_color = Color(1.0, 0.75, 0.5)
+			holder.add_child(sconce)
+			var glow_m := StandardMaterial3D.new()
+			glow_m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			glow_m.albedo_color = Color(1.0, 0.82, 0.55)
+			var sb := SphereMesh.new()
+			sb.radius = 0.05
+			sb.height = 0.1
+			_mesh(sb, glow_m, Vector3(side * 0.6, 2.3, -3.3), holder)
+	# Barschrank mit Flaschen an der Rueckwand.
+	var bar := BoxMesh.new()
+	bar.size = Vector3(1.8, 1.05, 0.45)
+	_mesh(bar, _mat(Color(0.14, 0.075, 0.045), 0.45), Vector3(2.1, 0.53, -3.1))
+	var shelf := BoxMesh.new()
+	shelf.size = Vector3(1.8, 0.04, 0.3)
+	_mesh(shelf, rail_m, Vector3(2.1, 1.6, -3.2))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	for k in range(9):
+		var glass := StandardMaterial3D.new()
+		glass.albedo_color = Color.from_hsv(rng.randf_range(0.02, 0.4), 0.7, rng.randf_range(0.25, 0.55), 0.75)
+		glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		glass.roughness = 0.1
+		var x := 1.35 + k * 0.18
+		_mesh(_cyl(0.035, 0.04, rng.randf_range(0.24, 0.32), 12), glass, Vector3(x, 1.2, -3.05))
+		_mesh(_cyl(0.034, 0.038, 0.26, 12), glass, Vector3(x + 0.05, 1.75, -3.2))
+
+	# Haengelampe ueber dem Tisch (Messing, gruener Schirm).
 	var cord := _mesh(_cyl(0.006, 0.006, 1.2, 8), _mat(Color(0.05, 0.05, 0.05)), Vector3(0, 2.75, 0))
 	cord.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var shade_m := _mat(Color(0.12, 0.2, 0.14), 0.5, 0.3)
+	var shade_m := _mat(Color(0.06, 0.22, 0.12), 0.3, 0.2)
 	shade_m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var shade := _mesh(_cyl(0.07, 0.3, 0.2, 32), shade_m, Vector3(0, 2.08, 0))
+	var shade := _mesh(_cyl(0.07, 0.32, 0.2, 32), shade_m, Vector3(0, 2.08, 0))
 	shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var brass := _mesh(_cyl(0.33, 0.33, 0.015, 32), _mat(Color(0.7, 0.55, 0.25), 0.25, 0.8), Vector3(0, 1.98, 0))
+	brass.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var bulb_m := StandardMaterial3D.new()
 	bulb_m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	bulb_m.albedo_color = Color(1.0, 0.92, 0.75)
 	var bulb_mesh := SphereMesh.new()
 	bulb_mesh.radius = 0.045
 	bulb_mesh.height = 0.09
-	var bulb := _mesh(bulb_mesh, bulb_m, Vector3(0, 2.0, 0))
-	bulb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var lamp_bulb := _mesh(bulb_mesh, bulb_m, Vector3(0, 2.0, 0))
+	lamp_bulb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 	var spot := SpotLight3D.new()
 	spot.position = Vector3(0, 1.98, 0)
 	spot.rotation.x = -PI / 2.0
-	spot.spot_angle = 58.0
-	spot.spot_attenuation = 0.7
+	spot.spot_angle = 55.0
+	spot.spot_attenuation = 0.9
 	spot.spot_range = 4.0
-	spot.light_energy = 2.4
-	spot.light_color = Color(1.0, 0.86, 0.66)
+	spot.light_energy = 2.1
+	spot.light_color = Color(1.0, 0.86, 0.68)
 	spot.shadow_enabled = true
 	add_child(spot)
+	# Weiches Licht vom Spieler aus, damit die Karte in der Hand lesbar bleibt.
 	var fill := OmniLight3D.new()
-	fill.position = Vector3(0, 1.4, 1.3)
-	fill.omni_range = 2.5
-	fill.light_energy = 0.2
-	fill.light_color = Color(0.85, 0.85, 1.0)
+	fill.position = Vector3(0.15, 1.35, 1.15)
+	fill.omni_range = 1.4
+	fill.light_energy = 0.6
+	fill.light_color = Color(1.0, 0.93, 0.85)
 	add_child(fill)
 
 
+func _tex(path: String, rough: float, uv := Vector3.ONE) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = load(path)
+	m.roughness = rough
+	m.uv1_scale = uv
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	return m
+
+
 func _build_table() -> void:
-	var wood := _mat(Color(0.25, 0.14, 0.08), 0.45)
-	var felt_m := _mat(felt, 1.0)
+	var wood := _mat(Color(0.22, 0.11, 0.06), 0.35, 0.05)
+	var felt_m := _tex("res://assets/room/felt.png", 1.0, Vector3(3, 3, 1))
+	felt_m.albedo_color = felt
 	_mesh(_cyl(TABLE_R, TABLE_R, 0.03, 64), felt_m, Vector3(0, TABLE_Y - 0.015, 0))
 	var rim := TorusMesh.new()
 	rim.inner_radius = TABLE_R - 0.02
 	rim.outer_radius = TABLE_R + 0.085
 	rim.rings = 64
-	rim.ring_segments = 12
-	var rim_i := _mesh(rim, wood, Vector3(0, TABLE_Y + 0.004, 0))
+	rim.ring_segments = 16
+	var rim_i := _mesh(rim, _mat(Color(0.12, 0.07, 0.05), 0.45), Vector3(0, TABLE_Y + 0.004, 0))
 	rim_i.scale = Vector3(1.0, 0.45, 1.0)
 	_mesh(_cyl(TABLE_R + 0.06, TABLE_R + 0.03, 0.09, 64), wood, Vector3(0, TABLE_Y - 0.06, 0))
 	_mesh(_cyl(0.11, 0.14, 0.66, 24), wood, Vector3(0, 0.36, 0))
 	_mesh(_cyl(0.42, 0.46, 0.04, 32), wood, Vector3(0, 0.02, 0))
-	# Feiner Leuchtring im Filz in der Akzentfarbe.
+	# Feine Goldlinie im Filz um die Tischmitte.
 	var ring := TorusMesh.new()
-	ring.inner_radius = 0.33
-	ring.outer_radius = 0.338
+	ring.inner_radius = 0.24
+	ring.outer_radius = 0.245
 	ring.rings = 64
 	ring.ring_segments = 4
 	var ring_m := StandardMaterial3D.new()
 	ring_m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	ring_m.albedo_color = Color(accent.r, accent.g, accent.b) * 0.55
+	ring_m.albedo_color = Color(accent.r, accent.g, accent.b) * 0.5
 	var ring_i := _mesh(ring, ring_m, Vector3(0, TABLE_Y + 0.0005, 0))
 	ring_i.scale = Vector3(1.0, 0.05, 1.0)
 	ring_i.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+# Chip-Stapel als Deko neben den Karten eines Platzes (Chips = Spielwaehrung).
+func _chips(parent: Node3D, x: float, z: float, seed_val: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_val
+	var colors := [Color(0.62, 0.08, 0.1), Color(0.07, 0.07, 0.08), Color(0.08, 0.35, 0.18), Color(0.1, 0.18, 0.5), Color(0.85, 0.83, 0.78)]
+	for st in range(3):
+		var col: Color = colors[rng.randi() % colors.size()]
+		var m := _mat(col, 0.35)
+		var n := rng.randi_range(3, 9)
+		var cx := x + st * 0.045
+		var cz := z + rng.randf_range(-0.01, 0.01)
+		for k in range(n):
+			_mesh(_cyl(0.019, 0.019, 0.0034, 20), m, Vector3(cx + rng.randf_range(-0.001, 0.001), TABLE_Y + 0.0017 + k * 0.0036, cz), parent)
 
 
 func _build_piles() -> void:
@@ -237,7 +321,7 @@ func _flat_label(size: int, pos: Vector3) -> Label3D:
 func _new_card(kind: String):
 	var c = Card3DScript.new()
 	c.kind = kind
-	c.setup_style(accent, back_style)
+	c.setup_style(face_skin, back_skin, lang, accent)
 	return c
 
 
@@ -278,6 +362,7 @@ func layout(roles: Dictionary, names: Dictionary) -> void:
 		pstack.visible = false
 		root.add_child(pstack)
 		_penalty_stacks[seat] = pstack
+		_chips(root, -0.3, CARD_R + 0.06, 31 + int(seat) * 7)
 
 
 func _build_figure(root: Node3D, seat: int, name: String) -> Dictionary:
@@ -675,7 +760,8 @@ func _hand_hold() -> Transform3D:
 	var y0 := cam_basis * Vector3(0, 0, 1)
 	var x := y0.cross(zf).normalized()
 	var y := zf.cross(x)
-	var wrist := card.origin + cam_basis * Vector3(0.045, -0.105, 0.0)
+	# Handgelenk hinter der Kartenebene: Finger halten die Karte von hinten, nur der Daumen liegt vorn.
+	var wrist := card.origin + cam_basis * Vector3(0.05, -0.1, -0.045)
 	return Transform3D(Basis(x, y, zf), wrist)
 
 

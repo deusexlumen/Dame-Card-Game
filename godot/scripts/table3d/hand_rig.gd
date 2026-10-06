@@ -36,7 +36,6 @@ func setup(cam: Camera3D, look: Dictionary) -> void:
 	l.erase("hair")
 	l.erase("beard")
 	_rig.build(l, false)
-	_rig.scale = Vector3.ONE * 1.12
 	var sk: Skeleton3D = _rig.skeleton
 	for c in sk.get_children():
 		if c is MeshInstance3D:
@@ -48,7 +47,7 @@ func setup(cam: Camera3D, look: Dictionary) -> void:
 	var up := sk.find_bone("upperarm_r")
 	var lo := sk.find_bone("lowerarm_r")
 	var hd := sk.find_bone("hand_r")
-	_reach = (sk.get_bone_global_rest(up).origin.distance_to(sk.get_bone_global_rest(lo).origin) + sk.get_bone_global_rest(lo).origin.distance_to(sk.get_bone_global_rest(hd).origin)) * 1.12
+	_reach = (sk.get_bone_global_rest(up).origin.distance_to(sk.get_bone_global_rest(lo).origin) + sk.get_bone_global_rest(lo).origin.distance_to(sk.get_bone_global_rest(hd).origin))
 	_ik = ArmIKScript.new()
 	sk.add_child(_ik)
 	set_pose("rest")
@@ -113,7 +112,7 @@ func _process(delta: float) -> void:
 	# Figur schaut in Blickrichtung; rechte Schulter liegt auf "shoulder".
 	var sk: Skeleton3D = _rig.skeleton
 	var face := Basis.looking_at(-flat_fwd, Vector3.UP)
-	var rest_sh := sk.get_bone_global_rest(sk.find_bone("upperarm_r")).origin * 1.12
-	_rig.global_transform = Transform3D(face.scaled(Vector3.ONE * 1.12), shoulder - face * rest_sh)
+	var rest_sh := sk.get_bone_global_rest(sk.find_bone("upperarm_r")).origin
+	_rig.global_transform = Transform3D(face, shoulder - face * rest_sh)
 	var p: Array = POSES[_pose]
 	_ik.set_arm("r", global_transform, float(p[0]), float(p[1]))

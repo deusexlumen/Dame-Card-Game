@@ -18,16 +18,17 @@ const DEFAULTS := {
 	"turn_timer": false,
 	"turn_timer_seconds": 30,
 	"memory_aid": true,
-	"crt_effect": true,
 	"table_3d": true,
 	"default_difficulty": "medium",
 	"fullscreen": false,
 	"player_name": "Spieler",
+	"language": "de",
 }
 const CHOICES := {
 	"ai_speed": ["slow", "normal", "fast"],
 	"turn_timer_seconds": [15, 30, 60],
 	"default_difficulty": ["easy", "medium", "hard"],
+	"language": ["de", "en"],
 }
 const AI_DELAYS := {"slow": 1.2, "normal": 0.7, "fast": 0.3}
 

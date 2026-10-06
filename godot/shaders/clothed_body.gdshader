@@ -11,6 +11,14 @@ uniform vec3 shoe_color : source_color = vec3(0.08, 0.05, 0.04);
 // 0 = Strick, 1 = glatter Stoff (Hemd/Bluse)
 uniform float top_knit = 1.0;
 
+// Stoff steht etwas vom Koerper ab, damit er nicht wie aufgemalt wirkt.
+uniform float cloth_offset = 0.011;
+
+void vertex() {
+	vec3 m = textureLod(mask_tex, UV, 0.0).rgb;
+	VERTEX += NORMAL * cloth_offset * (m.r + m.g * 0.6);
+}
+
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
 }
