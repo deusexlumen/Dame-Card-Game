@@ -8,7 +8,7 @@ Das Spiel wird **komplett neu in Godot** gebaut. Die React-Webversion ist nur no
 - **Regeln:** `CONCEPT_DECISIONS.md` (inkl. Abschnitt 6/7: nur live, Abbruch-Stufen) bleibt die verbindliche Spezifikation.
 - **Spiellogik:** `src/lib/gameLogic.ts` ist pur und React-frei, also eine fertige, getestete Referenzimplementierung (97 Tests), entweder zum Portieren oder direkt serverseitig nutzbar (siehe unten).
 - **KI:** `src/lib/aiPlayer.ts` mit 3 Stufen als Vorlage für Bots und die „vorsichtige Ersatz-KI" bei Abbruch.
-- **Produktplan:** Session 2 gilt weiter (Online v1 per Link → v2 Matchmaking/Rangliste → Kosmetik ohne Pay-to-win). Gestrichen: PWA, Web-spezifische Quick-Wins.
+- **Produktplan:** Session 2 gilt weiter (Online v1 per Link → v2 Matchmaking/Rangliste → Kosmetik ohne Pay-to-win). Gestrichen: Web-spezifische Quick-Wins. (PWA bleibt doch, Entscheidung 2026-10-06: Plattform ist egal, Hauptsache das Spiel ist überall gleich.)
 
 ## Stand im Repo (gefunden 2026-10-06)
 Das Godot-Projekt existiert bereits in `godot/` auf `main` (Godot 4.7.2, live auf GitHub Pages, 565 Tests, 3D-Casino-Tisch, 2–6 Spieler, Hot-Seat, KI, Chips/Shop). Die Regeln sind in GDScript neu geschrieben und weichen von der React-Version ab (König, Ass/Zehn, Mehrfach-Decks, Timeout-Strafkarte; siehe `CONCEPT_DECISIONS.md` §6–§9).
