@@ -64,9 +64,13 @@ func poll() -> void:
 # Ein KI-Schritt auf dem Host; die angenommene Aktion geht mit der Sicht raus.
 func ai_step(ai) -> Dictionary:
 	var seat := int(rules.state.current_index)
+	var before := var_to_str(rules.state)
 	var res: Dictionary = ai.step(rules)
 	if bool(res.get("ok", false)):
 		_dispatch(_broadcast(Protocol.public_action(ai.last_action, seat)))
+	elif var_to_str(rules.state) != before:
+		# Abgelehnt, aber veraendert (z. B. Strafkarte): neue Sicht ohne Aktion.
+		_dispatch(_broadcast())
 	return res
 
 
@@ -129,11 +133,17 @@ func submit(peer_id: int, raw) -> Array:
 	if action.is_empty():
 		return [_result_to(peer_id, false, "Ungültige Aktion")]
 	action.seat = seat
+	var before := var_to_str(rules.state)
 	var res: Dictionary = rules.apply_action(action)
 	var ok := bool(res.get("ok", false))
-	var out: Array = [_result_to(peer_id, ok, str(res.get("reason", "")))]
+	# Auch eine abgelehnte Aktion kann den Zustand aendern (falsches Extra-Ablegen
+	# gibt eine Strafkarte). Dann bekommen alle eine neue Sicht ohne Aktion.
+	var changed := not ok and var_to_str(rules.state) != before
+	var out: Array = [_result_to(peer_id, ok, str(res.get("reason", "")), changed)]
 	if ok:
 		out.append_array(_broadcast(Protocol.public_action(action, seat)))
+	elif changed:
+		out.append_array(_broadcast())
 	return out
 
 
@@ -146,8 +156,10 @@ func _broadcast(action: Dictionary = {}) -> Array:
 	return out
 
 
-func _result_to(peer_id: int, ok: bool, reason: String) -> Dictionary:
-	return {"to": peer_id, "msg": {"t": "result", "ok": ok, "reason": reason}}
+# changed: die Aktion wurde abgelehnt, hat den Zustand aber veraendert; eine
+# neue Sicht folgt direkt nach diesem Ergebnis.
+func _result_to(peer_id: int, ok: bool, reason: String, changed: bool = false) -> Dictionary:
+	return {"to": peer_id, "msg": {"t": "result", "ok": ok, "reason": reason, "changed": changed}}
 
 
 func _dispatch(out: Array) -> void:

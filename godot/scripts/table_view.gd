@@ -85,6 +85,11 @@ var king_own := -1
 var _view: Dictionary = {}
 # Ergebnis der letzten eigenen Aktion (Host antwortet synchron).
 var _last_result: Dictionary = {}
+# Abgelehnte Aktion mit Zustandsaenderung: Sicht davor, Ton kommt mit der neuen Sicht.
+var _failure_before: Dictionary = {}
+var _awaiting_failure_view := false
+# Zaehlt empfangene Sichten (erkennt, ob nach einem KI-Fehlschlag eine kam).
+var _views_seen := 0
 # Waehrend des Zeitablaufs: keine Einzeltoene, kein Aufdecken (wie bisher).
 var _quiet := false
 # Test-Haken: wird bei jeder animierten Aktion zusaetzlich aufgerufen.
@@ -837,9 +842,14 @@ func _ai_step() -> void:
 	if not bool(rules.current_player().is_ai):
 		return
 	# Erfolg kommt als Sicht ueber _on_view; nur ein Fehlschlag braucht Nacharbeit.
+	var before := _view
+	var seen := _views_seen
 	var result: Dictionary = session.ai_step(ai)
 	if not bool(result.get("ok", false)):
-		_after_failure()
+		_feedback_from(before, _view, {}, false)
+		if seen == _views_seen:
+			# Keine neue Sicht: trotzdem weiterplanen wie bisher.
+			_after_change()
 
 
 # Fuer Tests: alle anstehenden KI-Schritte sofort ausfuehren.
@@ -873,23 +883,25 @@ func _on_result(msg: Dictionary) -> void:
 		selected = -1
 		king_own = -1
 		return
-	_after_failure()
 	_toast_text(str(_last_result.reason))
-
-
-# Abgelehnte Aktion: Regeln koennen sich trotzdem geaendert haben (falsches
-# Extra-Ablegen gibt eine Strafkarte). Host verteilt die Sicht neu, Ton wie bisher.
-func _after_failure() -> void:
-	var before := _view
-	if session != null and session.is_authority():
-		session.broadcast()
-	_feedback_from(before, _view, {}, false)
+	if bool(msg.get("changed", false)):
+		# Abgelehnt, aber veraendert (falsches Extra-Ablegen = Strafkarte): der Host
+		# schickt gleich eine neue Sicht; der Ton entsteht beim Vergleich in _on_view.
+		_failure_before = _view
+		_awaiting_failure_view = true
+	else:
+		_feedback_from(_view, _view, {}, false)
 
 
 # Einziger Ort fuer Darstellung: Sicht merken, Aktion animieren, Toene, Aufdecken.
 func _on_view(view: Dictionary, action: Dictionary) -> void:
 	var before := _view
 	_view = view
+	_views_seen += 1
+	if action.is_empty() and _awaiting_failure_view:
+		_awaiting_failure_view = false
+		_feedback_from(_failure_before, view, {}, false)
+		_failure_before = {}
 	if not action.is_empty():
 		if _table3d != null:
 			_table3d.queue_action(action)

@@ -300,11 +300,37 @@ func _check_game_over_rewards_once() -> void:
 	_free(table)
 
 
-# Ein Darstellungsweg: jede Aktion wird genau einmal (aus der Sicht) animiert.
+# Ein Darstellungsweg: jede angenommene Aktion wird genau einmal (aus der Sicht) animiert.
 func _check_single_animation_path() -> void:
 	var table = _make_table(_cfg({"seed": 108}))
-	var calls := [0]
-	table._table3d_queue_hook = func(_a): calls[0] += 1
+	var calls: Array = []
+	var accepted: Array = []
+	table._table3d_queue_hook = func(a): calls.append(a)
+	table.session.view_changed.connect(func(_v, a):
+		if not a.is_empty():
+			accepted.append(a))
 	table._on_deck()
-	t.expect(calls[0] == 1, "Ziehen wird %d-mal animiert" % calls[0])
+	t.expect(calls.size() == 1, "Ziehen wird %d-mal animiert" % calls.size())
+	# Zug zu Ende spielen, dann genau ein KI-Schritt.
+	table._on_drawn()
+	_resolve_powers(table)
+	table.end_turn()
+	t.expect(bool(table.rules.current_player().is_ai), "Testannahme: danach ist die KI dran")
+	calls.clear()
+	accepted.clear()
+	var ai_seat := int(table.rules.state.current_index)
+	table._ai_step()
+	t.expect(calls.size() == 1 and accepted.size() == 1 and int(calls[0].seat) == ai_seat, "KI-Schritt wird %d-mal animiert" % calls.size())
 	_free(table)
+	# Zeitablauf: Strafkarte und jede Ersatzaktion je genau einmal.
+	var timed = _make_table(_cfg({"seed": 110}), {"turn_timer": true, "turn_timer_seconds": 15})
+	var tcalls: Array = []
+	var taccepted: Array = []
+	timed._table3d_queue_hook = func(a): tcalls.append(a)
+	timed.session.view_changed.connect(func(_v, a):
+		if not a.is_empty():
+			taccepted.append(a))
+	timed.timeout_turn()
+	t.expect(not taccepted.is_empty() and str(taccepted[0].type) == "timeout_penalty", "Zeitablauf ohne Strafkarten-Aktion")
+	t.expect(tcalls.size() == taccepted.size() and tcalls.size() >= 2, "Zeitablauf: %d Animationen fuer %d Aktionen" % [tcalls.size(), taccepted.size()])
+	_free(timed)

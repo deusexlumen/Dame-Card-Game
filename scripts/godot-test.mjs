@@ -21,9 +21,18 @@ for (const { args, marker } of runs) {
   }
   // Skriptfehler beenden Godot nicht immer mit Exit != 0, daher Marker prüfen.
   const output = `${run.stdout}${run.stderr}`;
-  const scriptError = /SCRIPT ERROR|Parse Error/.test(output);
-  if (run.status !== 0 || scriptError || !marker.test(run.stdout ?? '')) {
-    console.error(`Fehlgeschlagen: ${args.join(' ')}`);
+  // Ein Skriptfehler bricht nur die laufende Testfunktion ab; die Marker kommen
+  // trotzdem. Deshalb zaehlt jeder SCRIPT ERROR / Parse Error als Fehlschlag.
+  const errorLines = output.split(/\r?\n/).filter((l) => /SCRIPT ERROR|Parse Error/.test(l));
+  if (errorLines.length > 0) {
+    console.error(`TEST_FAIL runner: ${errorLines.length} Skriptfehler trotz Erfolgsmarker (${args.join(' ')})`);
+    for (const l of errorLines.slice(0, 10)) console.error(`  ${l.trim()}`);
+  }
+  if (!marker.test(run.stdout ?? '')) {
+    console.error(`TEST_FAIL runner: Marker ${marker} fehlt (${args.join(' ')})`);
+  }
+  if (run.status !== 0 || errorLines.length > 0 || !marker.test(run.stdout ?? '')) {
+    console.error(`Fehlgeschlagen: ${args.join(' ')} (Exit ${run.status})`);
     failed = true;
   }
 }

@@ -36,6 +36,7 @@ func run(ctx) -> void:
 	_check_stale_view_dropped()
 	_check_public_actions()
 	_check_host_drives_ai_and_timeout()
+	_check_failed_action_that_changes_state()
 	_check_full_game_no_leak()
 
 
@@ -298,3 +299,54 @@ func _on_guest_view(view: Dictionary, action: Dictionary) -> void:
 			if str(line).begins_with("Bube: verdeckte") or str(line).begins_with("König: eigene"):
 				t.expect(not str(line).contains(label), "Logzeile verraet angesehene Karte")
 	leak_checks += 1
+
+
+# Abgelehnt, aber veraendert: falsches Extra-Ablegen gibt eine Strafkarte. Alle
+# bekommen eine neue Sicht; ein Fehlschlag ohne Aenderung verschickt keine.
+func _check_failed_action_that_changes_state() -> void:
+	var found := false
+	for seed in range(44, 120):
+		_setup(seed)
+		if not _reach_guest_extra():
+			continue
+		var hand: Array = rules.state.players[GUEST_SEAT].hand
+		var top_rank := str(rules.top_discard().rank)
+		var wrong := -1
+		for i in range(hand.size()):
+			if str(hand[i].rank) != top_rank:
+				wrong = i
+				break
+		if wrong < 0:
+			continue
+		found = true
+		var guest_pen := int(guest.latest_view.players[GUEST_SEAT].penalty_count)
+		var host_pen := int(host.latest_view.players[GUEST_SEAT].penalty_count)
+		var rev_before: int = host.rev
+		t.expect(not _guest_act({"type": "discard_extra", "hand_index": wrong}), "falsches Extra-Ablegen angenommen")
+		t.expect(bool(last_result.get("changed", false)), "Ergebnis meldet die Zustandsaenderung nicht")
+		t.expect(int(guest.latest_view.players[GUEST_SEAT].penalty_count) == guest_pen + 1, "Gast sieht seine Strafkarte nicht")
+		t.expect(int(host.latest_view.players[GUEST_SEAT].penalty_count) == host_pen + 1, "Host-Sicht ohne Strafkarte des Gastes")
+		t.expect(host.rev == rev_before + 1, "Neue Sicht nicht genau einmal verteilt")
+		# Fehlschlag ohne Aenderung: keine neue Sicht.
+		var rev_now: int = host.rev
+		var guest_rev: int = guest.rev
+		t.expect(not _guest_act({"type": "draw_deck"}), "Ziehen im Extra-Schritt angenommen")
+		t.expect(not bool(last_result.get("changed", true)), "Fehlschlag ohne Aenderung meldet Aenderung")
+		t.expect(host.rev == rev_now and guest.rev == guest_rev, "Fehlschlag ohne Aenderung verschickt eine Sicht")
+		break
+	t.expect(found, "kein Seed mit Gast im Extra-Schritt gefunden")
+
+
+# Host (Sitz 0) zieht und legt ab, Gast zieht und legt ab: Gast steht im Extra-Schritt.
+func _reach_guest_extra() -> bool:
+	for a in [{"type": "draw_deck"}, {"type": "discard_drawn"}, {"type": "end_turn"}]:
+		last_result = {}
+		host.send_action(a)
+		if not bool(last_result.get("ok", false)):
+			return false
+	guest.poll()
+	if int(rules.state.current_index) != GUEST_SEAT:
+		return false
+	if not _guest_act({"type": "draw_deck"}) or not _guest_act({"type": "discard_drawn"}):
+		return false
+	return str(rules.state.turn_step) == "extra"
