@@ -18,6 +18,7 @@ func run(ctx) -> void:
 	_check_auto_dame_on_empty_hand()
 	_check_save_roundtrip()
 	_check_save_rejects_bad_data()
+	_check_next_deal_keeps_all_cards()
 	for seed in [1, 2, 3, 4, 5]:
 		_check_full_game(seed)
 
@@ -26,6 +27,25 @@ func _new_rules(config: Dictionary):
 	var rules = DameRulesScript.new()
 	rules.start_match(config)
 	return rules
+
+
+# Gefunden ueber die Netz-Tests: neue Ausgabe verlor Karten.
+func _check_next_deal_keeps_all_cards() -> void:
+	# 5-6 Spieler spielen mit zwei Decks, auch ab der zweiten Ausgabe.
+	for n in [5, 6]:
+		var rules = _new_rules({"seed": 3, "seat_count": n, "ai_seats": []})
+		rules.state.phase = "round_end"
+		rules.apply_action({"type": "start_next_round"})
+		t.expect(rules.assert_zones(), "%d Plaetze, neue Ausgabe: %s" % [n, rules.zone_error])
+	# Strafkarte eines Ausgeschiedenen darf nicht verschwinden.
+	var r = _new_rules({"seed": 5, "seat_count": 3, "ai_seats": []})
+	r.state.players[1].penalty_cards.append(r.state.deck.pop_back())
+	r.state.players[1].eliminated = true
+	t.expect(r.assert_zones(), "Testaufbau: Zonen schon kaputt")
+	r.state.phase = "round_end"
+	r.apply_action({"type": "start_next_round"})
+	t.expect(r.assert_zones(), "Ausgeschiedener mit Strafkarte: %s" % r.zone_error)
+	t.expect(r.state.players[1].hand.is_empty(), "Ausgeschiedener bekommt wieder Karten")
 
 
 func _check_seat_counts() -> void:

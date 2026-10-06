@@ -552,12 +552,15 @@ func _start_next_round() -> Dictionary:
 	state.deal = int(state.deal) + 1
 	rng.seed = int(state.seed) * 7919 + int(state.deal)
 	# Strafkarten aus falscher Ansage wandern mit: aus dem neuen Blatt entfernen.
+	# Ausgeschiedene spielen nicht mehr mit, ihre Strafkarten kommen zurueck ins Blatt.
 	var carried := {}
 	for p in state.players:
+		if bool(p.eliminated):
+			continue
 		for pen in p.penalty_cards:
 			carried[str(pen.id)] = true
 	var deck: Array = []
-	for card in _fresh_pool():
+	for card in _fresh_pool(deck_count_for(seat_count())):
 		if not carried.has(str(card.id)):
 			deck.append(card)
 	_shuffle(deck, rng)
