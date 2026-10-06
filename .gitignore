@@ -5,3 +5,8 @@ dist/
 dame-*.png
 .tmp/
 .worktrees/
+test-results/
+playwright-report/
+
+# Godot-Exporte
+build/

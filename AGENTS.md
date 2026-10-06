@@ -4,6 +4,20 @@ Diese Datei dokumentiert die Architektur, den Technologie-Stack und die Entwickl
 
 ---
 
+## Hauptprojekt: Godot-Client (`godot/`)
+
+Seit 2026-10-04 ist der Godot-Client das Hauptprojekt. Die React-App unten bleibt als Nachschlagewerk. Für Godot-Arbeit den Skill `dame-godot` laden.
+
+- Engine: Godot 4.7.2, GL Compatibility, Hauptszene `res://scenes/main_menu.tscn`
+- Regeln: `godot/scripts/dame_rules.gd` + `CONCEPT_DECISIONS.md` (verbindlich)
+- Tests: `npm run test:godot` (Headless-Suites + echter Szenenfluss)
+- Export: `npm run export:godot` → `build/windows/Dame.exe`, `build/web/`
+- Web-Smoke: `npm run test:godot:web`
+- Godot-Pfad lokal per `GODOT_BIN` überschreibbar
+- Bauplan und Stand: `docs/superpowers/plans/2026-10-04-dame-godot-bauplan.md`
+
+---
+
 ## Projektübersicht
 
 **Dame Kartenspiel** ist eine browserbasierte Implementierung des deutschen Kartenspiels „Dame" (nicht zu verwechseln mit Dame/Checkers). Es handelt sich um ein strategisches Kartenspiel mit Bluff-Elementen für 2–6 Spieler, bei dem menschliche Spieler gegen KI-Gegner oder andere Menschen antreten können.
@@ -15,8 +29,11 @@ Das Spiel wird als statische Single-Page-Application (SPA) ausgeliefert. Es gibt
 - Jeder Spieler erhält 4 verdeckte Karten und darf sich nur 2 davon ansehen.
 - Ziel: Möglichst wenige Punkte sammeln. Wer über 50 Punkte kommt, scheidet aus.
 - Genau 50 Punkte → Reset auf 0.
-- **Bube** (10 Pkt.): Beim Ablegen darf man sich eine eigene verdeckte Karte anschauen.
-- **König** (10 Pkt.): Beim Ablegen tauscht man blind eine Karte mit einem Gegner.
+- **Bube** (10 Pkt.): Beim Ablegen eine beliebige verdeckte Karte ansehen (eigene oder fremde), kein Tausch.
+- **König** (10 Pkt.): Eigene verdeckte Karte ansehen, dann blind mit einer gegnerischen tauschen.
+- **Ass, Zehn**: keine Sonderwirkung (Power-Effekte nur als ausgeschaltetes Flag).
+- 2–6 Spieler, ab 5 Spielern zwei Decks. Zugtimer-Ablauf = eine Strafkarte.
+- Verbindlich: `CONCEPT_DECISIONS.md` (§9 vom 2026-10-06). Look: Modern-Dark-Casino, 3D-Egoperspektive; der Terminal-Look ist überholt.
 - **Dame** (0 Pkt.): Beim Ablegen zieht man eine Strafkarte.
 - **Dame Call**: Ab Runde 3 kann ein Spieler „Dame" rufen, wenn er glaubt, die wenigsten Punkte zu haben. Nach einer letzten Runde werden alle Karten aufgedeckt.
 
@@ -190,11 +207,11 @@ KI-Züge werden über die zentrale Funktion `decideAIMove(gameState, playerId, d
 
 ## Deployment
 
-Das Projekt ist für statisches Hosting vorkonfiguriert:
+GitHub Pages zeigt **nur den Godot-Web-Build**: https://deusexlumen.github.io/Dame-Card-Game/
 
-1. `npm run build` erzeugt den `dist/`-Ordner.
-2. `dist/` kann direkt auf einem Static-Hosting-Dienst (Netlify, Vercel, GitHub Pages, Cloudflare Pages) bereitgestellt werden.
-3. Die `base: './'`-Konfiguration in `vite.config.ts` stellt sicher, dass Assets mit relativen Pfaden referenziert werden.
+1. `.github/workflows/deploy.yml` läuft bei jedem Push auf `main`: Godot 4.7.2 + Templates, Headless-Tests, Export, Web-Smoke, Pages-Deploy.
+2. Web-Preset ist ohne Threads, daher keine COOP/COEP-Header nötig.
+3. Die React-App wird nicht mehr veröffentlicht. `npm run build` baut sie weiterhin lokal nach `dist/`.
 
 **Kein Server-Side-Rendering, keine API, keine Datenbank.**
 

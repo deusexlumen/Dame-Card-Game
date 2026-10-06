@@ -1,0 +1,12 @@
+{
+  "skill": "dame-godot",
+  "test_cases": [
+    {"input": "Bau DAME in Godot weiter, der Stub liegt unter godot/", "should_trigger": true},
+    {"input": "Schreib dame_rules.gd für den Dame-Call und die Strafkarte", "should_trigger": true},
+    {"input": "Phosphor-UI für die 4 verdeckten Karten in table.tscn", "should_trigger": true},
+    {"input": "Port gameLogic.ts nach GDScript 4.7", "should_trigger": true},
+    {"input": "Erklär mir nur die React-Komponente GameBoard.tsx", "should_trigger": false},
+    {"input": "Mach einen 3D-Platformer in Godot", "should_trigger": false},
+    {"input": "Such mir allgemeine Godot-Skills auf skills.sh", "should_trigger": false}
+  ]
+}

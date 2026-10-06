@@ -31,13 +31,42 @@ Es gibt keine "Schnappreaktion" anderer Spieler außerhalb ihres Zuges.
 - Danach werden alle Karten aufgedeckt, Punkte berechnet und der Verlierer ermittelt.
 - Hat ein anderer Spieler gleich viele oder weniger Punkte als der Ansager, erhält der Ansager in der nächsten Runde eine Strafkarte (5 statt 4 Karten).
 
-## 6. Online-Spiel: Nur live, kein Langzeitmodus
+## 6. Sonderkarten (Godot-Fassung, verbindlich)
 
-**Entscheidung:** Online-Partien werden **live** gespielt, alle sitzen gleichzeitig am Tisch. Es gibt keinen asynchronen Modus nach dem Prinzip „ich spiele, wenn ich aufs Handy schaue": Dame lebt von Tempo und frischem Gedächtnis, und Wartezeiten würden die Partie für alle ruinieren.
-- Der Zug-Timer ist online **immer aktiv** (Standard 30 s, der Host wählt 20/30/45 s).
-- Läuft der Timer ab, wird ein **neutraler Auto-Zug** ausgeführt (siehe unten).
+- **Bube:** Beim Ablegen eine beliebige verdeckte Karte ansehen (eigene oder fremde). Kein Tausch.
+- **König:** Eine eigene verdeckte Karte ansehen, dann blind mit einer gegnerischen Karte tauschen. Die Gegnerkarte bleibt ungesehen, beide liegen danach verdeckt.
+- **Ass und Zehn:** Keine Sonderwirkung.
+- **Dame-Ansage:** Ansager gewinnt nur mit strikt weniger Punkten als jeder andere. Gleichstand = falsch.
+- **Safe Phase:** Die ersten zwei Umläufe jeder Ausgabe. Keine Ansage, kein Dame-Zwangszug.
 
-## 7. Online-Spiel: Verbindungsabbruch & Wiedereinstieg
+## 7. Spielende
+
+- Über 50 Punkte = ausgeschieden. Genau 50 = zurück auf 0.
+- Spielende, wenn höchstens ein Spieler übrig ist oder kein menschlicher Spieler mehr im Spiel ist.
+- Sieger: der verbliebene Spieler mit den wenigsten Gesamtpunkten.
+
+## 8. Ökonomie
+
+- Spielwährung „Chips“, nur durch Spielen verdient, nur für Kosmetik. Keine kaufbaren Spielvorteile.
+- Echtgeld kommt später über die Schnittstelle `PurchaseProvider`. Im aktuellen Build nur ein Stub.
+
+## 9. Entscheidungen vom 2026-10-06 (verbindlich)
+
+- **Ass und Zehn:** In V1 ohne Wirkung (wie §6). Power-Effekte werden als **deaktiviertes Feature-Flag** vorbereitet (`power_effects`, Standard aus, nicht in den Einstellungen sichtbar).
+- **Sprache:** Deutsch und Englisch, umschaltbar in den Einstellungen. Alle Texte über Locale-Keys.
+- **Zugtimer:** Läuft die Zeit ab, zieht der Spieler **eine Strafkarte**, danach endet der Zug. Während der Zielauswahl von Bube und König pausiert der Timer.
+- **Spieleranzahl:** 2–6. Anzahl Decks = ⌈Spieler / 4⌉: 2–4 Spieler 1 Deck (52 Karten), 5–6 Spieler 2 Decks (104 Karten).
+- **3D-Tisch:** Bis zu 6 Plätze, radial im 60°-Abstand.
+- **Look:** Modern-Dark-Casino (siehe `docs/superpowers/specs/2026-06-06-professional-polish-design.md`). Der Terminal-/Phosphor-Look ist überholt und wird entfernt.
+- **Assets:** Beste kostenlose Option, Figuren und Animationen von Quaternius (CC0).
+
+## 10. Online-Spiel: Nur live, kein Langzeitmodus (Entscheidung 2026-10-04)
+
+Online-Partien werden **live** gespielt, alle sitzen gleichzeitig am Tisch. Es gibt keinen asynchronen Modus nach dem Prinzip „ich spiele, wenn ich aufs Handy schaue": Dame lebt von Tempo und frischem Gedächtnis, und Wartezeiten würden die Partie für alle ruinieren.
+- Der Zugtimer ist online **immer aktiv** (Standard 30 s, der Host wählt 20/30/45 s).
+- Ein anwesender Spieler, dessen Zeit abläuft, zieht wie in §9 **eine Strafkarte**.
+
+## 11. Online-Spiel: Verbindungsabbruch & Wiedereinstieg
 
 **Ziel:** Ein kurzes Funkloch kostet nichts. Wer absichtlich geht oder lange wegbleibt, verändert die Partie für alle und wird dafür bestraft.
 
@@ -45,21 +74,21 @@ Als „abwesend" gilt: Verbindung getrennt **oder** App/Tab im Hintergrund.
 
 **Stufe 1 – Funkloch (bis 60 s am Stück, max. 2 Min. pro Partie insgesamt): straffrei**
 - Die anderen spielen normal weiter.
-- Ist der abwesende Spieler am Zug, wartet der Tisch zusätzlich zum Zug-Timer bis zu **15 s Verbindungsreserve**.
-- Kommt er nicht zurück, folgt ein **neutraler Auto-Zug**: Der Spieler setzt aus, die Hand bleibt unverändert, es wird keine Karte gezogen und kein Effekt ausgelöst. Einzige Ausnahme: Liegt eine offene Dame (Zwangszug), wird sie wie offline regulär genommen.
+- Ist der abwesende Spieler am Zug, wartet der Tisch zusätzlich zum Zugtimer bis zu **15 s Verbindungsreserve**.
+- Kommt er nicht zurück, setzt er aus (**keine** Strafkarte nach §9): Die Hand bleibt unverändert, es wird nichts gezogen und kein Effekt ausgelöst. Ausnahme: Ein Dame-Zwangszug wird regulär ausgeführt.
 - Kehrt er zurück, spielt er sofort mit seiner unveränderten Hand weiter.
 
 **Stufe 2 – Längere Abwesenheit (über 60 s am Stück oder Reserve von 2 Min. aufgebraucht): KI übernimmt, Wiedereinstieg mit Strafe**
-- Eine **vorsichtige KI** übernimmt den Platz. Sie ruft nie „Dame" und nutzt keine Effekte gezielt, damit Weggehen niemals ein Vorteil ist.
+- Eine **vorsichtige KI** übernimmt den Platz. Sie ruft nie „Dame" und nutzt Bube/König nicht gezielt, damit Weggehen niemals ein Vorteil ist.
 - Wiedereinstieg ist bis **5 Minuten** nach Beginn der Abwesenheit möglich.
-- Strafe beim Wiedereinstieg: **1 Strafkarte** in der nächsten Runde (gleiches System wie in Abschnitt 2).
+- Strafe beim Wiedereinstieg: **1 Strafkarte** in der nächsten Ausgabe (gleiches System wie §2).
 
 **Stufe 3 – Abbruch (über 5 Min. abwesend): Platz verloren**
 - Der Platz bleibt bis zum Partieende bei der KI, ein Wiedereinstieg ist nicht mehr möglich.
-- Die Partie zählt für diesen Spieler als **Aufgabe** (Niederlage in Statistik/Rangliste).
-- Wiederholte Abbrüche führen in öffentlichen Partien (Matchmaking, v2) zu einer Wartesperre.
+- Die Partie zählt für diesen Spieler als **Aufgabe** (Niederlage in Statistik/Rangliste, keine Chips).
+- Wiederholte Abbrüche führen in öffentlichen Partien (Matchmaking) zu einer Wartesperre.
 
 **Sonderfälle**
-- Sind alle menschlichen Spieler abwesend, wird die Partie pausiert und nach 5 Minuten beendet (ohne Wertung).
-- Während einer Dame-Ansage gelten dieselben Regeln. Der Ansager ist ohnehin gelockt, sein Platz braucht keine Aktion.
+- Sind alle menschlichen Spieler abwesend, wird die Partie pausiert und nach 5 Minuten ohne Wertung beendet (passt zu §7: ohne Menschen kein Weiterspielen).
+- Während einer Dame-Ansage gelten dieselben Regeln. Der Ansager ist ohnehin gelockt.
 - Alle Zeitwerte sind Startwerte und werden nach ersten Testpartien justiert.
