@@ -697,7 +697,9 @@ func _feedback(before: Dictionary, result: Dictionary, _seat: int) -> void:
 	if phase == "dame_called" and str(before.phase) == "play":
 		_sound("dame")
 	elif phase == "game_over":
-		_sound("win")
+		# Sieg-Jingle nur, wenn ein Mensch gewinnt; sonst der absteigende.
+		var w := int(rules.state.winner_index)
+		_sound("win" if w >= 0 and not bool(rules.state.players[w].is_ai) else "lose")
 	elif phase == "round_end":
 		_sound("flip")
 	elif rules.state.discard.size() != int(before.discard):
@@ -793,7 +795,7 @@ func next_deal() -> void:
 			spectating = true
 		else:
 			_reveal_own_known(REVEAL_DEAL_MS)
-		_sound("draw")
+		_sound("shuffle")
 		_save()
 		_after_change()
 
@@ -1230,6 +1232,7 @@ func _record_round_once() -> void:
 	config["_chips_earned"] = int(config.get("_chips_earned", 0)) + earned
 	if earned > 0:
 		_toast_text("+%d Chips" % earned)
+		_sound("chips")
 	_save()
 
 

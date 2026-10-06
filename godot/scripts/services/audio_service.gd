@@ -2,9 +2,22 @@ extends Node
 class_name AudioService
 
 # Soundeffekte und Musik. Busse "Music" und "SFX" werden zur Laufzeit angelegt.
-# Lautstaerke 0-100 aus den Einstellungen.
+# Lautstaerke 0-100 aus den Einstellungen. Dateien: CC0, Quellen in assets/audio/CREDITS.txt.
 
-const SOUNDS := ["draw", "place", "flip", "dame", "win", "penalty", "click", "error"]
+# Name -> Varianten (zufaellig gewaehlt, damit Wiederholungen nicht mechanisch klingen).
+const SOUNDS := {
+	"draw": ["draw1", "draw2", "draw3"],
+	"place": ["place1", "place2", "place3"],
+	"flip": ["flip1", "flip2"],
+	"shuffle": ["shuffle"],
+	"chips": ["chips1", "chips2"],
+	"dame": ["dame"],
+	"win": ["win"],
+	"lose": ["lose"],
+	"penalty": ["penalty"],
+	"click": ["click"],
+	"error": ["error"],
+}
 const POOL_SIZE := 6
 
 var _streams := {}
@@ -18,9 +31,13 @@ func _ready() -> void:
 	_ensure_bus("Music")
 	_ensure_bus("SFX")
 	for name in SOUNDS:
-		var s = load("res://assets/audio/%s.wav" % name)
-		if s != null:
-			_streams[name] = s
+		var list: Array = []
+		for file in SOUNDS[name]:
+			var s = load("res://assets/audio/%s.ogg" % file)
+			if s != null:
+				list.append(s)
+		if not list.is_empty():
+			_streams[name] = list
 	for i in range(POOL_SIZE):
 		var p := AudioStreamPlayer.new()
 		p.bus = "SFX"
@@ -28,8 +45,9 @@ func _ready() -> void:
 		_pool.append(p)
 	_music = AudioStreamPlayer.new()
 	_music.bus = "Music"
-	# Schleife kommt aus den Import-Einstellungen (music.wav.import, loop_mode Forward).
-	var m = load("res://assets/audio/music.wav")
+	var m = load("res://assets/audio/music.ogg")
+	if m is AudioStreamOggVorbis:
+		(m as AudioStreamOggVorbis).loop = true
 	if m != null:
 		_music.stream = m
 	add_child(_music)
@@ -69,7 +87,9 @@ func play(name: String) -> void:
 		return
 	var p: AudioStreamPlayer = _pool[_next]
 	_next = (_next + 1) % _pool.size()
-	p.stream = _streams[name]
+	var list: Array = _streams[name]
+	p.stream = list[randi() % list.size()]
+	p.pitch_scale = randf_range(0.96, 1.04) if list.size() > 1 else 1.0
 	p.play()
 
 

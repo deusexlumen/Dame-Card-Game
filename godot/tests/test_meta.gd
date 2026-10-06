@@ -149,7 +149,9 @@ func _check_audio() -> void:
 	for name in AudioServiceScript.SOUNDS:
 		t.expect(audio._streams.has(name), "Sound fehlt: " + name)
 	t.expect(audio._music.stream != null, "Musik fehlt")
-	t.expect(audio._music.stream.loop_mode == AudioStreamWAV.LOOP_FORWARD, "Musik laeuft nicht in Schleife")
+	t.expect(audio._music.stream is AudioStreamOggVorbis and audio._music.stream.loop, "Musik laeuft nicht in Schleife")
+	for name in AudioServiceScript.SOUNDS:
+		t.expect(audio._streams.get(name, []).size() == AudioServiceScript.SOUNDS[name].size(), "Sound-Variante fehlt: " + name)
 	t.expect(AudioServer.get_bus_index("Music") >= 0 and AudioServer.get_bus_index("SFX") >= 0, "Audiobusse fehlen")
 	audio.play("draw")
 	audio.play("gibtsnicht")
