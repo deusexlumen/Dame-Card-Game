@@ -12,8 +12,11 @@ var t
 
 func run(ctx) -> void:
 	t = ctx
-	var a := _play({"seed": 2024, "seat_count": 4, "ai_seats": [1, 2, 3]}, "A")
-	var b := _play({"seed": 2025, "seat_count": 3, "ai_seats": [2]}, "B")
+	var result_a: Dictionary = _play({"seed": 2024, "seat_count": 4, "ai_seats": [1, 2, 3]}, "A", false)
+	var result_b: Dictionary = _play({"seed": 2025, "seat_count": 3, "ai_seats": [2]}, "B", true)
+	var a := result_a.state
+	var b := result_b.state
+	var total_jacks := result_a.jacks + result_b.jacks
 	var got := a + "\n---\n" + b
 	if RECORD:
 		var f := FileAccess.open(FIXTURE, FileAccess.WRITE)
@@ -23,9 +26,10 @@ func run(ctx) -> void:
 	var want := FileAccess.get_file_as_string(FIXTURE)
 	t.expect(want != "", "Golden-Fixture fehlt")
 	t.expect(got.replace("\r\n", "\n") == want.replace("\r\n", "\n"), "Offline-Spiel weicht vom Golden-Stand ab")
+	t.expect(total_jacks > 0, "Golden-Test: keine Jack-Ausfuehrung in beiden Spielen")
 
 
-func _play(cfg: Dictionary, label: String) -> String:
+func _play(cfg: Dictionary, label: String, expect_handoffs: bool) -> Dictionary:
 	var table = TableScene.instantiate()
 	table.instant_ai = true
 	table.settings_override = {"memory_aid": true, "animations": false, "turn_timer": false}
@@ -50,14 +54,14 @@ func _play(cfg: Dictionary, label: String) -> String:
 		if not table._human_turn():
 			continue
 		_human_step(table, counters)
-	print("GOLDEN %s h=%d d=%d j=%d" % [label, counters.handoffs, counters.deals, counters.jacks])
 	t.expect(guard < 3000, "Golden-Spiel %s kam nicht zum Ende (Endlosschleife)" % label)
-	if label == "B":
+	t.expect(counters.deals >= 1, "Golden-Spiel %s: next_deal() wurde nicht ausgefuehrt" % label)
+	if expect_handoffs:
 		t.expect(counters.handoffs > 0, "Golden-Spiel %s: keine Handoffs ausgefuehrt" % label)
 	var out := var_to_str(table.rules.state)
 	t.root.remove_child(table)
 	table.free()
-	return out
+	return {"state": out, "jacks": counters.jacks}
 
 
 func _human_step(table, counters: Dictionary) -> void:
