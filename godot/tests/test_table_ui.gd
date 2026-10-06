@@ -166,6 +166,8 @@ func _check_hotseat_handoff() -> void:
 	for seat in [0, 1, 2]:
 		t.expect(_faces(table, seat).is_empty(), "waehrend Uebergabe sichtbare Karte Platz %d" % seat)
 	t.expect(not table._drawn_view.shows_face(), "gezogene Karte bleibt sichtbar")
+	for seat in [0, 1, 2]:
+		t.expect(_faces3d(table, seat).is_empty(), "3D: waehrend Uebergabe offene Karte Platz %d" % seat)
 	var before_input = table.rules.state.drawn_card
 	table._on_deck()
 	t.expect(table.rules.state.drawn_card == before_input, "Eingabe hinter dem Uebergabe-Schirm moeglich")
@@ -174,7 +176,25 @@ func _check_hotseat_handoff() -> void:
 	t.expect(str(table._seats[1].get_meta("role")) == "self", "Bens Platz nicht unten")
 	t.expect(_faces(table, 1) == [0, 1], "Ben sieht seine Startkarten nicht")
 	t.expect(_faces(table, 0).is_empty(), "Ben sieht Annas Karten")
+	if table._table3d != null:
+		t.expect(_faces3d(table, 0).is_empty(), "3D: Ben sieht Annas Karten")
+		var hands := 0
+		for p in table.rules.state.players:
+			hands += p.hand.size()
+		# Handkarten plus Stapel, Ablage, gezogene Karte; keine Reste alter Plaetze.
+		t.expect(table._table3d.card_node_count() == hands + 3, "3D: alte Karten nach Uebergabe liegen geblieben (%d statt %d)" % [table._table3d.card_node_count(), hands + 3])
 	_free(table)
+
+
+# Offene Kartengesichter im 3D-Tisch fuer einen Platz.
+func _faces3d(table, seat: int) -> Array:
+	var out: Array = []
+	if table._table3d == null:
+		return out
+	for c in table._table3d._slots.get(seat, []):
+		if c.shows_face():
+			out.append(int(c.index))
+	return out
 
 
 func _check_memory_aid_off() -> void:

@@ -1,6 +1,6 @@
 ---
 name: dame-godot
-description: "Build DAME, the hidden-hand memory card game, in the Godot 4.7 project at godot/. Use when implementing table.tscn, Dame rules, card zones, peek memory, Dame-call, AI, menus, shop, phosphor UI, export, or headless rule tests. Not for the React app, not for generic Godot 3D, platformers, or unrelated engines."
+description: "Build DAME, the hidden-hand memory card game, in the Godot 4.7 project at godot/. Use when implementing table.tscn, Dame rules, card zones, peek memory, Dame-call, AI, menus, shop, phosphor UI, the first-person 3D table, export, or headless rule tests. Not for the React app, not for unrelated Godot 3D games, platformers, or other engines."
 type: workflow
 lifecycle: active
 ---
@@ -10,6 +10,10 @@ lifecycle: active
 Build the playable Godot client of DAME inside `godot/`. Godot is the main project. The React tree is reference only, not the runtime and not the rules authority. Godot 4.7, GL Compatibility, main scene `res://scenes/main_menu.tscn` (table: `res://scenes/table.tscn`), 1280×720.
 
 Read `references/rules.md` before any rule code. Read `references/architecture.md` before any scene. Read `references/ui.md` only for presentation. Read `references/gdscript-47.md` when an API call fails.
+
+## Look
+
+The table is a **first-person 3D scene** (`scripts/table3d/`): you sit at a round table, opponents sit as figures, your own cards lie face-down in front of you, and your right hand draws, holds and places cards. This is the user's core vision. Never ship a flat 2D table again. The 2D `SeatView`/`CardView` nodes stay only as invisible focus and test proxies. Menus stay 2D phosphor.
 
 ## Hard stops
 

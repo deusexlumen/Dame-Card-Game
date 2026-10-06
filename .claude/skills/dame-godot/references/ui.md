@@ -7,6 +7,10 @@ connections: [architecture, rules]
 
 Presentation only. If a button computes a score, move it to [[rules]].
 
+## 3D table
+
+`table_view.gd` puts `Table3D` (`scripts/table3d/table_3d.gd`) in a `SubViewportContainer` behind the HUD. It is a pure renderer: `sync(view, opts)` places cards, `queue_action(action)` before a sync animates that move (draw, swap, discard, king swap, peek), `pick(screen_pos)` turns clicks into card/deck/discard/drawn hits. Card faces come only from the view, like the 2D slots. Card nodes hang on `Table3D` directly, so `layout()` must free them on every hot-seat relayout. Setting `table_3d` switches back to the old 2D table.
+
 ## Hand
 
 Four `CardSlot` nodes in an `HBoxContainer`. Do not animate layout by setting `position` on container children. Selected slot is focus, not a parallel index that can desync.

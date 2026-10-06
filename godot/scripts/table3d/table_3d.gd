@@ -245,6 +245,12 @@ func _new_card(kind: String):
 func layout(roles: Dictionary, names: Dictionary) -> void:
 	for r in _seat_roots.values():
 		r.queue_free()
+	# Karten haengen direkt am Tisch, nicht an den Plaetzen: sonst bleiben nach
+	# jeder Hot-Seat-Uebergabe alte Karten liegen.
+	for list in _slots.values():
+		for c in list:
+			remove_child(c)
+			c.queue_free()
 	_seat_roots.clear()
 	_slots.clear()
 	_figures.clear()
@@ -778,6 +784,15 @@ static func _hover_key(info: Dictionary) -> String:
 		"deck", "discard", "drawn":
 			return str(info.kind)
 	return ""
+
+
+# Fuer Tests: Anzahl aller Kartenobjekte im Raum.
+func card_node_count() -> int:
+	var n := 0
+	for c in get_children():
+		if c.get_script() == Card3DScript and not c.is_queued_for_deletion():
+			n += 1
+	return n
 
 
 func is_target(info: Dictionary) -> bool:
