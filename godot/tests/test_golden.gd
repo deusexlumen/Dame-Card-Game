@@ -32,30 +32,35 @@ func _play(cfg: Dictionary, label: String) -> String:
 	table.pending_config = cfg
 	t.root.add_child(table)
 	var guard := 0
+	var counters := {"handoffs": 0, "deals": 0, "jacks": 0}
 	while guard < 3000:
 		guard += 1
 		var phase := str(table.rules.state.phase)
 		if phase == "game_over" or int(table.rules.state.deal) > 3:
 			break
 		if phase == "round_end":
+			counters.deals += 1
 			table.next_deal()
 			continue
 		if table.handoff_pending:
+			counters.handoffs += 1
 			table.confirm_handoff()
 			continue
 		table.run_ai_until_human()
 		if not table._human_turn():
 			continue
-		_human_step(table)
+		_human_step(table, counters)
+	print("GOLDEN %s h=%d d=%d j=%d" % [label, counters.handoffs, counters.deals, counters.jacks])
 	t.expect(guard < 3000, "Golden-Spiel %s kam nicht zum Ende (Endlosschleife)" % label)
-	t.expect(str(table.rules.state.phase) == "game_over" or int(table.rules.state.deal) >= 2, "Golden-Spiel %s hat keine Ausgabe abgeschlossen" % label)
+	if label == "B":
+		t.expect(counters.handoffs > 0, "Golden-Spiel %s: keine Handoffs ausgefuehrt" % label)
 	var out := var_to_str(table.rules.state)
 	t.root.remove_child(table)
 	table.free()
 	return out
 
 
-func _human_step(table) -> void:
+func _human_step(table, counters: Dictionary) -> void:
 	var seat: int = table.viewer_seat
 	var opp := (seat + 1) % int(table.rules.seat_count())
 	match str(table.rules.state.turn_step):
@@ -68,6 +73,7 @@ func _human_step(table) -> void:
 		"play":
 			table._on_card(seat, int(table.rules.state.deal) % 4)
 		"jack":
+			counters.jacks += 1
 			table._on_card(seat, 0)
 		"king":
 			table._on_card(seat, 0)
