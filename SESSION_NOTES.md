@@ -28,3 +28,4 @@ Plan: `docs/superpowers/plans/2026-10-06-godot-pages-release.md`. Ziel: Godot-We
 - `deploy.yml` neu: nur Godot (Tests, Export, Web-Smoke, Pages-Deploy). React-Jobs entfernt.
 - Pages-Quelle ist bereits „GitHub Actions“.
 - Nächstes: Push + PR (wartet auf Go), dann CI fixen, Merge nach Go.
+- PR #4 offen, CI grün. Konflikte mit main gelöst: main hatte nur ältere Stände (Squash von p1-hardening, doppelter Godot-Stufe-1-Commit) → Branch-Stand behalten, CLAUDE.md + 10x-Notizen übernommen, alte round_check-Dateien wieder entfernt.
