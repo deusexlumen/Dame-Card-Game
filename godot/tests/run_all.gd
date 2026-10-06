@@ -11,6 +11,7 @@ const SUITES := [
 	"res://tests/test_table_ui.gd",
 	"res://tests/test_meta.gd",
 	"res://tests/test_net.gd",
+	"res://tests/test_golden.gd",
 ]
 
 func _ready() -> void:
