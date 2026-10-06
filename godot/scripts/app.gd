@@ -17,12 +17,15 @@ const RULES := "res://scenes/rules.tscn"
 const SETTINGS := "res://scenes/settings.tscn"
 const STATS := "res://scenes/stats.tscn"
 const SHOP := "res://scenes/shop.tscn"
+const ONLINE := "res://scenes/online.tscn"
+const NetClientScript = preload("res://scripts/online/net_client.gd")
 
 var settings
 var stats
 var saves
 var profile
 var audio
+var _net = null
 # Auftrag fuer den Tisch: {"mode": "new", "config": {...}} oder {"mode": "resume"}.
 var pending: Dictionary = {}
 var last_config: Dictionary = {}
@@ -140,6 +143,23 @@ func new_match(config: Dictionary) -> void:
 
 func resume_match() -> void:
 	pending = {"mode": "resume"}
+	goto(TABLE)
+
+
+# Verbindung zum Online-Server. Ein Dienst wie Audio: ueberlebt Szenenwechsel,
+# haelt aber keinen Spielzustand (CONCEPT_DECISIONS §10).
+func net():
+	if _net == null:
+		_net = NetClientScript.new()
+		_net.name = "Net"
+		if test_mode:
+			_net.session_file = "user://test_online_session.json"
+		add_child(_net)
+	return _net
+
+
+func online_match() -> void:
+	pending = {"mode": "online"}
 	goto(TABLE)
 
 

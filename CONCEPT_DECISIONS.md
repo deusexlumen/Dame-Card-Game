@@ -65,6 +65,8 @@ Es gibt keine "Schnappreaktion" anderer Spieler außerhalb ihres Zuges.
 Online-Partien werden **live** gespielt, alle sitzen gleichzeitig am Tisch. Es gibt keinen asynchronen Modus nach dem Prinzip „ich spiele, wenn ich aufs Handy schaue": Dame lebt von Tempo und frischem Gedächtnis, und Wartezeiten würden die Partie für alle ruinieren.
 - Der Zugtimer ist online **immer aktiv** (Standard 30 s, der Host wählt 20/30/45 s).
 - Ein anwesender Spieler, dessen Zeit abläuft, zieht wie in §9 **eine Strafkarte**.
+- Anders als offline pausiert der Timer online **nicht** bei der Ziel-Auswahl von Bube und König. Sonst könnte ein Spieler die Partie für alle anhalten.
+- Zwischen zwei Ausgaben warten alle höchstens 10 s. Sind alle anwesenden Spieler vorher bereit, geht es sofort weiter.
 
 ## 11. Online-Spiel: Verbindungsabbruch & Wiedereinstieg
 
@@ -75,7 +77,8 @@ Als „abwesend" gilt: Verbindung getrennt **oder** App/Tab im Hintergrund.
 **Stufe 1 – Funkloch (bis 60 s am Stück, max. 2 Min. pro Partie insgesamt): straffrei**
 - Die anderen spielen normal weiter.
 - Ist der abwesende Spieler am Zug, wartet der Tisch zusätzlich zum Zugtimer bis zu **15 s Verbindungsreserve**.
-- Kommt er nicht zurück, setzt er aus (**keine** Strafkarte nach §9): Die Hand bleibt unverändert, es wird nichts gezogen und kein Effekt ausgelöst. Ausnahme: Ein Dame-Zwangszug wird regulär ausgeführt.
+- Kommt er nicht zurück, setzt er aus (**keine** Strafkarte nach §9): Die Hand bleibt unverändert, es wird nichts gezogen und kein Effekt ausgelöst. Ausnahme: Ein Dame-Zwangszug wird regulär ausgeführt. Die Dame wird genommen und gegen die höchste bekannte eigene Karte getauscht (ohne bekannte Karte gegen die erste Karte).
+- Bricht die Verbindung mitten im Zug ab (Karte schon gezogen), legt der Server die gezogene Karte ab und beendet den Zug, ebenfalls ohne Strafkarte. Eine gezogene Dame wird dabei eingetauscht statt abgelegt, denn Ablegen kostet eine Strafkarte.
 - Kehrt er zurück, spielt er sofort mit seiner unveränderten Hand weiter.
 
 **Stufe 2 – Längere Abwesenheit (über 60 s am Stück oder Reserve von 2 Min. aufgebraucht): KI übernimmt, Wiedereinstieg mit Strafe**
