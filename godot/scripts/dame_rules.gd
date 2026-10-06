@@ -13,6 +13,9 @@ class_name DameRules
 const PENALTY_CARD_COUNT := 1
 const HAND_SIZE := 4
 const SEAT_COUNT := 4
+# Bis zu 6 Plaetze; Decks = ceil(Plaetze / 4) (CONCEPT_DECISIONS §9).
+const MAX_SEATS := 6
+const DECK_SIZE := 52
 const SAFE_CIRCUITS := 2
 const SUITS := ["hearts", "diamonds", "clubs", "spades"]
 const RANKS := ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
@@ -38,6 +41,8 @@ const DEFAULT_NAMES := {
 	2: ["Spieler", "Gegenüber"],
 	3: ["Spieler", "Links", "Rechts"],
 	4: ["Spieler", "Links", "Gegenüber", "Rechts"],
+	5: ["Spieler", "Platz 2", "Platz 3", "Platz 4", "Platz 5"],
+	6: ["Spieler", "Platz 2", "Platz 3", "Platz 4", "Platz 5", "Platz 6"],
 }
 # Pflichtfelder fuer from_dict.
 const REQUIRED_STATE_KEYS := [
@@ -53,13 +58,13 @@ var zone_error := ""
 
 func start_match(config: Dictionary = {}) -> void:
 	var seed := int(config.get("seed", 1))
-	var seat_count := clampi(int(config.get("seat_count", SEAT_COUNT)), MIN_SEATS, SEAT_COUNT)
+	var seat_count := clampi(int(config.get("seat_count", SEAT_COUNT)), MIN_SEATS, MAX_SEATS)
 	var ai_seats: Array = config.get("ai_seats", [int(config.get("ai_seat", mini(2, seat_count - 1)))])
 	var difficulties: Dictionary = config.get("difficulties", {})
 	var names: Array = config.get("names", DEFAULT_NAMES[seat_count])
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
-	var pool := _fresh_pool()
+	var pool := _fresh_pool(deck_count_for(seat_count))
 	var hands: Array = []
 	var preset_hands = config.get("preset_hands", null)
 	var draw_first = config.get("draw_first", null)
@@ -137,6 +142,8 @@ func start_match(config: Dictionary = {}) -> void:
 		"queen_penalties_given": 0,
 		"false_call_penalties_given": 0,
 		"last_round_false_call": false,
+		# Vorbereitet, in V1 aus: Ass und Zehn ohne Wirkung (CONCEPT_DECISIONS §9).
+		"power_effects": bool(config.get("power_effects", false)),
 		"ai_turns_finished": 0,
 		"last_look": null,
 		"last_look_by": -1,
@@ -159,7 +166,7 @@ func apply_action(action: Dictionary) -> Dictionary:
 			return _fail("Extra-Ablegen nur im eigenen Zug")
 		return _fail("Nicht am Zug")
 	var player: Dictionary = state.players[seat]
-	if bool(player.locked) and type != "end_turn":
+	if bool(player.locked) and type != "end_turn" and type != "timeout_penalty":
 		return _fail("Karten des Ansagers sind gelockt")
 	match type:
 		"draw_deck":
@@ -180,6 +187,8 @@ func apply_action(action: Dictionary) -> Dictionary:
 			return _call_dame()
 		"end_turn":
 			return _end_turn()
+		"timeout_penalty":
+			return _timeout_penalty()
 		_:
 			return _fail("Unbekannte Aktion")
 
@@ -241,8 +250,9 @@ func assert_zones() -> bool:
 				zone_error = "Karte %s in %s und %s" % [id, seen[id], zone[0]]
 				return false
 			seen[id] = zone[0]
-	if seen.size() != 52:
-		zone_error = "%d statt 52 Karten im Spiel" % seen.size()
+	var total := DECK_SIZE * deck_count_for(seat_count())
+	if seen.size() != total:
+		zone_error = "%d statt %d Karten im Spiel" % [seen.size(), total]
 		return false
 	return true
 
@@ -268,7 +278,7 @@ func from_dict(data) -> bool:
 			zone_error = "Spielstand ohne Feld %s" % key
 			return false
 	var n := int(incoming.seat_count)
-	if n < MIN_SEATS or n > SEAT_COUNT or typeof(incoming.players) != TYPE_ARRAY or incoming.players.size() != n:
+	if n < MIN_SEATS or n > MAX_SEATS or typeof(incoming.players) != TYPE_ARRAY or incoming.players.size() != n:
 		zone_error = "Spielstand mit falscher Platzzahl"
 		return false
 	if not PHASES.has(str(incoming.phase)) or not TURN_STEPS.has(str(incoming.turn_step)):
@@ -286,6 +296,25 @@ func from_dict(data) -> bool:
 		zone_error = reason
 		return false
 	return true
+
+
+# Winkel eines Platzes aus Sicht des Betrachters im 60-Grad-Raster (Grad, negativ = links).
+# Wenige Spieler belegen symmetrische Teilmengen der 6 Plaetze.
+const SEAT_ANGLES := {
+	2: [180],
+	3: [120, 240],
+	4: [120, 180, 240],
+	5: [60, 120, 240, 300],
+	6: [60, 120, 180, 240, 300],
+}
+
+func seat_angle(viewer: int, seat: int) -> float:
+	if seat == viewer:
+		return 0.0
+	var n := seat_count()
+	var offset := (seat - viewer + n) % n
+	var list: Array = SEAT_ANGLES.get(n, SEAT_ANGLES[4])
+	return -float(list[clampi(offset - 1, 0, list.size() - 1)])
 
 
 func _seat_role(viewer: int, seat: int) -> String:
@@ -751,6 +780,15 @@ func _forget_known_index(player: Dictionary, index: int) -> void:
 	player.known = next
 
 
+# Zugtimer abgelaufen (CONCEPT_DECISIONS §9): genau eine Strafkarte. Den Zug beendet der Tisch danach.
+func _timeout_penalty() -> Dictionary:
+	var player: Dictionary = current_player()
+	var card := _give_one_penalty(player, "timeout")
+	_log("%s: Zeit abgelaufen. Genau eine Strafkarte." % str(player.name))
+	state.last_action = "Zeit abgelaufen – Strafkarte für %s." % str(player.name)
+	return {"ok": true, "reason": "", "penalty": not card.is_empty()}
+
+
 func _give_queen_penalty(player: Dictionary) -> void:
 	# Abschnitt 2 und 3: genau eine Strafkarte, Dame bleibt offen auf der Ablage.
 	var top = top_discard()
@@ -832,19 +870,24 @@ func _shift_known(player: Dictionary, removed: int) -> void:
 	player.known = next
 
 
-func _fresh_pool() -> Array:
+static func deck_count_for(seats: int) -> int:
+	return int(ceil(float(seats) / 4.0))
+
+
+func _fresh_pool(decks: int = 1) -> Array:
 	var pool: Array = []
 	var n := 0
-	for suit in SUITS:
-		for rank in RANKS:
-			pool.append({
-				"id": "%s-%s-%d" % [suit, rank, n],
-				"suit": suit,
-				"rank": rank,
-				"value": int(VALUES[rank]),
-				"face_up": false,
-			})
-			n += 1
+	for _d in range(maxi(decks, 1)):
+		for suit in SUITS:
+			for rank in RANKS:
+				pool.append({
+					"id": "%s-%s-%d" % [suit, rank, n],
+					"suit": suit,
+					"rank": rank,
+					"value": int(VALUES[rank]),
+					"face_up": false,
+				})
+				n += 1
 	return pool
 
 

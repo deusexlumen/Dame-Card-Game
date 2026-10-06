@@ -9,6 +9,8 @@ const DamePolicyScript = preload("res://scripts/dame_policy.gd")
 
 var last_completed := false
 var last_error := ""
+# Zuletzt angewandte Aktion, damit der Tisch sie darstellen kann.
+var last_action: Dictionary = {}
 var rng := RandomNumberGenerator.new()
 
 func _init(seed: int = 1) -> void:
@@ -24,10 +26,12 @@ func step(rules) -> Dictionary:
 	var action: Dictionary = DamePolicyScript.choose(view, rng)
 	var result: Dictionary = rules.apply_action(action)
 	if bool(result.get("ok", false)):
+		last_action = action
 		return result
 	# Ungueltige Policy-Entscheidung: sichere Ersatzaktion fuer diesen Schritt.
 	last_error = str(result.get("reason", "KI-Zug gescheitert"))
-	return rules.apply_action(fallback_action(rules, seat))
+	last_action = fallback_action(rules, seat)
+	return rules.apply_action(last_action)
 
 
 func complete_turn(rules) -> bool:

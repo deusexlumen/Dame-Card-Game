@@ -17,6 +17,8 @@ func run(ctx) -> void:
 	_check_hotseat_handoff()
 	_check_memory_aid_off()
 	_check_turn_timer()
+	_check_skin_picker()
+	_check_timer_pauses_for_powers()
 	_check_resume()
 	_check_game_over_rewards_once()
 
@@ -166,6 +168,8 @@ func _check_hotseat_handoff() -> void:
 	for seat in [0, 1, 2]:
 		t.expect(_faces(table, seat).is_empty(), "waehrend Uebergabe sichtbare Karte Platz %d" % seat)
 	t.expect(not table._drawn_view.shows_face(), "gezogene Karte bleibt sichtbar")
+	for seat in [0, 1, 2]:
+		t.expect(_faces3d(table, seat).is_empty(), "3D: waehrend Uebergabe offene Karte Platz %d" % seat)
 	var before_input = table.rules.state.drawn_card
 	table._on_deck()
 	t.expect(table.rules.state.drawn_card == before_input, "Eingabe hinter dem Uebergabe-Schirm moeglich")
@@ -174,7 +178,25 @@ func _check_hotseat_handoff() -> void:
 	t.expect(str(table._seats[1].get_meta("role")) == "self", "Bens Platz nicht unten")
 	t.expect(_faces(table, 1) == [0, 1], "Ben sieht seine Startkarten nicht")
 	t.expect(_faces(table, 0).is_empty(), "Ben sieht Annas Karten")
+	if table._table3d != null:
+		t.expect(_faces3d(table, 0).is_empty(), "3D: Ben sieht Annas Karten")
+		var hands := 0
+		for p in table.rules.state.players:
+			hands += p.hand.size()
+		# Handkarten plus Stapel, Ablage, gezogene Karte; keine Reste alter Plaetze.
+		t.expect(table._table3d.card_node_count() == hands + 3, "3D: alte Karten nach Uebergabe liegen geblieben (%d statt %d)" % [table._table3d.card_node_count(), hands + 3])
 	_free(table)
+
+
+# Offene Kartengesichter im 3D-Tisch fuer einen Platz.
+func _faces3d(table, seat: int) -> Array:
+	var out: Array = []
+	if table._table3d == null:
+		return out
+	for c in table._table3d._slots.get(seat, []):
+		if c.shows_face():
+			out.append(int(c.index))
+	return out
 
 
 func _check_memory_aid_off() -> void:
@@ -186,13 +208,39 @@ func _check_memory_aid_off() -> void:
 	_free(table)
 
 
+func _check_timer_pauses_for_powers() -> void:
+	var table = _make_table(_cfg({"seed": 107}), {"turn_timer": true, "turn_timer_seconds": 15})
+	table._process(0.1)
+	table.rules.state.turn_step = "jack"
+	var left: float = table._turn_left
+	table._process(20.0)
+	t.expect(is_equal_approx(table._turn_left, left) and int(table.rules.state.current_index) == 0, "Zugtimer laeuft bei Bube-Auswahl weiter")
+	table.rules.state.turn_step = "draw"
+	_free(table)
+
+
+func _check_skin_picker() -> void:
+	var table = _make_table(_cfg({"seed": 109}))
+	if app == null or table._table3d == null:
+		_free(table)
+		return
+	app.profile.grant("face_noir")
+	table.apply_skin("face_noir")
+	t.expect(table._table3d.face_skin == "noir" and app.profile.equipped("card_face") == "face_noir", "Schnellauswahl wechselt Kartenvorderseite nicht")
+	t.expect(table._table3d._held.face_skin == "noir", "Karten im Raum behalten alte Vorderseite")
+	table.apply_skin("face_klassisch")
+	_free(table)
+
+
 func _check_turn_timer() -> void:
 	var table = _make_table(_cfg({"seed": 106}), {"turn_timer": true, "turn_timer_seconds": 15})
 	table._process(0.1)
 	t.expect(table._timer_bar.visible, "Zugtimer nicht sichtbar")
+	var pens_before: int = table.rules.state.players[0].penalty_cards.size()
 	table._process(16.0)
 	table.run_ai_until_human()
 	t.expect(int(table.rules.state.round) == 2, "Zeitablauf beendet den Zug nicht")
+	t.expect(table.rules.state.players[0].penalty_cards.size() == pens_before + 1, "Zeitablauf gibt keine Strafkarte")
 	t.expect(table.rules.assert_zones(), "Zonen nach Zeitablauf kaputt")
 	_free(table)
 

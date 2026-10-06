@@ -16,7 +16,10 @@ func build() -> void:
 	logo.size = Vector2(1280, 90)
 	logo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	logo.add_theme_font_size_override("font_size", 72)
-	logo.add_theme_font_override("font", UiTheme.bold_font())
+	logo.add_theme_font_override("font", UiTheme.heading_font())
+	logo.add_theme_color_override("font_color", UiTheme.GOLD)
+	logo.add_theme_constant_override("outline_size", 12)
+	logo.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
 	add_child(logo)
 	var sub := Label.new()
 	sub.text = "Das Kartenspiel mit Gedächtnis und Bluff"
@@ -57,7 +60,7 @@ func build() -> void:
 	version.modulate = Color(1, 1, 1, 0.5)
 	add_child(version)
 	if app != null:
-		chips_label.text = "%d Chips" % app.profile.chips()
+		chips_label.text = tr("%d Chips") % app.profile.chips()
 	for b in buttons:
 		if b.visible:
 			b.grab_focus()

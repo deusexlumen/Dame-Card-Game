@@ -6,25 +6,24 @@ class_name Catalog
 
 const CATEGORIES := {
 	"card_back": "Kartenrücken",
-	"accent": "Phosphor-Farbe",
-	"table": "Tisch",
+	"card_face": "Kartenvorderseite",
+	"table": "Tischfilz",
 }
 
 const ITEMS := [
-	{"id": "back_raster", "category": "card_back", "name": "Raster", "price": 0, "data": {"back_style": "raster"}},
-	{"id": "back_diagonal", "category": "card_back", "name": "Diagonal", "price": 120, "data": {"back_style": "diagonal"}},
-	{"id": "back_punkte", "category": "card_back", "name": "Punkte", "price": 120, "data": {"back_style": "punkte"}},
-	{"id": "back_rauten", "category": "card_back", "name": "Rauten", "price": 200, "data": {"back_style": "rauten"}},
-	{"id": "back_scanline", "category": "card_back", "name": "Bildröhre", "price": 350, "data": {"back_style": "scanline"}},
-	{"id": "accent_gruen", "category": "accent", "name": "Grün", "price": 0, "data": {"color": "8cff8c"}},
-	{"id": "accent_bernstein", "category": "accent", "name": "Bernstein", "price": 200, "data": {"color": "ffb547"}},
-	{"id": "accent_eisblau", "category": "accent", "name": "Eisblau", "price": 200, "data": {"color": "7fd8ff"}},
-	{"id": "accent_weiss", "category": "accent", "name": "Papierweiß", "price": 300, "data": {"color": "e8f0e0"}},
-	{"id": "accent_magenta", "category": "accent", "name": "Magenta", "price": 400, "data": {"color": "ff7ae0"}},
-	{"id": "table_schwarz", "category": "table", "name": "Schwarz", "price": 0, "data": {"color": "050905"}},
-	{"id": "table_filz", "category": "table", "name": "Filzgrün", "price": 150, "data": {"color": "0b2414"}},
-	{"id": "table_mitternacht", "category": "table", "name": "Mitternacht", "price": 150, "data": {"color": "070b1e"}},
-	{"id": "table_bordeaux", "category": "table", "name": "Bordeaux", "price": 250, "data": {"color": "1e070c"}},
+	{"id": "back_bordeaux", "category": "card_back", "name": "Bordeaux", "price": 0, "data": {"skin": "bordeaux"}},
+	{"id": "back_royal", "category": "card_back", "name": "Royal", "price": 120, "data": {"skin": "royal"}},
+	{"id": "back_smaragd", "category": "card_back", "name": "Smaragd", "price": 150, "data": {"skin": "smaragd"}},
+	{"id": "back_karo", "category": "card_back", "name": "Karo", "price": 200, "data": {"skin": "karo"}},
+	{"id": "back_deco", "category": "card_back", "name": "Art déco", "price": 350, "data": {"skin": "deco"}},
+	{"id": "face_klassisch", "category": "card_face", "name": "Klassisch", "price": 0, "data": {"skin": "klassisch"}},
+	{"id": "face_vierfarben", "category": "card_face", "name": "Vierfarben", "price": 150, "data": {"skin": "vierfarben"}},
+	{"id": "face_jumbo", "category": "card_face", "name": "Jumbo", "price": 150, "data": {"skin": "jumbo"}},
+	{"id": "face_noir", "category": "card_face", "name": "Noir", "price": 300, "data": {"skin": "noir"}},
+	{"id": "table_gruen", "category": "table", "name": "Casino-Grün", "price": 0, "data": {"color": "1f5a3a"}},
+	{"id": "table_blau", "category": "table", "name": "Mitternachtsblau", "price": 150, "data": {"color": "1d3358"}},
+	{"id": "table_bordeaux", "category": "table", "name": "Bordeaux", "price": 150, "data": {"color": "5a1a24"}},
+	{"id": "table_schwarz", "category": "table", "name": "Anthrazit", "price": 250, "data": {"color": "26262b"}},
 ]
 
 # Verdienst in Chips je Ereignis.

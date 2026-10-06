@@ -73,6 +73,7 @@ static func for_viewer(rules: RefCounted, viewer_seat: int) -> Dictionary:
 		"last_round_false_call": bool(state.get("last_round_false_call", false)),
 		"last_action": str(state.last_action),
 		"log": state.log.duplicate(),
+		"power_effects": bool(state.get("power_effects", false)),
 		"private_look": look.duplicate() if look != null else null,
 		"players": players_out,
 	}

@@ -38,6 +38,9 @@ AI receives the same view factory. If a policy function signature accepts `GameS
 
 ## Scenes
 
+The visible table is the first-person 3D renderer in `scripts/table3d/` (see [[ui]]). The tree below describes the hidden 2D seat proxies that still own focus and tests.
+
+
 `project.godot` already points at `res://scenes/table.tscn`. Create that file. Do not change the main scene path.
 
 Suggested tree:

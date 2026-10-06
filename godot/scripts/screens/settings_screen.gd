@@ -37,8 +37,9 @@ func build() -> void:
 	content.add_child(row("Dein Name", name_edit))
 	content.add_child(HSeparator.new())
 	content.add_child(label("Darstellung", 20))
+	_choice("language", "Sprache", ["de", "en"], ["Deutsch", "Englisch"], s)
+	_check("table_3d", "3D-Tisch (Egoperspektive)", s)
 	_check("animations", "Animationen", s)
-	_check("crt_effect", "Bildröhren-Effekt", s)
 	if not app.is_web():
 		_check("fullscreen", "Vollbild", s)
 	controls["sound_enabled"].grab_focus()

@@ -19,7 +19,7 @@ func build() -> void:
 		app.pending = {}
 	frame("Neues Spiel" if mode == "ai" else "Hot-Seat")
 	content.add_child(label("Hot-Seat: mehrere Menschen teilen sich ein Gerät. Vor jedem Zug wird der Tisch abgedeckt." if mode == "hotseat" else "Du spielst gegen KI-Gegner. Schwer gibt doppelte Sieg-Chips.", 15))
-	seat_option = option(["2 Plätze", "3 Plätze", "4 Plätze"], 2 if mode == "ai" else 0)
+	seat_option = option(["2 Plätze", "3 Plätze", "4 Plätze", "5 Plätze", "6 Plätze"], 2 if mode == "ai" else 0)
 	seat_option.item_selected.connect(func(_i: int) -> void: _rebuild_rows())
 	content.add_child(row("Anzahl Plätze", seat_option, 200))
 	var rows_box := VBoxContainer.new()
@@ -52,7 +52,7 @@ func _rebuild_rows() -> void:
 	for seat in range(seat_count()):
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 12)
-		var tag := label("Platz %d" % (seat + 1), 17)
+		var tag := label(tr("Platz %d") % (seat + 1), 17)
 		tag.custom_minimum_size = Vector2(90, 0)
 		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
 		h.add_child(tag)
@@ -67,7 +67,7 @@ func _rebuild_rows() -> void:
 		if seat == 0:
 			name_edit.text = player_name
 		elif is_human:
-			name_edit.text = "Spieler %d" % (seat + 1)
+			name_edit.text = tr("Spieler %d") % (seat + 1)
 		else:
 			name_edit.text = AI_NAMES[seat - 1]
 		h.add_child(name_edit)
@@ -90,10 +90,10 @@ func build_config() -> Dictionary:
 		var r: Dictionary = rows[seat]
 		var n := str(r.name.text).strip_edges()
 		if n == "":
-			error_label.text = "Platz %d braucht einen Namen." % (seat + 1)
+			error_label.text = tr("Platz %d braucht einen Namen.") % (seat + 1)
 			return {}
 		if names.has(n):
-			error_label.text = "Der Name „%s“ ist doppelt." % n
+			error_label.text = tr("Der Name „%s“ ist doppelt.") % n
 			return {}
 		names.append(n)
 		if r.kind.selected == 1:

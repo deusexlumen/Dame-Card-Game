@@ -13,10 +13,38 @@ func _ready() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var app := app_node()
-	bg.color = app.table_color() if app != null else Color(0.02, 0.035, 0.02)
+	bg.color = UiTheme.BG
 	add_child(bg)
+	_build_backdrop(app)
 	build()
 	print("SCREEN_READY ", name)
+
+
+# Langsam kreisender 3D-Tisch hinter jedem Menue, abgedunkelt fuer Lesbarkeit.
+func _build_backdrop(app) -> void:
+	# Headless (Tests) ohne 3D: spart Zeit, zeigt ohnehin nichts.
+	if DisplayServer.get_name() == "headless":
+		return
+	var box := SubViewportContainer.new()
+	box.set_anchors_preset(Control.PRESET_FULL_RECT)
+	box.stretch = true
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(box)
+	var vp := SubViewport.new()
+	vp.size = Vector2i(1280, 720)
+	vp.msaa_3d = Viewport.MSAA_2X
+	box.add_child(vp)
+	var table = load("res://scripts/table3d/table_3d.gd").new()
+	vp.add_child(table)
+	var cos := {"showcase": true}
+	if app != null:
+		cos.merge({"accent": app.accent(), "back": app.back_skin(), "face": app.face_skin(), "felt": app.table_color(), "lang": app.language()}, true)
+	table.build(cos)
+	var shade := ColorRect.new()
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shade.color = Color(0.02, 0.016, 0.02, 0.62)
+	add_child(shade)
 
 
 func app_node() -> Node:
@@ -31,7 +59,8 @@ func frame(title: String, width: float = 760.0, with_back: bool = true) -> void:
 	_title.size = Vector2(1280, 50)
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title.add_theme_font_size_override("font_size", 34)
-	_title.add_theme_font_override("font", UiTheme.bold_font())
+	_title.add_theme_font_override("font", UiTheme.heading_font())
+	_title.add_theme_color_override("font_color", UiTheme.GOLD)
 	add_child(_title)
 	var scroll := ScrollContainer.new()
 	scroll.position = Vector2((1280 - width) / 2.0, 92)

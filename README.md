@@ -1,154 +1,66 @@
-# ♛ DAME — Gedächtnis, Risiko & Bluff
+# DAME – Gedächtnis, Risiko & Bluff
 
-[![Version](https://img.shields.io/badge/version-0.1.0--alpha-orange)](./)
-[![Deploy](https://img.shields.io/github/deployments/deusexlumen/Dame-Card-Game/github-pages?label=deploy&logo=github)](https://deusexlumen.github.io/Dame-Card-Game/)
-[![Build](https://img.shields.io/badge/build-passing-brightgreen?logo=githubactions)](https://github.com/deusexlumen/Dame-Card-Game/actions)
-[![Tests](https://img.shields.io/badge/tests-57%2F57-brightgreen?logo=vitest)](./)
-[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript)](https://www.typescriptlang.org/)
-[![Vite](https://img.shields.io/badge/Vite-7-646CFF?logo=vite)](https://vitejs.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss)](https://tailwindcss.com/)
+Ein Kartenspiel für 2–6 Spieler in der **Egoperspektive an einem 3D-Casinotisch**. Du sitzt in einem dunklen Hinterzimmer unter einer Hängelampe, deine Gegner sitzen mit dir am Tisch, und deine eigene Hand zieht, hält und legt die Karten.
 
-> **Ein browserbasiertes Kartenspiel für 2–6 Spieler.**  
-> Mensch gegen Mensch, Mensch gegen KI — komplett client-seitig, ohne Backend, ohne Tracking.
-
-> 🚧 **Alpha-Version:** Das Spiel ist spielbar, aber Features, Balance und UI können sich noch ändern. Feedback ist willkommen!
-
-🚀 **Live spielen:** https://deusexlumen.github.io/Dame-Card-Game/
-
-🌐 **English version:** [README_EN.md](./README_EN.md)
+**Live spielen:** https://deusexlumen.github.io/Dame-Card-Game/
+**English version:** [README_EN.md](./README_EN.md)
 
 ---
 
-## 🎴 Was ist DAME?
+## Was ist DAME?
 
-DAME ist ein taktisches Memory-Kartenspiel mit Bluff-Element. Du kennst deine eigenen Karten nie wirklich — nur das, was du dir merken kannst.
+Ein taktisches Gedächtnis-Kartenspiel mit Bluff. Deine eigenen Karten liegen verdeckt vor dir, du kennst sie nur aus dem Gedächtnis.
 
-- Jeder Spieler bekommt **4 verdeckte Karten** und darf sich **nur 2** davon anschauen.
-- Danach bleiben die Karten verdeckt liegen. Du musst dir **Position und Wert merken**.
-- Ziehe, tausche, bluffe — und rufe zur richtigen Zeit **„Dame"**, um die Runde zu beenden.
-- Fehler werden mit **Strafkarten** bestraft. Information ist alles.
+- Jeder bekommt **4 verdeckte Karten** und darf sich **2** davon ansehen.
+- Ziehe, tausche, lege ab und merke dir, was wo liegt.
+- Ab Runde 3 darfst du **„Dame“ rufen**, wenn du glaubst, die wenigsten Punkte zu haben.
+- Fehler kosten **genau eine Strafkarte**. Über 50 Punkte scheidest du aus.
 
-Visuell fühlt sich DAME wie ein **Terminal eines archivierten Cyber-Systems** an: schwarzer Hintergrund, grüner Phosphor-Glow, geometrische Symbole, Monospace-Typografie.
+Die verbindlichen Regeln stehen in [`CONCEPT_DECISIONS.md`](./CONCEPT_DECISIONS.md), die volle Anleitung auch im Spiel (Menü „Regeln“ oder Taste **H** am Tisch).
 
----
+## Features
 
-## ✨ Features
+- **3D-Tisch in Egoperspektive** mit echten Figuren (Sitz-Animationen, Hände auf dem Tisch, greifen nach Stapel und Ablage) und eigener Hand mit beweglichen Fingern. Umschaltbar auf eine klassische 2D-Ansicht.
+- **2–6 Spieler**, Mensch gegen KI (3 Stufen) oder Hot-Seat an einem Gerät. Ab 5 Spielern zwei Decks.
+- **Casino-Look**: Kartengrafiken, Hinterzimmer mit Bar, Chip-Stapel, Gold-Theme.
+- **Besondere Momente**: Dame-Ruf mit rotem Puls, Karten drehen sich nacheinander um, Punkte zählen hoch, Konfetti beim Sieg.
+- **Shop** nur für Kosmetik (Kartenrücken, Kartenvorderseiten, Tischfilz), bezahlt mit Chips, die du durchs Spielen verdienst. Schnellauswahl im Pausenmenü.
+- **Sound und Musik**: echte Kartengeräusche und ein ruhiger Jazz-Loop.
+- **Deutsch und Englisch**, Zugtimer (Strafkarte bei Zeitablauf), Statistik, Speichern und Fortsetzen.
+- **Web und Windows**. Im Browser als App installierbar, per Maus, Tastatur oder Touch spielbar.
 
-|  |  |
-|---|---|
-| 🎮 **2–6 Spieler** | Mensch vs. Mensch oder mit KI-Gegnern |
-| 🤖 **3 KI-Stufen** | Einfach, Mittel, Schwer — mit unterschiedlichen Aggressions- und Bluff-Strategien |
-| 👁️ **Bube (J)** | Eigene oder gegnerische Karte anschauen |
-| 👑 **König (K)** | Gegnerische Karte kurz aufdecken und gezielt tauschen — danach bleiben beide verdeckt |
-| 🃏 **Dame (Q)** | Strafkarte beim Ablegen — und Zwangszug für den nächsten Spieler |
-| ⚡ **Extra-Ablegen** | Passende Karten direkt mit ablegen |
-| 📢 **Dame-Ansage** | Frühzeitig die Runde beenden — aber Vorsicht bei falschem Call |
-| 🎯 **50-Punkte-Regel** | Über 50 = ausgeschieden, genau 50 = Reset auf 0 |
-| 📊 **Statistiken** | Lokale Spielstatistiken im Browser |
-| 🔊 **Sound & Musik** | Prozedurale Web-Audio-Sounds, abschaltbare Ambient-Musik |
-| 🎬 **Animationen** | Framer-Motion-Übergänge für Karten und UI |
-| ♿ **Barrierefrei** | Tastatursteuerung, ARIA-Labels, Screenreader-Support |
-
----
-
-## 🕹️ Schnellstart
-
-```bash
-# 1. Repo klonen
-git clone https://github.com/deusexlumen/Dame-Card-Game.git
-cd Dame-Card-Game
-
-# 2. Dependencies installieren (pnpm)
-pnpm install
-
-# 3. Dev-Server starten
-pnpm dev
-
-# 4. Tests laufen lassen
-pnpm test
-```
-
-Fertig! Der Server läuft meist unter `http://localhost:5173/Dame-Card-Game/`.
-
----
-
-## 📋 Die wichtigsten Regeln
-
-1. **Aufbau:** 4 verdeckte Karten pro Spieler, 2 davon kurz anschauen.
-2. **Zug:** Ziehe vom Zieh- oder Ablagestapel. Entscheide: behalten, tauschen oder ablegen.
-3. **Extra-Ablegen:** Hast du eine Karte mit gleichem Wert wie die oberste Ablagekarte, darfst du sie sofort ablegen. Danach kannst du weitere Züge machen — hast du danach aber keine Karten mehr, wird **automatisch Dame gerufen**.
-4. **Sonderkarten:**
-   - **Dame (Q)** → Strafkarte beim Ablegen; offene Dame muss vom nächsten Spieler genommen werden.
-   - **Bube (J)** → Beliebige verdeckte Karte anschauen.
-   - **König (K)** → Gegnerische Karte kurz anschauen und gezielt tauschen. **Nach dem Tausch bleiben beide Karten verdeckt.**
-5. **Dame-Ansage:** Wer glaubt, die wenigsten Punkte zu haben, ruft „Dame". Liegt er falsch, startet er die nächste Runde mit **5 statt 4 Karten**.
-
-Die vollständigen Konzept-Entscheidungen findest du in [`CONCEPT_DECISIONS.md`](./CONCEPT_DECISIONS.md).
-
----
-
-## ⌨️ Tastatursteuerung
+## Tasten
 
 | Taste | Aktion |
 |---|---|
-| `Leertaste` | Karte ziehen / Gezogene Karte ablegen |
-| `1` – `4` | Hand-Karte auswählen |
-| `Enter` | Tausch bestätigen |
-| `D` | Dame rufen |
-| `Z` / `E` | Zug beenden |
-| `Esc` | Dialog schließen |
+| 1–6 | Karte wählen |
+| Leertaste | Vom Stapel ziehen |
+| Enter | Bestätigen / Zug beenden |
+| A | Gezogene Karte ablegen |
+| X | Extra ablegen |
+| D | Dame rufen |
+| H | Anleitung |
+| Esc | Abbrechen / Menü |
 
----
+## Entwicklung
 
-## 🛠️ Tech Stack
-
-- **Framework:** React 19
-- **Language:** TypeScript 5.9
-- **Build:** Vite 7
-- **Styling:** Tailwind CSS 3.4 + shadcn/ui
-- **Animationen:** Framer Motion
-- **Sound:** Web Audio API
-- **Tests:** Vitest + jsdom
-- **Linting:** ESLint 9
-
----
-
-## 🌍 Deployment
-
-Jeder Push auf `main` wird automatisch auf **GitHub Pages** deployt.
-
-- **Live-URL:** https://deusexlumen.github.io/Dame-Card-Game/
-- **Workflow:** [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml)
-- **Base-Pfad:** `/Dame-Card-Game/`
-
----
-
-## 🧪 Tests
+Das Spiel ist ein Godot-4.7-Projekt in [`godot/`](./godot) (GL Compatibility). Die alte React-Fassung unter `src/` bleibt nur als Nachschlagewerk.
 
 ```bash
-pnpm vitest run   # Tests einmalig ausführen
-pnpm test:ui      # Tests mit UI-Oberfläche
+npm run test:godot       # Headless-Tests und Szenenfluss
+npm run export:godot     # Windows (build/windows/Dame.exe) und Web (build/web)
+npm run test:godot:web   # Web-Build im Browser prüfen (Playwright)
 ```
 
-Abgedeckt werden:
-- Spielmechaniken (Ziehen, Tauschen, Ablegen)
-- Sonderkarten-Effekte (Bube, König, Dame)
-- Dame-Ansage & Strafsystem
-- KI-Entscheidungslogik pro Schwierigkeitsgrad
+Godot-Pfad lokal per `GODOT_BIN` änderbar. Jeder Push auf `main` testet, exportiert und veröffentlicht den Web-Build auf GitHub Pages.
 
----
+Werkzeuge für Assets liegen in `godot/tools/assets/` (Kartengrafiken, Raumtexturen, Kleidungsmasken).
 
-## 📸 Screenshot
+## Credits
 
-![DAME Spieltisch](./docs/screenshot.png)
+- Figuren und Animationen: [Quaternius](https://quaternius.com) (CC0)
+- Kartengeräusche, Klicks, Jingles: [Kenney](https://kenney.nl) (CC0)
+- Musik: „jazz improvisation looped“ von Alex McCulloch / Pro Sensory (CC0)
+- Schriften: Inter und Playfair Display (SIL OFL), DejaVu (frei)
 
----
-
-## 📝 Lizenz
-
-**Alle Rechte vorbehalten.**  
-Der Quellcode, das Design, die Spielmechanik und alle Assets dieses Projekts sind proprietär.  
-Eine Nutzung, Vervielfältigung, Verbreitung oder Modifikation ohne ausdrückliche Genehmigung ist nicht gestattet.
-
-> Gebaut mit ❤️, ☕ und viel grünem Phosphor-Glow.
+Details: `godot/assets/audio/CREDITS.txt`, `godot/assets/characters/LICENSE_*.txt`, `godot/assets/fonts/`.

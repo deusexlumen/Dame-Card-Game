@@ -29,8 +29,11 @@ Das Spiel wird als statische Single-Page-Application (SPA) ausgeliefert. Es gibt
 - Jeder Spieler erhält 4 verdeckte Karten und darf sich nur 2 davon ansehen.
 - Ziel: Möglichst wenige Punkte sammeln. Wer über 50 Punkte kommt, scheidet aus.
 - Genau 50 Punkte → Reset auf 0.
-- **Bube** (10 Pkt.): Beim Ablegen darf man sich eine eigene verdeckte Karte anschauen.
-- **König** (10 Pkt.): Beim Ablegen tauscht man blind eine Karte mit einem Gegner.
+- **Bube** (10 Pkt.): Beim Ablegen eine beliebige verdeckte Karte ansehen (eigene oder fremde), kein Tausch.
+- **König** (10 Pkt.): Eigene verdeckte Karte ansehen, dann blind mit einer gegnerischen tauschen.
+- **Ass, Zehn**: keine Sonderwirkung (Power-Effekte nur als ausgeschaltetes Flag).
+- 2–6 Spieler, ab 5 Spielern zwei Decks. Zugtimer-Ablauf = eine Strafkarte.
+- Verbindlich: `CONCEPT_DECISIONS.md` (§9 vom 2026-10-06). Look: Modern-Dark-Casino, 3D-Egoperspektive; der Terminal-Look ist überholt.
 - **Dame** (0 Pkt.): Beim Ablegen zieht man eine Strafkarte.
 - **Dame Call**: Ab Runde 3 kann ein Spieler „Dame" rufen, wenn er glaubt, die wenigsten Punkte zu haben. Nach einer letzten Runde werden alle Karten aufgedeckt.
 

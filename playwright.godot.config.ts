@@ -6,7 +6,8 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: 'list',
-  timeout: 90000,
+  // 3D-Tisch mit Figuren laedt in CI (SwiftShader) deutlich langsamer als lokal.
+  timeout: 240000,
   use: {
     baseURL: 'http://localhost:8060',
     headless: true,

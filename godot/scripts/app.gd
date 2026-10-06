@@ -8,6 +8,7 @@ const SaveServiceScript = preload("res://scripts/services/save_service.gd")
 const ProfileServiceScript = preload("res://scripts/services/profile_service.gd")
 const AudioServiceScript = preload("res://scripts/services/audio_service.gd")
 const UiThemeScript = preload("res://scripts/ui/ui_theme.gd")
+const I18nScript = preload("res://scripts/i18n.gd")
 
 const MAIN_MENU := "res://scenes/main_menu.tscn"
 const TABLE := "res://scenes/table.tscn"
@@ -28,7 +29,6 @@ var last_config: Dictionary = {}
 # Tests: Szenenwechsel nur merken, nicht ausfuehren.
 var test_mode := false
 var last_goto := ""
-var _crt: ColorRect
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -40,27 +40,13 @@ func _ready() -> void:
 		profile = ProfileServiceScript.new()
 		settings.changed.connect(_on_setting_changed)
 		profile.changed.connect(apply_theme)
+	I18nScript.install(str(settings.get_value("language")))
 	audio = AudioServiceScript.new()
 	audio.name = "Audio"
 	add_child(audio)
 	apply_theme()
 	_apply_window()
 	audio.apply_settings(settings)
-	_build_crt()
-
-
-func _build_crt() -> void:
-	var layer := CanvasLayer.new()
-	layer.layer = 90
-	add_child(layer)
-	_crt = ColorRect.new()
-	_crt.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_crt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var mat := ShaderMaterial.new()
-	mat.shader = load("res://shaders/crt.gdshader")
-	_crt.material = mat
-	layer.add_child(_crt)
-	_crt.visible = bool(settings.get_value("crt_effect"))
 
 
 # Tests: alle Dienste auf eigene Dateien umlenken und leeren.
@@ -85,16 +71,25 @@ func is_web() -> bool:
 	return OS.has_feature("web")
 
 
+# Casino-Gold fuer Markierungen und Akzente (fest, keine Kosmetik mehr).
 func accent() -> Color:
-	return Color(str(profile.equipped_data("accent").get("color", "8cff8c")))
+	return UiThemeScript.GOLD
 
 
 func table_color() -> Color:
-	return Color(str(profile.equipped_data("table").get("color", "050905")))
+	return Color(str(profile.equipped_data("table").get("color", "1f5a3a")))
 
 
-func back_style() -> String:
-	return str(profile.equipped_data("card_back").get("back_style", "raster"))
+func back_skin() -> String:
+	return str(profile.equipped_data("card_back").get("skin", "bordeaux"))
+
+
+func face_skin() -> String:
+	return str(profile.equipped_data("card_face").get("skin", "klassisch"))
+
+
+func language() -> String:
+	return str(settings.get_value("language")) if settings != null else "de"
 
 
 func apply_theme() -> void:
@@ -116,8 +111,11 @@ func _apply_window() -> void:
 func _on_setting_changed(key: String, _value) -> void:
 	if key == "fullscreen":
 		_apply_window()
-	elif key == "crt_effect" and _crt != null:
-		_crt.visible = bool(settings.get_value("crt_effect"))
+	elif key == "language":
+		I18nScript.install(str(settings.get_value("language")))
+		# Offene Ansicht neu aufbauen, damit alle Texte wechseln.
+		if not test_mode and get_tree().current_scene != null:
+			get_tree().reload_current_scene()
 	elif key in ["sound_enabled", "music_enabled", "music_volume", "effects_volume"] and audio != null:
 		audio.apply_settings(settings)
 

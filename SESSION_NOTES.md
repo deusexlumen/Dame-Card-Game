@@ -32,3 +32,9 @@ Plan: `docs/superpowers/plans/2026-10-06-godot-pages-release.md`. Ziel: Godot-We
 - Web-Smoke nutzt jetzt `goto('./')`, damit er auch unter Unterpfaden läuft.
 - Offen: Echtgeld-Anbieter, Multiplayer, Android. CI-Warnung: Actions auf Node 20 veraltet, `ubuntu-latest` wechselt ab 2026-10-19 auf Ubuntu 26.
 - PR #4 offen, CI grün. Konflikte mit main gelöst: main hatte nur ältere Stände (Squash von p1-hardening, doppelter Godot-Stufe-1-Commit) → Branch-Stand behalten, CLAUDE.md + 10x-Notizen übernommen, alte round_check-Dateien wieder entfernt.
+
+## 2026-10-06 (Nachmittag) – Casino-3D-Umbau
+- Branch `feat/godot-3d-table`, Plan `docs/superpowers/plans/2026-10-06-dame-casino-3d.md` (C1–C8 erledigt, nur Screenreader offen).
+- Egoperspektive mit Quaternius-Figuren (CC0), eigener Arm per IK, Casino-Look, echte CC0-Sounds, 2–6 Spieler, Zugtimer-Strafkarte, Deutsch/Englisch, Effekte, Skin-Schnellauswahl, 3D-Kulisse in Menüs, PWA.
+- Entscheidungen in `CONCEPT_DECISIONS.md` §9. Terminal-Look ist überholt.
+- Web-Build ~60 MB (pck 20 MB), Web-Tests grün. Noch nicht gepusht.
