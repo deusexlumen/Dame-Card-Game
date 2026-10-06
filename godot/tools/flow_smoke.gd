@@ -37,7 +37,7 @@ func _process(_delta: float) -> bool:
 		2:
 			if scene == null or scene.name != "Table" or scene.rules == null:
 				return _abort("Tisch nicht geladen")
-			if scene.rules.seat_count() != 4 or scene.human_seats != [0]:
+			if scene.rules.seat_count() != 4 or scene.local_seats != [0]:
 				return _abort("Setup-Konfiguration kam nicht am Tisch an")
 			scene.instant_ai = true
 			scene.run_ai_until_human()

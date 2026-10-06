@@ -4,6 +4,13 @@ extends RefCounted
 # Rundenende/Spielende, Speichern/Fortsetzen, Zugtimer.
 
 const TableScene = preload("res://scenes/table.tscn")
+const DameProtocol = preload("res://scripts/net/net_protocol.gd")
+
+
+# Host ohne Autoritaet nach aussen: der Tisch sieht keine Regeln, nur Sichten (wie ein Gast).
+class ViewOnlyHost extends "res://scripts/net/dame_host.gd":
+	func is_authority() -> bool:
+		return false
 
 var t
 var app
@@ -22,6 +29,9 @@ func run(ctx) -> void:
 	_check_resume()
 	_check_game_over_rewards_once()
 	_check_single_animation_path()
+	_check_handoff_never_shows_previous_memory()
+	_check_round_recorded_once()
+	_check_table_without_rules()
 
 
 func _make_table(cfg: Dictionary, overrides: Dictionary = {}):
@@ -334,3 +344,70 @@ func _check_single_animation_path() -> void:
 	t.expect(not taccepted.is_empty() and str(taccepted[0].type) == "timeout_penalty", "Zeitablauf ohne Strafkarten-Aktion")
 	t.expect(tcalls.size() == taccepted.size() and tcalls.size() >= 2, "Zeitablauf: %d Animationen fuer %d Aktionen" % [tcalls.size(), taccepted.size()])
 	_free(timed)
+
+
+# Ein eigener Zug ueber die Tisch-API: ziehen, ablegen, Sonderkarten, beenden.
+func _finish_turn(table) -> void:
+	if table.rules.must_take_queen():
+		table._on_discard()
+	else:
+		table._on_deck()
+	table._on_drawn()
+	_resolve_powers(table)
+	table.end_turn()
+	table.run_ai_until_human()
+
+
+func _play_to_round_end(table) -> void:
+	var guard := 0
+	while str(table.rules.state.phase) != "round_end" and str(table.rules.state.phase) != "game_over" and guard < 60:
+		guard += 1
+		if table._human_turn():
+			_human_turn(table, 3)
+		else:
+			table.run_ai_until_human()
+
+
+func _check_handoff_never_shows_previous_memory() -> void:
+	var table = _make_table(_cfg({"seed": 109, "seat_count": 3, "ai_seats": [2], "difficulties": {2: "medium"}, "names": ["Anna", "Ben", "KI"]}))
+	table.confirm_handoff()
+	var seen: Array = []
+	table.session.view_changed.connect(func(v, _a): seen.append([int(v.viewer_seat), table.viewer_seat, table.handoff_pending]))
+	_finish_turn(table)  # zieht, legt ab, beendet Zug -> Uebergabe an Sitz 1
+	t.expect(table.handoff_pending, "keine Uebergabe nach Zugende")
+	for s in seen:
+		t.expect(int(s[0]) == 0, "Sicht von Sitz %d kam vor der Bestaetigung" % int(s[0]))
+	table.confirm_handoff()
+	t.expect(int(table._view.viewer_seat) == 1, "nach Bestaetigung nicht die Sicht von Sitz 1")
+	_free(table)
+
+
+func _check_round_recorded_once() -> void:
+	if app == null:
+		return
+	var table = _make_table(_cfg({"seed": 110}))
+	var before: int = int(app.stats.values.rounds_played)
+	_play_to_round_end(table)
+	table.session.broadcast()
+	table.session.broadcast()
+	t.expect(int(app.stats.values.rounds_played) == before + 1, "Ausgabe mehrfach gezaehlt")
+	_free(table)
+
+
+# Tisch ohne Zugriff auf die Regeln (wie ein Gast): zeichnet und spielt allein aus der Sicht.
+func _check_table_without_rules() -> void:
+	var table = _make_table(_cfg({"seed": 111}))
+	var host = ViewOnlyHost.new(table.session.rules, null)
+	host.local_seats = [0]
+	host.view_changed.connect(table._on_view)
+	host.action_result.connect(table._on_result)
+	table.session = host
+	host.assign_seat(DameProtocol.HOST_PEER, 0)
+	t.expect(table.rules == null, "Testannahme: Tisch sieht keine Regeln")
+	t.expect(table._human_turn(), "ohne Regeln nicht am Zug")
+	t.expect("Ziehe" in table._prompt.text, "ohne Regeln kein Hinweis: " + table._prompt.text)
+	t.expect(table._deck_view.targetable, "ohne Regeln Stapel nicht waehlbar")
+	table._on_deck()
+	t.expect(table._view.drawn != null and str(table._view.turn_step) == "play", "ohne Regeln kein Ziehen")
+	t.expect(table._drawn_view.shows_face(), "ohne Regeln gezogene Karte nicht sichtbar")
+	_free(table)
