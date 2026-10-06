@@ -19,7 +19,7 @@ func build() -> void:
 		app.pending = {}
 	frame("Neues Spiel" if mode == "ai" else "Hot-Seat")
 	content.add_child(label("Hot-Seat: mehrere Menschen teilen sich ein Gerät. Vor jedem Zug wird der Tisch abgedeckt." if mode == "hotseat" else "Du spielst gegen KI-Gegner. Schwer gibt doppelte Sieg-Chips.", 15))
-	seat_option = option(["2 Plätze", "3 Plätze", "4 Plätze"], 2 if mode == "ai" else 0)
+	seat_option = option(["2 Plätze", "3 Plätze", "4 Plätze", "5 Plätze", "6 Plätze"], 2 if mode == "ai" else 0)
 	seat_option.item_selected.connect(func(_i: int) -> void: _rebuild_rows())
 	content.add_child(row("Anzahl Plätze", seat_option, 200))
 	var rows_box := VBoxContainer.new()

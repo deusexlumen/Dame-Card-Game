@@ -29,11 +29,12 @@ func _new_rules(config: Dictionary):
 
 
 func _check_seat_counts() -> void:
-	for n in [2, 3, 4]:
+	for n in [2, 3, 4, 5, 6]:
 		var rules = _new_rules({"seed": 7, "seat_count": n, "ai_seats": []})
 		t.expect(rules.seat_count() == n, "seat_count %d falsch: %d" % [n, rules.seat_count()])
 		t.expect(rules.state.players.size() == n, "%d Plaetze: falsche Spielerzahl" % n)
-		t.expect(rules.state.deck.size() == 52 - 4 * n, "%d Plaetze: Stapelgroesse %d" % [n, rules.state.deck.size()])
+		var decks := 1 if n <= 4 else 2
+		t.expect(rules.state.deck.size() == 52 * decks - 4 * n, "%d Plaetze: Stapelgroesse %d" % [n, rules.state.deck.size()])
 		t.expect(rules.assert_zones(), "%d Plaetze: Zonen nach Ausgabe kaputt: %s" % [n, rules.zone_error])
 		var order: Array = []
 		for _i in range(2 * n):
@@ -46,7 +47,13 @@ func _check_seat_counts() -> void:
 		t.expect(int(rules.state.round) == 3, "%d Plaetze: nach zwei Umlaeufen Runde %d" % [n, int(rules.state.round)])
 		t.expect(DameViewScript.for_viewer(rules, 0).players.size() == n, "%d Plaetze: Sicht hat falsche Platzzahl" % n)
 	var too_many = _new_rules({"seat_count": 9})
-	t.expect(too_many.seat_count() == 4, "seat_count wird nicht auf 4 begrenzt")
+	t.expect(too_many.seat_count() == 6, "seat_count wird nicht auf 6 begrenzt")
+	t.expect(DameRulesScript.deck_count_for(4) == 1 and DameRulesScript.deck_count_for(5) == 2 and DameRulesScript.deck_count_for(6) == 2, "Deckanzahl falsch")
+	var six = _new_rules({"seed": 3, "seat_count": 6, "ai_seats": [1, 2, 3, 4, 5]})
+	var angles: Array = []
+	for seat in range(6):
+		angles.append(int(six.seat_angle(0, seat)))
+	t.expect(angles == [0, -60, -120, -180, -240, -300], "Sitzwinkel 6 Plaetze: " + str(angles))
 	var too_few = _new_rules({"seat_count": 1})
 	t.expect(too_few.seat_count() == 2, "seat_count wird nicht auf 2 begrenzt")
 	var legacy = _new_rules({"ai_seat": 2})

@@ -40,6 +40,9 @@ func _apply_setup() -> void:
 	scene.instant_ai = true
 	scene.run_ai_until_human()
 	match _setup:
+		"six":
+			scene.start({"seed": 5, "seat_count": 6, "ai_seats": [1, 2, 3, 4, 5], "names": ["Spieler", "Lotte", "Bruno", "Erika", "Kurt", "Hilde"]})
+			scene.run_ai_until_human()
 		"turn":
 			scene._on_deck()
 		"round":

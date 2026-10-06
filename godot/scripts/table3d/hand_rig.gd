@@ -10,6 +10,8 @@ const ArmIKScript = preload("res://scripts/table3d/arm_ik.gd")
 
 const ARM_BONES := ["upperarm_r", "lowerarm_r", "hand_r"]
 const MAX_LEAN := 0.38
+# Arm etwas laenger als echt (ueblich in Ego-Ansichten), damit die ruhende Hand im Bild liegt.
+const ARM_SCALE := 1.15
 const POSES := {
 	"rest": [0.55, 0.35],
 	"reach": [0.12, 0.15],
@@ -21,7 +23,7 @@ var camera: Camera3D
 var _rig: Node3D
 var _ik
 var _cam_base := Vector3.ZERO
-var _shoulder_cam := Vector3(0.2, -0.25, 0.02)
+var _shoulder_cam := Vector3(0.22, -0.3, -0.08)
 var _reach := 0.5
 var _lean := 0.0
 var _pose := "rest"
@@ -47,7 +49,7 @@ func setup(cam: Camera3D, look: Dictionary) -> void:
 	var up := sk.find_bone("upperarm_r")
 	var lo := sk.find_bone("lowerarm_r")
 	var hd := sk.find_bone("hand_r")
-	_reach = (sk.get_bone_global_rest(up).origin.distance_to(sk.get_bone_global_rest(lo).origin) + sk.get_bone_global_rest(lo).origin.distance_to(sk.get_bone_global_rest(hd).origin))
+	_reach = (sk.get_bone_global_rest(up).origin.distance_to(sk.get_bone_global_rest(lo).origin) + sk.get_bone_global_rest(lo).origin.distance_to(sk.get_bone_global_rest(hd).origin)) * ARM_SCALE
 	_ik = ArmIKScript.new()
 	sk.add_child(_ik)
 	set_pose("rest")
@@ -91,6 +93,13 @@ static func _arm_only(mi: MeshInstance3D, sk: Skeleton3D) -> ArrayMesh:
 	return m
 
 
+# Kamera wurde verschoben (andere Platzzahl): neue Grundposition merken.
+func rebase() -> void:
+	if camera != null:
+		_cam_base = camera.position
+		_lean = 0.0
+
+
 func set_pose(pose: String) -> void:
 	_pose = pose if POSES.has(pose) else "rest"
 
@@ -113,6 +122,6 @@ func _process(delta: float) -> void:
 	var sk: Skeleton3D = _rig.skeleton
 	var face := Basis.looking_at(-flat_fwd, Vector3.UP)
 	var rest_sh := sk.get_bone_global_rest(sk.find_bone("upperarm_r")).origin
-	_rig.global_transform = Transform3D(face, shoulder - face * rest_sh)
+	_rig.global_transform = Transform3D(face.scaled(Vector3.ONE * ARM_SCALE), shoulder - face * (rest_sh * ARM_SCALE))
 	var p: Array = POSES[_pose]
 	_ik.set_arm("r", global_transform, float(p[0]), float(p[1]))

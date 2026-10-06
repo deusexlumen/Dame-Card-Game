@@ -355,10 +355,12 @@ func _layout_seats() -> void:
 	if _table3d != null:
 		var roles := {}
 		var names := {}
+		var angles := {}
 		for seat in range(n):
 			roles[seat] = rules._seat_role(anchor_seat, seat)
 			names[seat] = str(rules.state.players[seat].name)
-		_table3d.layout(roles, names)
+			angles[seat] = rules.seat_angle(anchor_seat, seat)
+		_table3d.layout(roles, names, angles)
 
 
 func _place_seats() -> void:

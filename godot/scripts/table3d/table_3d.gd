@@ -12,6 +12,7 @@ const UiThemeScript = preload("res://scripts/ui/ui_theme.gd")
 const TABLE_Y := 0.76
 const TABLE_R := 0.64
 const CARD_R := 0.37
+const CARD_R_WIDE := 0.43
 const FIGURE_R := 1.02
 const CARD_GAP := 0.078
 # Seitliche Plaetze leicht nach hinten gedreht, damit sie im Bild sitzen statt am Rand.
@@ -54,6 +55,7 @@ var _hand_cursor := Transform3D()
 var _hover: Dictionary = {}
 var _markers := {}
 var _built := false
+var _card_r := CARD_R
 
 # cos: {"accent", "back", "face", "felt", "lang"} aus Profil und Einstellungen.
 func build(cos: Dictionary) -> void:
@@ -72,7 +74,7 @@ func build(cos: Dictionary) -> void:
 	camera.fov = 60.0
 	camera.near = 0.03
 	camera.far = 30.0
-	camera.position = Vector3(0.0, 1.27, 0.98)
+	camera.position = Vector3(0.0, 1.27, 0.86)
 	camera.rotation.x = deg_to_rad(-22.0)
 	add_child(camera)
 	camera.current = true
@@ -328,7 +330,8 @@ func _new_card(kind: String):
 # ---------------------------------------------------------------- Plaetze
 
 # roles: Platz -> "self"/"left"/"right"/"opposite", names: Platz -> Name.
-func layout(roles: Dictionary, names: Dictionary) -> void:
+# angles: Platz -> Grad im 60-Grad-Raster (negativ = links). Fehlt er, gilt die Rolle.
+func layout(roles: Dictionary, names: Dictionary, angles: Dictionary = {}) -> void:
 	for r in _seat_roots.values():
 		r.queue_free()
 	# Karten haengen direkt am Tisch, nicht an den Plaetzen: sonst bleiben nach
@@ -342,11 +345,23 @@ func layout(roles: Dictionary, names: Dictionary) -> void:
 	_figures.clear()
 	_penalty_stacks.clear()
 	_roles = roles.duplicate()
+	# Ab 5 Plaetzen liegen die Karten weiter aussen, die Kamera rueckt zurueck.
+	var wide := roles.size() >= 5
+	_card_r = CARD_R_WIDE if wide else CARD_R
+	if camera != null:
+		camera.fov = 70.0 if wide else 60.0
+		camera.position = Vector3(0.0, 1.32 if wide else 1.27, 1.0 if wide else 0.86)
+		if hand != null:
+			hand.rebase()
+			hand.transform = _hand_rest()
+			_hand_state = "rest"
+	if _self_label != null:
+		_self_label.position.z = _card_r + 0.095
 	_held.visible = false
 	_held_seat = -1
 	for seat in roles:
 		var root := Node3D.new()
-		root.rotation.y = float(SEAT_ANGLE.get(str(roles[seat]), 0.0))
+		root.rotation.y = deg_to_rad(float(angles[seat])) if angles.has(seat) else float(SEAT_ANGLE.get(str(roles[seat]), 0.0))
 		add_child(root)
 		_seat_roots[seat] = root
 		_slots[seat] = []
@@ -362,7 +377,7 @@ func layout(roles: Dictionary, names: Dictionary) -> void:
 		pstack.visible = false
 		root.add_child(pstack)
 		_penalty_stacks[seat] = pstack
-		_chips(root, -0.3, CARD_R + 0.06, 31 + int(seat) * 7)
+		_chips(root, -0.3, _card_r + 0.06, 31 + int(seat) * 7)
 
 
 func _build_figure(root: Node3D, seat: int, name: String) -> Dictionary:
@@ -396,7 +411,10 @@ func _build_figure(root: Node3D, seat: int, name: String) -> Dictionary:
 	label.outline_modulate = Color(0, 0, 0, 0.85)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.no_depth_test = true
-	label.font_size = 32
+	label.font_size = 30
+	# Feste Bildschirmgroesse: nahe Nachbarn werden nicht riesig, ferne nicht winzig.
+	label.fixed_size = true
+	label.pixel_size = 0.0011
 	# Namensschild vor der Brust, damit es nie unter der oberen Leiste verschwindet.
 	label.position = Vector3(0, 1.02, -0.2)
 	label.text = name
@@ -529,7 +547,7 @@ func sync(view: Dictionary, opts: Dictionary) -> void:
 			var show: bool = face_cb.call(seat, i, list[i]) if face_cb.is_valid() else false
 			var peeking: bool = peek_cb.call(seat, i) if peek_cb.is_valid() and seat == _viewer else false
 			c.set_card(list[i], show, animate and not dealing)
-			var local := Transform3D(Basis(), Vector3((i - (n - 1) / 2.0) * gap, TABLE_Y + Card3DScript.T / 2.0 + 0.0008, CARD_R))
+			var local := Transform3D(Basis(), Vector3((i - (n - 1) / 2.0) * gap, TABLE_Y + Card3DScript.T / 2.0 + 0.0008, _card_r))
 			if peeking and show:
 				# Kurz anheben und zum Gesicht kippen wie beim Spicken.
 				local = Transform3D(Basis(Vector3.RIGHT, 1.05), local.origin + Vector3(0, 0.07, 0.05))
@@ -558,7 +576,7 @@ func sync(view: Dictionary, opts: Dictionary) -> void:
 		pstack.visible = pc > 0
 		if pc > 0:
 			(pstack.mesh as BoxMesh).size = Vector3(Card3DScript.W, 0.0016 * pc, Card3DScript.H)
-			pstack.position = Vector3((n + 1) / 2.0 * gap + 0.06, TABLE_Y + 0.0008 * pc, CARD_R + 0.02)
+			pstack.position = Vector3((n + 1) / 2.0 * gap + 0.06, TABLE_Y + 0.0008 * pc, _card_r + 0.02)
 			pstack.rotation.y = 0.25
 		_update_figure(seat, p)
 		if seat == _viewer:
@@ -738,8 +756,12 @@ func _held_pose() -> Transform3D:
 	return camera.global_transform * local
 
 
+# Ruhestellung relativ zur Kamera-Grundposition, damit die Hand bei jeder Platzzahl im Bild liegt.
 func _hand_rest() -> Transform3D:
-	return Transform3D(Basis(Vector3.UP, 0.5) * Basis(Vector3.RIGHT, -0.05), Vector3(0.33, TABLE_Y + 0.032, 0.66))
+	var base := Vector3(0.0, 1.27, 0.86)
+	if hand != null and hand.camera != null:
+		base = hand._cam_base
+	return Transform3D(Basis(Vector3.UP, 0.5) * Basis(Vector3.RIGHT, -0.05), Vector3(0.24, TABLE_Y + 0.032, base.z - 0.44))
 
 
 # Hand schwebt ueber einem Punkt, Fingerspitzen darauf, Blickrichtung wie die Kamera.
@@ -780,7 +802,7 @@ func _key_transform(key: String) -> Transform3D:
 			var n := list.size()
 			var gap := CARD_GAP if n <= 5 else CARD_GAP * 5.0 / float(n)
 			if root != null:
-				return root.global_transform * Transform3D(Basis(), Vector3((int(parts[2]) - (n - 1) / 2.0) * gap, TABLE_Y, CARD_R))
+				return root.global_transform * Transform3D(Basis(), Vector3((int(parts[2]) - (n - 1) / 2.0) * gap, TABLE_Y, _card_r))
 			return c.global_transform
 	return _deck_top.global_transform
 
