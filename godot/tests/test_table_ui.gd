@@ -21,6 +21,7 @@ func run(ctx) -> void:
 	_check_timer_pauses_for_powers()
 	_check_resume()
 	_check_game_over_rewards_once()
+	_check_single_animation_path()
 
 
 func _make_table(cfg: Dictionary, overrides: Dictionary = {}):
@@ -212,10 +213,12 @@ func _check_timer_pauses_for_powers() -> void:
 	var table = _make_table(_cfg({"seed": 107}), {"turn_timer": true, "turn_timer_seconds": 15})
 	table._process(0.1)
 	table.rules.state.turn_step = "jack"
+	table.session.broadcast()
 	var left: float = table._turn_left
 	table._process(20.0)
 	t.expect(is_equal_approx(table._turn_left, left) and int(table.rules.state.current_index) == 0, "Zugtimer laeuft bei Bube-Auswahl weiter")
 	table.rules.state.turn_step = "draw"
+	table.session.broadcast()
 	_free(table)
 
 
@@ -284,6 +287,8 @@ func _check_game_over_rewards_once() -> void:
 	r.state.players[1].total_score = 49
 	r.state.dame_caller_index = 0
 	r._resolve_round()
+	# Direkte Regel-Aenderung im Test: Sicht neu verteilen, der Tisch zeichnet nur aus ihr.
+	table.session.broadcast()
 	table._after_change()
 	table._after_change()
 	t.expect(table._over_panel.visible, "Spielende-Fenster fehlt")
@@ -292,4 +297,14 @@ func _check_game_over_rewards_once() -> void:
 	var expected: int = chips_before + 5 + 20 + 50 * 2
 	t.expect(int(app.profile.chips()) == expected, "Chips falsch: %d statt %d" % [int(app.profile.chips()), expected])
 	t.expect(not app.saves.has_save(), "Spielstand nach Spielende nicht geloescht")
+	_free(table)
+
+
+# Ein Darstellungsweg: jede Aktion wird genau einmal (aus der Sicht) animiert.
+func _check_single_animation_path() -> void:
+	var table = _make_table(_cfg({"seed": 108}))
+	var calls := [0]
+	table._table3d_queue_hook = func(_a): calls[0] += 1
+	table._on_deck()
+	t.expect(calls[0] == 1, "Ziehen wird %d-mal animiert" % calls[0])
 	_free(table)

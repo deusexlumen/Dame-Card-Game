@@ -1,13 +1,15 @@
 extends Control
 
-# Spieltisch. Besitzt genau ein DameRules-Objekt und ist der einzige Schreiber.
-# Zeigt nur DameView-Daten. KI-Zuege laufen schrittweise ueber einen Timer.
+# Spieltisch. Schreibt nur ueber die Session (DameHost), nie direkt in die Regeln.
+# Zeigt nur DameView-Daten; Darstellung, Animation und Toene kommen allein aus
+# _on_view. KI-Zuege laufen schrittweise ueber einen Timer.
 
 signal state_changed
 
 const DameRulesScript = preload("res://scripts/dame_rules.gd")
 const DameAIScript = preload("res://scripts/dame_ai.gd")
-const DameViewScript = preload("res://scripts/dame_view.gd")
+const DameHostScript = preload("res://scripts/net/dame_host.gd")
+const DameProtocol = preload("res://scripts/net/net_protocol.gd")
 const SeatViewScript = preload("res://scripts/ui/seat_view.gd")
 const CardViewScript = preload("res://scripts/ui/card_view.gd")
 const UiThemeScript = preload("res://scripts/ui/ui_theme.gd")
@@ -60,7 +62,12 @@ From round 3, at the start of your turn (D), if you think you have the fewest po
 const REVEAL_PEEK_MS := 3000
 const REVEAL_SWAP_MS := 2200
 
-var rules = null
+# DameHost (spaeter auch DameGuest). Einziger Weg, das Spiel zu veraendern.
+var session = null
+# Nur lesend: die Regeln des Hosts (Tests, Speichern). Gaeste haben keine.
+var rules:
+	get:
+		return session.rules if session != null and session.is_authority() else null
 var ai = null
 var config: Dictionary = {}
 var match_id := ""
@@ -76,6 +83,12 @@ var selected := -1
 var king_own := -1
 
 var _view: Dictionary = {}
+# Ergebnis der letzten eigenen Aktion (Host antwortet synchron).
+var _last_result: Dictionary = {}
+# Waehrend des Zeitablaufs: keine Einzeltoene, kein Aufdecken (wie bisher).
+var _quiet := false
+# Test-Haken: wird bei jeder animierten Aktion zusaetzlich aufgerufen.
+var _table3d_queue_hook: Callable
 var _reveal_until := {}
 var _recorded_deal := -1
 var _game_recorded := false
@@ -198,13 +211,9 @@ func start(cfg: Dictionary) -> void:
 		config.seed = int(Time.get_unix_time_from_system()) % 1000000 + randi() % 1000
 	match_id = str(config.get("match_id", "m%d" % int(config.seed)))
 	config.match_id = match_id
-	rules = DameRulesScript.new()
-	rules.start_match(config)
-	ai = DameAIScript.new(int(config.seed) + 7)
-	_after_start()
-	_reveal_own_known(REVEAL_DEAL_MS)
-	_save()
-	_after_change()
+	var r = DameRulesScript.new()
+	r.start_match(config)
+	_attach_host(r, int(config.seed) + 7, REVEAL_DEAL_MS)
 
 
 func _try_resume() -> bool:
@@ -218,15 +227,37 @@ func _try_resume() -> bool:
 	if not r.from_dict(data.rules):
 		app.saves.quarantine()
 		return false
-	rules = r
 	config = data.meta.get("config", {})
 	match_id = str(data.meta.get("match_id", "resume"))
 	_recorded_deal = int(data.meta.get("recorded_deal", -1))
-	ai = DameAIScript.new(int(config.get("seed", 1)) + int(rules.state.deal) * 31)
-	_after_start()
+	_attach_host(r, int(config.get("seed", 1)) + int(r.state.deal) * 31)
 	_toast_text("Spiel fortgesetzt.")
-	_after_change()
 	return true
+
+
+# Lokale Partie: dieses Geraet ist Host ohne Verbindung. Die erste Sicht kommt
+# ueber assign_seat und laeuft durch _on_view wie jede spaetere.
+func _attach_host(r, ai_seed: int, reveal_ms: int = 0) -> void:
+	session = DameHostScript.new(r, null)
+	session.view_changed.connect(_on_view)
+	session.action_result.connect(_on_result)
+	ai = DameAIScript.new(ai_seed)
+	session.local_seats = _human_seats_of(r)
+	_after_start()
+	if reveal_ms > 0:
+		_reveal_own_known(reveal_ms)
+	var seat: int = viewer_seat
+	if seat < 0:
+		seat = int(session.local_seats[0]) if not session.local_seats.is_empty() else 0
+	session.assign_seat(DameProtocol.HOST_PEER, seat)
+
+
+static func _human_seats_of(r) -> Array:
+	var out: Array = []
+	for p in r.state.players:
+		if not bool(p.is_ai):
+			out.append(int(p.seat))
+	return out
 
 
 func _after_start() -> void:
@@ -790,6 +821,8 @@ func confirm_handoff() -> void:
 	viewer_seat = seat
 	if relayout:
 		_layout_seats()
+	# Hot-Seat: das Geraet spielt jetzt diesen Platz; der Host ordnet ihn zu.
+	session.assign_seat(DameProtocol.HOST_PEER, seat)
 	_reveal_own_known(REVEAL_DEAL_MS if int(rules.state.round) == 1 else REVEAL_SWAP_MS)
 	_sound("click")
 	_after_change()
@@ -803,13 +836,10 @@ func _ai_step() -> void:
 		return
 	if not bool(rules.current_player().is_ai):
 		return
-	var before := _snapshot()
-	var result: Dictionary = ai.step(rules)
-	if _table3d != null and bool(result.get("ok", false)):
-		_table3d.queue_action(ai.last_action)
-	_feedback(before, result, int(before.current))
-	_save()
-	_after_change()
+	# Erfolg kommt als Sicht ueber _on_view; nur ein Fehlschlag braucht Nacharbeit.
+	var result: Dictionary = session.ai_step(ai)
+	if not bool(result.get("ok", false)):
+		_after_failure()
 
 
 # Fuer Tests: alle anstehenden KI-Schritte sofort ausfuehren.
@@ -826,27 +856,56 @@ func run_ai_until_human(max_steps: int = 400) -> void:
 		_ai_step()
 
 
+# Einziger Schreibweg des Menschen: Aktion an die Session. Der Platz kommt vom Host.
 func act(action: Dictionary) -> Dictionary:
-	if rules == null or handoff_pending:
+	if session == null or handoff_pending:
 		return {"ok": false, "reason": "Nicht bereit"}
-	action.seat = int(rules.state.current_index)
-	var before := _snapshot()
-	var result: Dictionary = rules.apply_action(action)
-	_feedback(before, result, int(before.current))
-	if bool(result.ok):
-		if _table3d != null:
-			_table3d.queue_action(action)
+	_last_result = {}
+	session.send_action(action)
+	# Host antwortet synchron; ein Gast bekommt das Ergebnis spaeter per Signal.
+	return _last_result if not _last_result.is_empty() else {"ok": true, "pending": true}
+
+
+# Antwort auf die eigene Aktion. Fehler: Ton und Hinweis, sonst Auswahl zuruecksetzen.
+func _on_result(msg: Dictionary) -> void:
+	_last_result = {"ok": bool(msg.get("ok", false)), "reason": str(msg.get("reason", ""))}
+	if bool(_last_result.ok):
 		selected = -1
 		king_own = -1
-		_after_human_action(action)
-	else:
-		_toast_text(str(result.reason))
-	_save()
+		return
+	_after_failure()
+	_toast_text(str(_last_result.reason))
+
+
+# Abgelehnte Aktion: Regeln koennen sich trotzdem geaendert haben (falsches
+# Extra-Ablegen gibt eine Strafkarte). Host verteilt die Sicht neu, Ton wie bisher.
+func _after_failure() -> void:
+	var before := _view
+	if session != null and session.is_authority():
+		session.broadcast()
+	_feedback_from(before, _view, {}, false)
+
+
+# Einziger Ort fuer Darstellung: Sicht merken, Aktion animieren, Toene, Aufdecken.
+func _on_view(view: Dictionary, action: Dictionary) -> void:
+	var before := _view
+	_view = view
+	if not action.is_empty():
+		if _table3d != null:
+			_table3d.queue_action(action)
+		if _table3d_queue_hook.is_valid():
+			_table3d_queue_hook.call(action)
+		if not _quiet:
+			_feedback_from(before, view, action)
+			var seat := int(action.get("seat", -1))
+			if seat >= 0 and seat == viewer_seat:
+				_after_own_action(action)
+	if session.is_authority():
+		_save()
 	_after_change()
-	return result
 
 
-func _after_human_action(action: Dictionary) -> void:
+func _after_own_action(action: Dictionary) -> void:
 	var seat := int(action.seat)
 	match str(action.type):
 		"swap":
@@ -854,43 +913,48 @@ func _after_human_action(action: Dictionary) -> void:
 		"look_card":
 			_reveal(int(action.target_seat), int(action.hand_index), REVEAL_PEEK_MS)
 		"king_swap":
-			var look = rules.state.last_look
+			var look = _view.get("private_look")
 			if look != null:
 				_toast_text(tr("König: angesehen %s, dann blind getauscht.") % _card_name(look))
 
 
-func _snapshot() -> Dictionary:
-	return {
-		"current": int(rules.state.current_index),
-		"penalties": _penalty_total(),
-		"phase": str(rules.state.phase),
-		"discard": rules.state.discard.size(),
-	}
-
-
-func _penalty_total() -> int:
+static func _penalties_in(view: Dictionary) -> int:
 	var n := 0
-	for p in rules.state.players:
-		n += p.penalty_cards.size()
+	for p in view.get("players", []):
+		n += int(p.penalty_count)
 	return n
 
 
-func _feedback(before: Dictionary, result: Dictionary, _seat: int) -> void:
-	var phase := str(rules.state.phase)
-	if _penalty_total() > int(before.penalties) and phase != "round_end":
+# Toene aus dem Vergleich zweier Sichten, Reihenfolge wie bisher.
+func _feedback_from(before: Dictionary, after: Dictionary, action: Dictionary, ok: bool = true) -> void:
+	if str(action.get("type", "")) == "start_next_round":
+		_reveal_until.clear()
+		if is_hotseat():
+			viewer_seat = -1
+			spectating = true
+		else:
+			_reveal_own_known(REVEAL_DEAL_MS)
+		_sound("shuffle")
+		return
+	if before.is_empty() or after.is_empty():
+		if not ok:
+			_sound("error")
+		return
+	var phase := str(after.phase)
+	if _penalties_in(after) > _penalties_in(before) and phase != "round_end":
 		_sound("penalty")
-	elif not bool(result.get("ok", false)):
+	elif not ok:
 		_sound("error")
 		return
 	if phase == "dame_called" and str(before.phase) == "play":
 		_sound("dame")
 	elif phase == "game_over":
 		# Sieg-Jingle nur, wenn ein Mensch gewinnt; sonst der absteigende.
-		var w := int(rules.state.winner_index)
-		_sound("win" if w >= 0 and not bool(rules.state.players[w].is_ai) else "lose")
+		var w := int(after.winner_index)
+		_sound("win" if w >= 0 and not bool(after.players[w].is_ai) else "lose")
 	elif phase == "round_end":
 		_sound("flip")
-	elif rules.state.discard.size() != int(before.discard):
+	elif int(after.discard_count) != int(before.discard_count):
 		_sound("place")
 	else:
 		_sound("draw")
@@ -975,17 +1039,9 @@ func end_turn() -> void:
 
 
 func next_deal() -> void:
-	if rules != null and str(rules.state.phase) == "round_end":
-		rules.apply_action({"type": "start_next_round"})
-		_reveal_until.clear()
-		if is_hotseat():
-			viewer_seat = -1
-			spectating = true
-		else:
-			_reveal_own_known(REVEAL_DEAL_MS)
-		_sound("shuffle")
-		_save()
-		_after_change()
+	# Nur der Host startet die naechste Ausgabe; Ton und Aufdecken kommen aus _on_view.
+	if session != null and session.is_authority() and str(rules.state.phase) == "round_end":
+		session.next_round()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1120,24 +1176,15 @@ func _process(delta: float) -> void:
 func timeout_turn() -> void:
 	if not _human_turn():
 		return
-	var seat := int(rules.state.current_index)
-	# Zeit abgelaufen: erst genau eine Strafkarte, dann den Zug sicher beenden.
-	var pen: Dictionary = rules.apply_action({"type": "timeout_penalty", "seat": seat})
-	if bool(pen.get("ok", false)):
+	# Zeit abgelaufen: der Host gibt genau eine Strafkarte und beendet den Zug sicher.
+	# Die Einzelschritte bleiben stumm; Toene und Hinweis wie bisher einmal am Ende.
+	_quiet = true
+	var res: Dictionary = session.timeout_turn(ai)
+	_quiet = false
+	if bool(res.get("ok", false)):
 		_sound("penalty")
-	var guard := 0
-	while guard < 8 and int(rules.state.current_index) == seat and _human_turn():
-		guard += 1
-		var fallback: Dictionary = ai.fallback_action(rules, seat)
-		var r: Dictionary = rules.apply_action(fallback)
-		if not bool(r.ok):
-			break
-		if _table3d != null:
-			_table3d.queue_action(fallback)
 	_toast_text("Zeit abgelaufen – Strafkarte, Zug beendet.")
 	_sound("error")
-	_save()
-	_after_change()
 
 
 # ---------------------------------------------------------------- Darstellung
@@ -1188,10 +1235,9 @@ func _targets_for(seat: int, data: Dictionary) -> Array:
 
 
 func _refresh() -> void:
-	if rules == null:
+	# Zeichnet nur aus der zuletzt empfangenen Sicht plus lokalem UI-Zustand.
+	if _view.is_empty() or rules == null:
 		return
-	var vs := viewer_seat if viewer_seat >= 0 else (int(human_seats[0]) if not human_seats.is_empty() else 0)
-	_view = DameViewScript.for_viewer(rules, vs)
 	var phase := str(_view.phase)
 	for seat in _seats:
 		var data: Dictionary = _view.players[seat]
