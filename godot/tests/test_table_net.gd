@@ -27,7 +27,8 @@ var table
 # Ersatzeingabe noetig war (Bericht).
 var fallback_count := 0
 var guest_inputs := 0
-# Eingabearten des Gast-Tischs (Abdeckung: Bube, Koenig, Extra, Dame ueber Eingaben).
+# Eingabearten des Gast-Tischs, gezaehlt nur wenn der Host sie angenommen hat (Zustand
+# hat sich geaendert). Gefordert: Bube, Koenig, Extra-Ablage und Dame-Ruf ueber Eingaben.
 var input_types := {}
 
 
@@ -44,8 +45,9 @@ func run(ctx) -> void:
 		save_before = app.saves.load_match()
 	for seed in [23, 58]:
 		_play_game(seed)
+	_check_late_seat()
 	print("TABLE_NET fallback=%d guest_inputs=%d types=%s" % [fallback_count, guest_inputs, str(input_types)])
-	for type in ["draw_deck", "swap", "discard_drawn", "look_card", "king_swap", "end_turn"]:
+	for type in ["draw_deck", "swap", "discard_drawn", "look_card", "king_swap", "end_turn", "discard_extra", "call_dame"]:
 		t.expect(int(input_types.get(type, 0)) > 0, "Gast-Tisch hat %s nie ueber Eingaben gespielt" % type)
 	t.expect(fallback_count * 4 <= guest_inputs, "Zu viele Ersatzeingaben: %d von %d" % [fallback_count, guest_inputs])
 	if app != null:
@@ -238,10 +240,12 @@ func _host_candidates(view: Dictionary) -> Array:
 func _guest_step(rng: RandomNumberGenerator) -> void:
 	t.expect(int(table._view.current_index) == GUEST_SEAT and table._human_turn(), "Gast-Tisch nicht am Zug, obwohl der Host es sagt")
 	var before := var_to_str(rules.state)
-	_input(DamePolicyScript.choose(table._view, rng))
+	var choice: Dictionary = DamePolicyScript.choose(table._view, rng)
+	_input(choice)
 	_sync()
 	guest_inputs += 1
 	if var_to_str(rules.state) != before:
+		input_types[str(choice.type)] = int(input_types.get(str(choice.type), 0)) + 1
 		return
 	fallback_count += 1
 	_fallback_input()
@@ -250,7 +254,6 @@ func _guest_step(rng: RandomNumberGenerator) -> void:
 
 
 func _input(action: Dictionary) -> void:
-	input_types[str(action.type)] = int(input_types.get(str(action.type), 0)) + 1
 	match str(action.type):
 		"draw_deck":
 			if guest_inputs % 2 == 0:
@@ -311,3 +314,30 @@ func _fallback_input() -> void:
 					break
 		_:
 			table.end_turn()
+
+
+# Gast-Tisch haengt vor der Platzzuweisung des Hosts: der Platz kommt mit der ersten Sicht.
+func _check_late_seat() -> void:
+	rules = DameRulesScript.new()
+	rules.start_match({"seed": 77, "seat_count": 3, "ai_seats": [2]})
+	var hub = Loopback.new_hub()
+	host = DameHost.new(rules, hub.link(Protocol.HOST_PEER))
+	guest = DameGuest.new(hub.link(GUEST_PEER))
+	guest.connect_to_host()
+	host.poll()
+	guest.poll()
+	table = TableScene.instantiate()
+	table.instant_ai = true
+	table.settings_override = {"memory_aid": true, "turn_timer": false, "animations": false}
+	table.pending_session = guest
+	t.root.add_child(table)
+	t.expect(table._view.is_empty(), "Testannahme: Tisch ohne erste Sicht")
+	host.assign_seat(Protocol.HOST_PEER, 0)
+	host.assign_seat(GUEST_PEER, GUEST_SEAT)
+	guest.poll()
+	t.expect(table.local_seats == [GUEST_SEAT] and table.viewer_seat == GUEST_SEAT, "Spaeter Gast: Platz %s / %d" % [str(table.local_seats), table.viewer_seat])
+	t.expect(table._seats.size() == 3, "Spaeter Gast ohne Plaetze")
+	t.expect(str(table._seats[GUEST_SEAT].get_meta("role")) == "self", "Spaeter Gast: eigener Platz ist nicht 'self'")
+	t.expect(str(table._seats[0].get_meta("role")) == "right" or str(table._seats[0].get_meta("role")) == "left", "Spaeter Gast: Host-Platz Rolle")
+	t.root.remove_child(table)
+	table.free()

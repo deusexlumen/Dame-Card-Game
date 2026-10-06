@@ -24,7 +24,7 @@ DameHost/DameGuest (session)
 
 ## Session
 
-`DameHost` führt die Spielregeln aus, gilt als Autorität und ist der einzige Schreiber von `DameRules`. Sie empfängt Aktionen, führt sie durch, berechnet die neue `DameView` für alle und sendet sie. `DameGuest` empfängt nur Aktionen und Sichten — keine `DameRules`-Instanz, kein Save, kein Zugtimer, kein Auslöser für nächste Runde. Hot-Seat wechselt `HOST_PEER` nur in `confirm_handoff`. Auf dem Tisch ist `rules` bei Gästen `null`. Tests: `test_golden` (bitgenau offline), `test_net` (Online), `test_table_net` (Tisch-Netzwerk-Interaktion).
+`DameHost` führt die Spielregeln aus, gilt als Autorität und ist der einzige Schreiber von `DameRules`. Sie empfängt Aktionen, führt sie durch, berechnet die neue `DameView` für alle und sendet sie. `DameGuest` sendet Aktionen und empfängt nur Sichten — keine `DameRules`-Instanz, kein Save, kein Zugtimer, kein Auslöser für nächste Runde. Hot-Seat wechselt `HOST_PEER` nur in `confirm_handoff`. Auf dem Tisch ist `rules` bei Gästen `null`. Tests: `test_golden` (bitgenau offline), `test_net` (Online), `test_table_net` (Tisch-Netzwerk-Interaktion).
 
 No autoload for match state. The autoload `App` holds only services (settings, stats, profile, saves, audio) and scene switching. Match state in an autoload leaks across tests.
 

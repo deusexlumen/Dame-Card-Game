@@ -27,7 +27,7 @@ Weil die Regeln jetzt in GDScript leben, wäre ein Nakama-TypeScript-Server eine
 - **Ein Regelcode für Offline, Hot-Seat und Online.** Die 565 Tests sichern auch den Server ab.
 - **Lobby v1 selbst gebaut und klein:** Partie erstellen → 6-stelliger Code/Link → beitreten. Ein Server-Prozess kann viele Partien parallel halten (Kartenspiel = wenig Last).
 - **Presence/Abbruch-Stufen (§11)** direkt im Server: Verbindungs- und Fokus-Events (`NOTIFICATION_APPLICATION_FOCUS_OUT`, Web `visibilitychange`) zählen die Reserven.
-- **Hosting:** kleiner VPS (Hetzner o. Ä.) mit Docker-Image des Godot-Servers hinter TLS (wss://), weil die Seite über https läuft.
+- **Hosting überholt (2026-10-06): kein VPS, P2P per WebRTC, siehe `docs/online-p2p-plan.md`.** Ursprünglich: kleiner VPS (Hetzner o. Ä.) mit Docker-Image des Godot-Servers hinter TLS (wss://), weil die Seite über https läuft.
 - **Später (v2):** Für Accounts, Freunde, Matchmaking, Ranglisten und Echtgeld-Inventar kann **Nakama daneben** kommen. Dann macht Nakama Matchmaking/Accounts und vermittelt an Godot-Server-Instanzen, die Regeln bleiben in Godot.
 
 Verworfen: Nakama-only mit TS-Regeln (doppelte Regeln), Supabase (kein Echtzeit-Tick, Presence/Autorität selbst stricken).

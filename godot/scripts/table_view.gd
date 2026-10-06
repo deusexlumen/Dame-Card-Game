@@ -101,6 +101,8 @@ var _table3d_queue_hook: Callable
 var _reveal_until := {}
 var _recorded_deal := -1
 var _game_recorded := false
+# Gast wartet noch auf seinen Platz (Sicht kam erst nach dem Anhaengen).
+var _guest_seat_pending := false
 var _turn_left := 0.0
 var _turn_owner := -1
 var _accent := Color(0.55, 1.0, 0.55)
@@ -268,7 +270,11 @@ func _attach_host(r, ai_seed: int, reveal_ms: int = 0) -> void:
 
 # Online-Gast: keine Regeln, keine KI. Der eigene Platz steht in der Sicht des Hosts;
 # lokale Plaetze werden vor der ersten Sicht gesetzt.
+# Geltungsbereich: nur Sessions ohne Autoritaet. Der Online-Host-Tisch ist ein spaeterer Schritt.
 func _attach_guest(s) -> void:
+	if s.is_authority():
+		push_error("Tisch: Authority-Session kann nicht als Gast angehaengt werden")
+		return
 	session = s
 	session.view_changed.connect(_on_view)
 	session.action_result.connect(_on_result)
@@ -279,6 +285,8 @@ func _attach_guest(s) -> void:
 	# Eigene Kennung fuer Chip-Belohnungen (jede Online-Partie zaehlt einzeln).
 	match_id = "net%d-%d" % [int(Time.get_unix_time_from_system()), randi() % 100000]
 	if first.is_empty():
+		# Platz kommt mit der ersten Sicht (siehe _on_view).
+		_guest_seat_pending = true
 		return
 	_on_view(first, {})
 	_reveal_own_known(REVEAL_DEAL_MS)
@@ -926,6 +934,13 @@ func _on_result(msg: Dictionary) -> void:
 func _on_view(view: Dictionary, action: Dictionary) -> void:
 	var before := _view
 	_view = view
+	# Gast vor Platzzuweisung angehaengt: Platz aus der ersten Sicht, einmal neu aufbauen.
+	if _guest_seat_pending and not view.is_empty() and not session.is_authority():
+		_guest_seat_pending = false
+		local_seats = [int(view.get("viewer_seat", 0))]
+		viewer_seat = int(local_seats[0])
+		if not _seats.is_empty():
+			_layout_seats()
 	_views_seen += 1
 	# Erste Sicht (oder andere Platzzahl): Plaetze aus der Sicht aufbauen.
 	if _seats.size() != int(view.seat_count):
@@ -1539,13 +1554,18 @@ func _card_name(card: Dictionary) -> String:
 
 func _save() -> void:
 	var app := _app()
-	# Speichern kann nur der Host (nur er hat die Regeln).
-	if app == null or session == null or not session.is_authority() or _view.is_empty():
+	# Speichern nur als Authority ohne Link (ein Online-Host speichert in 1b nicht).
+	if app == null or not _owns_save() or _view.is_empty():
 		return
 	if str(_view.phase) == "game_over":
 		app.saves.clear()
 		return
 	app.saves.save_match(rules.to_dict(), {"config": config, "match_id": match_id, "recorded_deal": _recorded_deal})
+
+
+# Spielstand gehoert nur der lokalen Partie: Authority und kein Link.
+func _owns_save() -> bool:
+	return session != null and session.is_authority() and session.link == null
 
 
 func _local_seat() -> int:
@@ -1600,6 +1620,6 @@ func _record_game_once() -> void:
 		var amount := CatalogScript.REWARD_WIN * (CatalogScript.HARD_MULTIPLIER if _has_hard_ai() else 1)
 		if app.profile.award("%s-win" % match_id, amount):
 			config["_chips_earned"] = int(config.get("_chips_earned", 0)) + amount
-	# Nur der Host besitzt den Spielstand; ein Gast loescht nie eine fremde Offline-Partie.
-	if session != null and session.is_authority():
+	# Nur die lokale Partie besitzt den Spielstand; Gast und Online-Host loeschen nie eine fremde.
+	if _owns_save():
 		app.saves.clear()

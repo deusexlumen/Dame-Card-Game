@@ -58,6 +58,9 @@ func poll() -> void:
 	if link == null:
 		return
 	for pkt in link.receive():
+		# Die Host-Kennung gehoert nur dem Host selbst: gefaelschte Absender verwerfen.
+		if int(pkt.from) == Protocol.HOST_PEER:
+			continue
 		_dispatch(handle_packet(int(pkt.from), pkt.bytes))
 
 
@@ -112,7 +115,8 @@ func handle_packet(from: int, bytes: PackedByteArray) -> Array:
 	var msg := Codec.decode(bytes)
 	match str(msg.get("t", "")):
 		"hello":
-			if int(msg.get("v", -1)) != Protocol.VERSION:
+			var v = msg.get("v")
+			if typeof(v) != TYPE_INT or int(v) != Protocol.VERSION:
 				return [{"to": from, "msg": {"t": "reject", "reason": "Falsche Spielversion"}}]
 			peer_joined.emit(from)
 			return [{"to": from, "msg": {"t": "welcome", "peer": from}}]

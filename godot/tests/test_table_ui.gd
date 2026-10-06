@@ -5,6 +5,9 @@ extends RefCounted
 
 const TableScene = preload("res://scenes/table.tscn")
 const DameProtocol = preload("res://scripts/net/net_protocol.gd")
+const DameHostScript = preload("res://scripts/net/dame_host.gd")
+const DameRulesScript = preload("res://scripts/dame_rules.gd")
+const LoopbackScript = preload("res://scripts/net/loopback_link.gd")
 
 
 # Host ohne Autoritaet nach aussen: der Tisch sieht keine Regeln, nur Sichten (wie ein Gast).
@@ -32,6 +35,8 @@ func run(ctx) -> void:
 	_check_handoff_never_shows_previous_memory()
 	_check_round_recorded_once()
 	_check_table_without_rules()
+	_check_linked_host_keeps_save()
+	_check_attach_guest_rejects_authority()
 
 
 func _make_table(cfg: Dictionary, overrides: Dictionary = {}):
@@ -456,4 +461,40 @@ func _check_table_without_rules() -> void:
 		app.profile._save()
 		app.stats.values = stats_before
 		app.stats._touch()
+	_free(table)
+
+
+# Online-Host (Session mit Link) speichert in 1b nicht und loescht keinen Spielstand.
+func _check_linked_host_keeps_save() -> void:
+	if app == null:
+		return
+	var table = _make_table(_cfg({"seed": 113, "seat_count": 2, "ai_seats": [1], "names": ["Spieler", "A"]}))
+	var hub = LoopbackScript.new_hub()
+	table.session.link = hub.link(DameProtocol.HOST_PEER)
+	app.saves.save_match({"sentinel": true}, {"sentinel": true})
+	table._save()
+	var data: Dictionary = app.saves.load_match()
+	t.expect(not data.is_empty() and bool(data.meta.get("sentinel", false)), "Host mit Link ueberschreibt den Spielstand")
+	table._view = table._view.duplicate(true)
+	table._view.phase = "game_over"
+	table._view.winner_index = 1
+	table._save()
+	t.expect(app.saves.has_save(), "Host mit Link loescht den Spielstand bei Spielende (_save)")
+	table._record_game_once()
+	t.expect(app.saves.has_save(), "Host mit Link loescht den Spielstand bei Spielende (_record_game_once)")
+	app.saves.clear()
+	_free(table)
+
+
+# Ein Authority-Session darf nicht als Gast angehaengt werden (Online-Host-Tisch kommt spaeter).
+func _check_attach_guest_rejects_authority() -> void:
+	var rules = DameRulesScript.new()
+	rules.start_match({"seed": 114, "seat_count": 2, "ai_seats": [1]})
+	var host = DameHostScript.new(rules, null)
+	var table = TableScene.instantiate()
+	table.instant_ai = true
+	table.settings_override = {"memory_aid": true, "turn_timer": false, "animations": false}
+	table.pending_session = host
+	t.root.add_child(table)
+	t.expect(table.session == null, "Authority-Session als Gast angehaengt")
 	_free(table)

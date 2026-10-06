@@ -180,3 +180,10 @@ func _check_view_geometry() -> void:
 		t.expect(str(p.role) == DameRulesScript.seat_role_for(2, int(p.seat), 6), "Rolle ungleich statischer Funktion")
 		t.expect(is_equal_approx(float(p.angle), rules.seat_angle(2, int(p.seat))), "Winkel fehlt in der Sicht")
 		t.expect(p.has("deal_penalties"), "deal_penalties fehlt in der Sicht")
+	# Fest verdrahtete Erwartung (nicht aus derselben Funktion abgeleitet): Betrachter 2, 6 Plaetze.
+	var expected := {2: -0.0, 3: -60.0, 4: -120.0, 5: -180.0, 0: -240.0, 1: -300.0}
+	for p in view.players:
+		var want: float = expected[int(p.seat)]
+		t.expect(is_equal_approx(float(p.angle), want), "Winkel Sitz %d aus Sicht 2: %s statt %s" % [int(p.seat), str(p.angle), str(want)])
+	t.expect(str(view.players[2].role) == "self", "Sitz 2 ist nicht 'self'")
+	t.expect(str(view.players[3].role) == "left", "Sitz 3 ist nicht 'left'")

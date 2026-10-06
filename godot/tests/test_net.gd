@@ -24,6 +24,8 @@ var guest
 var hub
 var last_result: Dictionary = {}
 var guest_views := 0
+var peer_joins := 0
+var host_views := 0
 var leak_checks := 0
 
 
@@ -48,6 +50,8 @@ func _setup(seed: int) -> void:
 	guest = DameGuest.new(hub.link(GUEST_PEER))
 	last_result = {}
 	host.action_result.connect(_on_result)
+	host.peer_joined.connect(func(_p): peer_joins += 1)
+	host.view_changed.connect(func(_v, _a): host_views += 1)
 	guest.action_result.connect(_on_result)
 	guest.connect_to_host()
 	host.poll()
@@ -98,6 +102,21 @@ func _check_handshake() -> void:
 	for pkt in stranger.receive():
 		rejected = str(Codec.decode(pkt.bytes).get("t", "")) == "reject"
 	t.expect(rejected, "Falsche Version nicht abgewiesen")
+	# Feindliches hello mit Nicht-Zahl als Version: abweisen, kein Skriptfehler.
+	for bad_v in ["x", [1], {"a": 1}, null, 1.5]:
+		stranger.send(Protocol.HOST_PEER, Codec.encode({"t": "hello", "v": bad_v}))
+		host.poll()
+		var bad_rejected := false
+		for pkt in stranger.receive():
+			bad_rejected = str(Codec.decode(pkt.bytes).get("t", "")) == "reject"
+		t.expect(bad_rejected, "hello mit Typ-fremder Version nicht abgewiesen: " + str(bad_v))
+	# Gefaelschte Absenderkennung des Hosts wird verworfen.
+	var joined_before := peer_joins
+	hub.deliver(Protocol.HOST_PEER, Protocol.HOST_PEER, Codec.encode({"t": "hello", "v": Protocol.VERSION}))
+	hub.deliver(Protocol.HOST_PEER, Protocol.HOST_PEER, Codec.encode({"t": "action", "action": {"type": "draw_deck"}}))
+	var views_before := host_views
+	host.poll()
+	t.expect(peer_joins == joined_before and host_views == views_before and hub.queues[Protocol.HOST_PEER].is_empty(), "Paket mit Absender HOST_PEER nicht verworfen")
 	stranger.send(Protocol.HOST_PEER, PackedByteArray([7, 7, 7]))
 	host.poll()
 	t.expect(stranger.receive().is_empty(), "Muellpaket beantwortet")
