@@ -62,7 +62,7 @@ From round 3, at the start of your turn (D), if you think you have the fewest po
 const REVEAL_PEEK_MS := 3000
 const REVEAL_SWAP_MS := 2200
 
-# DameHost (spaeter auch DameGuest). Einziger Weg, das Spiel zu veraendern.
+# DameHost oder DameGuest. Einziger Weg, das Spiel zu veraendern.
 var session = null
 # Nur lesend: die Regeln des Hosts (Start, Fortsetzen, Speichern, Tests). Gaeste haben keine.
 var rules:
@@ -78,6 +78,9 @@ var instant_ai := false
 var settings_override: Dictionary = {}
 # Gesetzt vor add_child: Tisch startet mit dieser Konfiguration (Tests).
 var pending_config: Dictionary = {}
+# Gesetzt vor add_child: Tisch spielt als Online-Gast ueber diese Session (DameGuest
+# mit erster Sicht). Ohne Regeln, ohne KI, ohne Spielstand.
+var pending_session = null
 var handoff_pending := false
 var spectating := false
 var selected := -1
@@ -151,6 +154,9 @@ func _ready() -> void:
 	# Marker fuer den Web-Smoke-Test.
 	print("TABLE_READY 3d=%s" % str(_use_3d))
 	if session != null:
+		return
+	if pending_session != null:
+		_attach_guest(pending_session)
 		return
 	if not pending_config.is_empty():
 		start(pending_config)
@@ -258,6 +264,25 @@ func _attach_host(r, ai_seed: int, reveal_ms: int = 0) -> void:
 	if reveal_ms > 0:
 		_reveal_own_known(reveal_ms)
 		_refresh()
+
+
+# Online-Gast: keine Regeln, keine KI. Der eigene Platz steht in der Sicht des Hosts;
+# lokale Plaetze werden vor der ersten Sicht gesetzt.
+func _attach_guest(s) -> void:
+	session = s
+	session.view_changed.connect(_on_view)
+	session.action_result.connect(_on_result)
+	ai = null
+	var first: Dictionary = session.latest_view
+	local_seats = [int(first.get("viewer_seat", 0))]
+	viewer_seat = int(local_seats[0])
+	# Eigene Kennung fuer Chip-Belohnungen (jede Online-Partie zaehlt einzeln).
+	match_id = "net%d-%d" % [int(Time.get_unix_time_from_system()), randi() % 100000]
+	if first.is_empty():
+		return
+	_on_view(first, {})
+	_reveal_own_known(REVEAL_DEAL_MS)
+	_refresh()
 
 
 static func _human_seats_of(r) -> Array:
@@ -1059,8 +1084,13 @@ func end_turn() -> void:
 
 func next_deal() -> void:
 	# Nur der Host startet die naechste Ausgabe; Ton und Aufdecken kommen aus _on_view.
-	if session != null and session.is_authority() and str(_view.get("phase", "")) == "round_end":
+	if session == null or str(_view.get("phase", "")) != "round_end":
+		return
+	if session.is_authority():
 		session.next_round()
+	else:
+		# Gast: nur der Hinweis, er bleibt auch nach jedem Neuzeichnen (_prompt_text).
+		_prompt.text = _prompt_text()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1167,6 +1197,9 @@ func _on_play_again() -> void:
 # ---------------------------------------------------------------- Zugtimer
 
 func _process(delta: float) -> void:
+	# Online: Pakete abholen (Gast immer, Host nur mit Verbindung).
+	if session != null and session.link != null:
+		session.poll()
 	if _view.is_empty():
 		return
 	# Zugtimer laeuft nur beim Host; ein Gast hat (vorerst) keinen.
@@ -1305,7 +1338,11 @@ func _refresh() -> void:
 	_over_panel.visible = phase == "game_over"
 	if phase == "round_end":
 		_round_text.text = _round_summary()
-		if not _round_button.has_focus():
+		# Die naechste Ausgabe startet nur der Host; der Gast wartet.
+		var host: bool = session.is_authority()
+		_round_button.disabled = not host
+		_round_button.text = "Nächste Ausgabe [Enter]" if host else "Warte auf den Host …"
+		if host and not _round_button.has_focus():
 			_round_button.grab_focus()
 	if phase == "game_over":
 		_over_text.text = _game_summary()
@@ -1328,6 +1365,8 @@ func _info_text() -> String:
 func _prompt_text() -> String:
 	var phase := str(_view.phase)
 	if phase == "round_end":
+		if session != null and not session.is_authority():
+			return tr("Warte auf den Host …")
 		return "Ausgabe vorbei. Alle Karten liegen offen."
 	if phase == "game_over":
 		return "Spiel vorbei."

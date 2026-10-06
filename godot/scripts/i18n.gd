@@ -126,6 +126,7 @@ const EN := {
 	# Tisch: Hinweise und Knoepfe
 	"Spiel fortgesetzt.": "Game resumed.",
 	"Nächste Ausgabe [Enter]": "Next deal [Enter]",
+	"Warte auf den Host …": "Waiting for the host …",
 	"Neues Spiel": "New game",
 	"Hauptmenü": "Main menu",
 	"Pause": "Pause",
