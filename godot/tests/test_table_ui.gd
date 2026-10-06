@@ -394,20 +394,66 @@ func _check_round_recorded_once() -> void:
 	_free(table)
 
 
-# Tisch ohne Zugriff auf die Regeln (wie ein Gast): zeichnet und spielt allein aus der Sicht.
+# Tisch ohne Zugriff auf die Regeln (wie ein Gast): zeichnet und spielt allein aus der Sicht,
+# fuehrt aber nichts aus, was nur der Host darf (Zugtimer, naechste Ausgabe, Spielstand).
 func _check_table_without_rules() -> void:
-	var table = _make_table(_cfg({"seed": 111}))
-	var host = ViewOnlyHost.new(table.session.rules, null)
+	var table = _make_table(_cfg({"seed": 111, "seat_count": 2, "ai_seats": [1], "difficulties": {1: "hard"}, "names": ["Spieler", "A"]}), {"turn_timer": true, "turn_timer_seconds": 15})
+	var r = table.rules
+	var host = ViewOnlyHost.new(r, null)
 	host.local_seats = [0]
 	host.view_changed.connect(table._on_view)
 	host.action_result.connect(table._on_result)
 	table.session = host
 	host.assign_seat(DameProtocol.HOST_PEER, 0)
+	var actions: Array = []
+	host.view_changed.connect(func(_v, a):
+		if not a.is_empty():
+			actions.append(a))
+	# Fremder Offline-Spielstand, den ein Gast nie anfassen darf. Profil und Statistik
+	# sichern: der Gast zaehlt seine Partie selbst, das darf spaetere Suites nicht verfaelschen.
+	var profile_before: Dictionary = {}
+	var stats_before: Dictionary = {}
+	if app != null:
+		app.saves.save_match({"sentinel": true}, {"sentinel": true})
+		profile_before = app.profile.data.duplicate(true)
+		stats_before = app.stats.values.duplicate(true)
 	t.expect(table.rules == null, "Testannahme: Tisch sieht keine Regeln")
 	t.expect(table._human_turn(), "ohne Regeln nicht am Zug")
 	t.expect("Ziehe" in table._prompt.text, "ohne Regeln kein Hinweis: " + table._prompt.text)
 	t.expect(table._deck_view.targetable, "ohne Regeln Stapel nicht waehlbar")
+	# Zugtimer: beim Gast aus, kein Zeitablauf.
+	var pens: int = r.state.players[0].penalty_cards.size()
+	table._process(0.1)
+	table._process(999.0)
+	t.expect(not table._timer_bar.visible, "Gast zeigt Zugtimer")
+	table.timeout_turn()
+	t.expect(actions.is_empty(), "Gast loest Zeitablauf aus: %s" % str(actions))
+	t.expect(r.state.players[0].penalty_cards.size() == pens and int(r.state.current_index) == 0, "Gast gibt Strafkarte durch Zeitablauf")
 	table._on_deck()
 	t.expect(table._view.drawn != null and str(table._view.turn_step) == "play", "ohne Regeln kein Ziehen")
 	t.expect(table._drawn_view.shows_face(), "ohne Regeln gezogene Karte nicht sichtbar")
+	# Rundenende: naechste Ausgabe startet nur der Host.
+	r.state.dame_caller_index = 0
+	r._resolve_round()
+	host.broadcast()
+	t.expect(str(table._view.phase) == "round_end", "Testannahme: Rundenende erreicht: " + str(table._view.phase))
+	var deal := int(r.state.deal)
+	table.next_deal()
+	_key(table, KEY_ENTER)
+	t.expect(int(r.state.deal) == deal and str(r.state.phase) == "round_end", "Gast startet die naechste Ausgabe")
+	# Spielende: der fremde Spielstand bleibt erhalten.
+	for i in range(r.state.players[0].hand.size()):
+		r.state.players[0].hand[i].value = 0
+	r.state.players[1].total_score = 49
+	r._resolve_round()
+	host.broadcast()
+	t.expect(str(table._view.phase) == "game_over", "Testannahme: Spielende erreicht: " + str(table._view.phase))
+	if app != null:
+		var data: Dictionary = app.saves.load_match()
+		t.expect(not data.is_empty() and bool(data.meta.get("sentinel", false)), "Gast hat den Offline-Spielstand geloescht oder ueberschrieben")
+		app.saves.clear()
+		app.profile.data = profile_before
+		app.profile._save()
+		app.stats.values = stats_before
+		app.stats._touch()
 	_free(table)

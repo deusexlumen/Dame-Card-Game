@@ -1169,6 +1169,11 @@ func _on_play_again() -> void:
 func _process(delta: float) -> void:
 	if _view.is_empty():
 		return
+	# Zugtimer laeuft nur beim Host; ein Gast hat (vorerst) keinen.
+	if session == null or not session.is_authority():
+		_timer_bar.visible = false
+		_turn_owner = -1
+		return
 	var step := str(_view.turn_step)
 	# Pause bei Bube/Koenig-Auswahl (Spec Blitz-Modus).
 	var paused := step == "jack" or step == "king"
@@ -1556,4 +1561,6 @@ func _record_game_once() -> void:
 		var amount := CatalogScript.REWARD_WIN * (CatalogScript.HARD_MULTIPLIER if _has_hard_ai() else 1)
 		if app.profile.award("%s-win" % match_id, amount):
 			config["_chips_earned"] = int(config.get("_chips_earned", 0)) + amount
-	app.saves.clear()
+	# Nur der Host besitzt den Spielstand; ein Gast loescht nie eine fremde Offline-Partie.
+	if session != null and session.is_authority():
+		app.saves.clear()
