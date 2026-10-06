@@ -9,16 +9,22 @@ The web split was `gameLogic.ts` (pure) / `aiPlayer.ts` (pure) / `useGameEngine.
 
 ## Call down, signal up
 
-Parent calls child methods. Child emits. Rules never emit. A `DameTable` node owns one `DameRules` instance and is the only writer.
+Parent calls child methods. Child emits. Rules never emit. A `DameTable` node reads only its own `DameView` and writes only through a session (`DameHost` or `DameGuest`).
 
 ```
 DameTable (Node)
-  calls DameRules.draw_from_deck(state, actor_id)
-  builds DameView.for_viewer(state, viewer_id)
-  pushes view into seat widgets
-Seat emits slot_pressed(index)
-DameTable validates, then calls rules
+  reads its own DameView (updated by session)
+  receives action_result signal
+  emits seat input → session
+DameHost/DameGuest (session)
+  holds/calls DameRules (Host only)
+  sends view with each action
+  writes to table via signal
 ```
+
+## Session
+
+`DameHost` führt die Spielregeln aus, gilt als Autorität und ist der einzige Schreiber von `DameRules`. Sie empfängt Aktionen, führt sie durch, berechnet die neue `DameView` für alle und sendet sie. `DameGuest` empfängt nur Aktionen und Sichten — keine `DameRules`-Instanz, kein Save, kein Zugtimer, kein Auslöser für nächste Runde. Hot-Seat wechselt `HOST_PEER` nur in `confirm_handoff`. Auf dem Tisch ist `rules` bei Gästen `null`. Tests: `test_golden` (bitgenau offline), `test_net` (Online), `test_table_net` (Tisch-Netzwerk-Interaktion).
 
 No autoload for match state. The autoload `App` holds only services (settings, stats, profile, saves, audio) and scene switching. Match state in an autoload leaks across tests.
 
