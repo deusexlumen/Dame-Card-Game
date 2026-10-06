@@ -142,6 +142,8 @@ func start_match(config: Dictionary = {}) -> void:
 		"queen_penalties_given": 0,
 		"false_call_penalties_given": 0,
 		"last_round_false_call": false,
+		# Vorbereitet, in V1 aus: Ass und Zehn ohne Wirkung (CONCEPT_DECISIONS §9).
+		"power_effects": bool(config.get("power_effects", false)),
 		"ai_turns_finished": 0,
 		"last_look": null,
 		"last_look_by": -1,
@@ -164,7 +166,7 @@ func apply_action(action: Dictionary) -> Dictionary:
 			return _fail("Extra-Ablegen nur im eigenen Zug")
 		return _fail("Nicht am Zug")
 	var player: Dictionary = state.players[seat]
-	if bool(player.locked) and type != "end_turn":
+	if bool(player.locked) and type != "end_turn" and type != "timeout_penalty":
 		return _fail("Karten des Ansagers sind gelockt")
 	match type:
 		"draw_deck":
@@ -185,6 +187,8 @@ func apply_action(action: Dictionary) -> Dictionary:
 			return _call_dame()
 		"end_turn":
 			return _end_turn()
+		"timeout_penalty":
+			return _timeout_penalty()
 		_:
 			return _fail("Unbekannte Aktion")
 
@@ -774,6 +778,15 @@ func _forget_known_index(player: Dictionary, index: int) -> void:
 		if int(k) != index:
 			next.append(int(k))
 	player.known = next
+
+
+# Zugtimer abgelaufen (CONCEPT_DECISIONS §9): genau eine Strafkarte. Den Zug beendet der Tisch danach.
+func _timeout_penalty() -> Dictionary:
+	var player: Dictionary = current_player()
+	var card := _give_one_penalty(player, "timeout")
+	_log("%s: Zeit abgelaufen. Genau eine Strafkarte." % str(player.name))
+	state.last_action = "Zeit abgelaufen – Strafkarte für %s." % str(player.name)
+	return {"ok": true, "reason": "", "penalty": not card.is_empty()}
 
 
 func _give_queen_penalty(player: Dictionary) -> void:

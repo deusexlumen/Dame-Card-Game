@@ -23,6 +23,8 @@ const DEFAULTS := {
 	"fullscreen": false,
 	"player_name": "Spieler",
 	"language": "de",
+	# Feature-Flag, vorbereitet und aus; nicht in den Einstellungen sichtbar.
+	"power_effects": false,
 }
 const CHOICES := {
 	"ai_speed": ["slow", "normal", "fast"],

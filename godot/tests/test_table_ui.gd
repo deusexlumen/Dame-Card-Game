@@ -17,6 +17,7 @@ func run(ctx) -> void:
 	_check_hotseat_handoff()
 	_check_memory_aid_off()
 	_check_turn_timer()
+	_check_timer_pauses_for_powers()
 	_check_resume()
 	_check_game_over_rewards_once()
 
@@ -206,13 +207,26 @@ func _check_memory_aid_off() -> void:
 	_free(table)
 
 
+func _check_timer_pauses_for_powers() -> void:
+	var table = _make_table(_cfg({"seed": 107}), {"turn_timer": true, "turn_timer_seconds": 15})
+	table._process(0.1)
+	table.rules.state.turn_step = "jack"
+	var left: float = table._turn_left
+	table._process(20.0)
+	t.expect(is_equal_approx(table._turn_left, left) and int(table.rules.state.current_index) == 0, "Zugtimer laeuft bei Bube-Auswahl weiter")
+	table.rules.state.turn_step = "draw"
+	_free(table)
+
+
 func _check_turn_timer() -> void:
 	var table = _make_table(_cfg({"seed": 106}), {"turn_timer": true, "turn_timer_seconds": 15})
 	table._process(0.1)
 	t.expect(table._timer_bar.visible, "Zugtimer nicht sichtbar")
+	var pens_before: int = table.rules.state.players[0].penalty_cards.size()
 	table._process(16.0)
 	table.run_ai_until_human()
 	t.expect(int(table.rules.state.round) == 2, "Zeitablauf beendet den Zug nicht")
+	t.expect(table.rules.state.players[0].penalty_cards.size() == pens_before + 1, "Zeitablauf gibt keine Strafkarte")
 	t.expect(table.rules.assert_zones(), "Zonen nach Zeitablauf kaputt")
 	_free(table)
 

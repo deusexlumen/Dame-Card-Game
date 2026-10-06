@@ -895,6 +895,9 @@ func _on_play_again() -> void:
 func _process(delta: float) -> void:
 	if rules == null:
 		return
+	var step := str(rules.state.turn_step)
+	# Pause bei Bube/Koenig-Auswahl (Spec Blitz-Modus).
+	var paused := step == "jack" or step == "king"
 	var running := bool(_setting("turn_timer")) and _human_turn() and not _pause_panel.visible
 	_timer_bar.visible = running
 	if not running:
@@ -905,7 +908,8 @@ func _process(delta: float) -> void:
 	if owner != _turn_owner:
 		_turn_owner = owner
 		_turn_left = total
-	_turn_left -= delta
+	if not paused:
+		_turn_left -= delta
 	_timer_bar.max_value = total
 	_timer_bar.value = maxf(_turn_left, 0.0)
 	if _turn_left <= 0.0:
@@ -918,6 +922,10 @@ func timeout_turn() -> void:
 	if not _human_turn():
 		return
 	var seat := int(rules.state.current_index)
+	# Zeit abgelaufen: erst genau eine Strafkarte, dann den Zug sicher beenden.
+	var pen: Dictionary = rules.apply_action({"type": "timeout_penalty", "seat": seat})
+	if bool(pen.get("ok", false)):
+		_sound("penalty")
 	var guard := 0
 	while guard < 8 and int(rules.state.current_index) == seat and _human_turn():
 		guard += 1
@@ -927,7 +935,7 @@ func timeout_turn() -> void:
 			break
 		if _table3d != null:
 			_table3d.queue_action(fallback)
-	_toast_text("Zeit abgelaufen – Zug automatisch beendet.")
+	_toast_text("Zeit abgelaufen – Strafkarte, Zug beendet.")
 	_sound("error")
 	_save()
 	_after_change()
