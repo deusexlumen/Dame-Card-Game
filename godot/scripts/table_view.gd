@@ -559,7 +559,7 @@ func toggle_help() -> void:
 
 
 func _build_pause() -> void:
-	_pause_panel = _panel(Vector2(490, 230), Vector2(300, 220))
+	_pause_panel = _panel(Vector2(440, 170), Vector2(400, 300))
 	_pause_panel.process_mode = Node.PROCESS_MODE_ALWAYS
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 12)
@@ -577,6 +577,55 @@ func _build_pause() -> void:
 	menu.text = "Hauptmenü (Spiel wird gespeichert)"
 	menu.pressed.connect(_on_main_menu)
 	vb.add_child(menu)
+	_build_skin_picker(vb)
+
+
+# Schnellauswahl (Spec Professional Polish): nur gekaufte Skins, wirkt sofort.
+var skin_pickers := {}
+
+func _build_skin_picker(parent: VBoxContainer) -> void:
+	var app := _app()
+	if app == null:
+		return
+	var sep := HSeparator.new()
+	parent.add_child(sep)
+	var head := Label.new()
+	head.text = "Aussehen"
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	parent.add_child(head)
+	for cat in CatalogScript.CATEGORIES:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		var l := Label.new()
+		l.text = str(CatalogScript.CATEGORIES[cat])
+		l.custom_minimum_size = Vector2(150, 0)
+		row.add_child(l)
+		var o := OptionButton.new()
+		o.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var ids: Array = []
+		for it in CatalogScript.items_in(cat):
+			if app.profile.owns(str(it.id)):
+				o.add_item(str(it.name))
+				ids.append(str(it.id))
+		o.select(maxi(ids.find(app.profile.equipped(cat)), 0))
+		o.disabled = ids.size() < 2
+		o.item_selected.connect(func(i: int) -> void: apply_skin(ids[i]))
+		row.add_child(o)
+		parent.add_child(row)
+		skin_pickers[cat] = o
+
+
+func apply_skin(id: String) -> void:
+	var app := _app()
+	if app == null or not app.profile.equip(id):
+		return
+	_back_style = app.back_skin()
+	_face_skin = app.face_skin()
+	if _table3d != null:
+		_table3d.restyle({"back": _back_style, "face": _face_skin, "felt": app.table_color()})
+	for sv in _seats.values():
+		sv.back_style = _back_style
+	_refresh()
 
 
 func _build_3d(bg: Color) -> void:

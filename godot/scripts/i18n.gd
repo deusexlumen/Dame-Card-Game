@@ -25,6 +25,7 @@ const EN := {
 	"Menü [Esc]": "Menu [Esc]",
 	"Hilfe [H]": "Help [H]",
 	"Anleitung": "How to play",
+	"Aussehen": "Appearance",
 	"Schließen [H]": "Close [H]",
 	# Einstellungen
 	"Langsam": "Slow",

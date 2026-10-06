@@ -17,6 +17,7 @@ func run(ctx) -> void:
 	_check_hotseat_handoff()
 	_check_memory_aid_off()
 	_check_turn_timer()
+	_check_skin_picker()
 	_check_timer_pauses_for_powers()
 	_check_resume()
 	_check_game_over_rewards_once()
@@ -215,6 +216,19 @@ func _check_timer_pauses_for_powers() -> void:
 	table._process(20.0)
 	t.expect(is_equal_approx(table._turn_left, left) and int(table.rules.state.current_index) == 0, "Zugtimer laeuft bei Bube-Auswahl weiter")
 	table.rules.state.turn_step = "draw"
+	_free(table)
+
+
+func _check_skin_picker() -> void:
+	var table = _make_table(_cfg({"seed": 109}))
+	if app == null or table._table3d == null:
+		_free(table)
+		return
+	app.profile.grant("face_noir")
+	table.apply_skin("face_noir")
+	t.expect(table._table3d.face_skin == "noir" and app.profile.equipped("card_face") == "face_noir", "Schnellauswahl wechselt Kartenvorderseite nicht")
+	t.expect(table._table3d._held.face_skin == "noir", "Karten im Raum behalten alte Vorderseite")
+	table.apply_skin("face_klassisch")
 	_free(table)
 
 

@@ -57,6 +57,7 @@ var _markers := {}
 var _built := false
 var _card_r := CARD_R
 var _phase := ""
+var _felt_mat: StandardMaterial3D
 
 # cos: {"accent", "back", "face", "felt", "lang"} aus Profil und Einstellungen.
 func build(cos: Dictionary) -> void:
@@ -253,6 +254,7 @@ func _build_table() -> void:
 	var wood := _mat(Color(0.22, 0.11, 0.06), 0.35, 0.05)
 	var felt_m := _tex("res://assets/room/felt.png", 1.0, Vector3(3, 3, 1))
 	felt_m.albedo_color = felt
+	_felt_mat = felt_m
 	_mesh(_cyl(TABLE_R, TABLE_R, 0.03, 64), felt_m, Vector3(0, TABLE_Y - 0.015, 0))
 	var rim := TorusMesh.new()
 	rim.inner_radius = TABLE_R - 0.02
@@ -950,6 +952,22 @@ func card_node_count() -> int:
 func is_target(info: Dictionary) -> bool:
 	var k := _hover_key(info)
 	return k != "" and str(_markers.get(k, "")) != ""
+
+
+# Skin-Schnellauswahl im Spiel: Karten und Filz sofort umstellen.
+func restyle(cos: Dictionary) -> void:
+	back_skin = str(cos.get("back", back_skin))
+	face_skin = str(cos.get("face", face_skin))
+	if cos.has("felt") and _felt_mat != null:
+		felt = _felt_from(cos.felt)
+		_felt_mat.albedo_color = felt
+	var all: Array = [_held, _deck_top, _discard_top]
+	for seat in _slots:
+		all.append_array(_slots[seat])
+	for c in all:
+		c.setup_style(face_skin, back_skin, lang, accent)
+		if c.face_up:
+			c._fill_face()
 
 
 # Hot-Seat-Uebergabe: nichts Verdecktes darf offen bleiben.
