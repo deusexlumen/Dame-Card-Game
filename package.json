@@ -16,7 +16,8 @@
     "generate-pwa-assets": "pwa-assets-generator",
     "test:godot": "node scripts/godot-test.mjs",
     "export:godot": "node scripts/godot-export.mjs",
-    "test:godot:web": "playwright test -c playwright.godot.config.ts"
+    "test:godot:web": "playwright test -c playwright.godot.config.ts",
+    "server:godot": "node scripts/godot-server.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

@@ -15,6 +15,7 @@ const CatalogScript = preload("res://scripts/services/catalog.gd")
 const Table3DScript = preload("res://scripts/table3d/table_3d.gd")
 const I18nScript = preload("res://scripts/i18n.gd")
 const FxLayerScript = preload("res://scripts/ui/fx_layer.gd")
+const DameMirrorScript = preload("res://scripts/online/dame_mirror.gd")
 
 const REVEAL_DEAL_MS := 5000
 const HELP_DE := """[b]Dein Zug[/b]
@@ -123,6 +124,12 @@ var _last_current := -1
 # 0..1: Punkte zaehlen am Rundenende hoch.
 var _sum_t := 1.0
 var _bars: VBoxContainer
+# Online (CONCEPT_DECISIONS §10/§11): Regeln laufen auf dem Server. Der Tisch haelt
+# nur den geschwaerzten Zustand (DameMirror) und schickt Aktionen an den Server.
+var online := false
+var _net = null
+var _meta: Dictionary = {}
+var _meta_at := 0.0
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -138,6 +145,8 @@ func _ready() -> void:
 		return
 	var app := _app()
 	var job: Dictionary = app.take_pending() if app != null else {}
+	if str(job.get("mode", "")) == "online" and start_online():
+		return
 	if str(job.get("mode", "")) == "resume" and _try_resume():
 		return
 	var cfg: Dictionary = job.get("config", {})
@@ -205,6 +214,116 @@ func start(cfg: Dictionary) -> void:
 	_reveal_own_known(REVEAL_DEAL_MS)
 	_save()
 	_after_change()
+
+
+# Online-Partie: Zustand kommt vom Server, eigene Regeln laufen hier nicht.
+func start_online(net = null) -> bool:
+	if net == null:
+		var app := _app()
+		net = app.net() if app != null else null
+	if net == null or net.last_state.is_empty():
+		return false
+	online = true
+	_net = net
+	_net.state.connect(_on_net_state)
+	_net.failed.connect(_on_net_failed)
+	_net.disconnected.connect(_on_net_disconnected)
+	_net.connected.connect(_on_net_connected)
+	_net.set_present(true)
+	var st: Dictionary = _net.last_state
+	_on_net_state(int(st.seat), st.mirror, st.meta)
+	return true
+
+
+func _exit_tree() -> void:
+	if _net != null and _net.state.is_connected(_on_net_state):
+		_net.state.disconnect(_on_net_state)
+		_net.failed.disconnect(_on_net_failed)
+		_net.disconnected.disconnect(_on_net_disconnected)
+		_net.connected.disconnect(_on_net_connected)
+
+
+func _on_net_state(seat: int, mirror: Dictionary, meta: Dictionary) -> void:
+	var first := rules == null
+	var before := _snapshot() if not first else {}
+	var client = rules if rules != null else DameRulesScript.new()
+	if not DameMirrorScript.load_into(client, mirror):
+		push_warning("Online: ungueltiger Zustand vom Server")
+		return
+	rules = client
+	var old_meta := _meta
+	_meta = meta
+	_meta_at = Time.get_ticks_msec() / 1000.0
+	if first:
+		ai = DameAIScript.new(1)
+		human_seats = [seat]
+		viewer_seat = seat
+		_layout_seats()
+		_reveal_own_known(REVEAL_DEAL_MS)
+	_presence_toasts(old_meta, meta)
+	var action: Dictionary = meta.get("last_action", {})
+	var fresh := int(meta.get("action_seq", 0)) != int(old_meta.get("action_seq", 0))
+	if not first and fresh and not action.is_empty():
+		if str(action.get("type", "")) == "start_next_round":
+			_reveal_until.clear()
+			_reveal_own_known(REVEAL_DEAL_MS)
+			_sound("shuffle")
+		else:
+			if _table3d != null:
+				_table3d.queue_action(action)
+			if int(action.get("seat", -1)) == viewer_seat:
+				selected = -1
+				king_own = -1
+				_after_human_action(action)
+			_feedback(before, {"ok": true}, int(before.current))
+	_after_change()
+
+
+func _presence_toasts(old_meta: Dictionary, meta: Dictionary) -> void:
+	var old_seats: Array = old_meta.get("seats", [])
+	for s in meta.get("seats", []):
+		var i := int(s.seat)
+		if i == viewer_seat or i >= old_seats.size() or str(s.kind) != "human":
+			continue
+		var was: Dictionary = old_seats[i]
+		if bool(s.forfeited) and not bool(was.forfeited):
+			_toast_text(tr("%s hat die Partie verlassen. Eine KI spielt weiter.") % str(s.name))
+		elif int(s.stage) == 2 and int(was.stage) != 2:
+			_toast_text(tr("%s ist zu lange weg. Eine KI vertritt.") % str(s.name))
+		elif not bool(s.present) and bool(was.present):
+			_toast_text(tr("%s hat die Verbindung verloren.") % str(s.name))
+		elif bool(s.present) and not bool(was.present):
+			_toast_text(tr("%s ist zurück.") % str(s.name))
+
+
+func _on_net_failed(reason: String) -> void:
+	_toast_text(tr(reason))
+	_sound("error")
+
+
+func _on_net_disconnected() -> void:
+	_toast_text("Verbindung getrennt. Verbinde neu …")
+
+
+func _on_net_connected() -> void:
+	_toast_text("Wieder verbunden.")
+
+
+func online_turn_left() -> float:
+	if _meta.is_empty():
+		return 0.0
+	var passed := Time.get_ticks_msec() / 1000.0 - _meta_at
+	return maxf(float(_meta.get("turn_left", 0.0)) - passed, 0.0)
+
+
+func _notification(what: int) -> void:
+	# §11: App oder Tab im Hintergrund zaehlt als abwesend (Web und Mobil).
+	if not online or _net == null or not (OS.has_feature("web") or OS.has_feature("mobile")):
+		return
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED:
+		_net.set_present(false)
+	elif what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_APPLICATION_RESUMED:
+		_net.set_present(true)
 
 
 func _try_resume() -> bool:
@@ -714,11 +833,11 @@ func _after_change() -> void:
 			spectating = true
 		elif (current != viewer_seat or spectating) and not handoff_pending:
 			_begin_handoff(current)
-	if not current_is_ai or phase == "round_end" or phase == "game_over":
+	if not current_is_ai or phase == "round_end" or phase == "game_over" or online:
 		_ai_timer.stop()
 	_events(phase, current)
 	_refresh()
-	if (phase == "play" or phase == "dame_called") and current_is_ai and not handoff_pending:
+	if (phase == "play" or phase == "dame_called") and current_is_ai and not handoff_pending and not online:
 		if instant_ai:
 			_ai_timer.stop()
 			call_deferred("_ai_step")
@@ -796,7 +915,7 @@ func confirm_handoff() -> void:
 
 
 func _ai_step() -> void:
-	if rules == null:
+	if rules == null or online:
 		return
 	var phase := str(rules.state.phase)
 	if phase != "play" and phase != "dame_called":
@@ -830,6 +949,12 @@ func act(action: Dictionary) -> Dictionary:
 	if rules == null or handoff_pending:
 		return {"ok": false, "reason": "Nicht bereit"}
 	action.seat = int(rules.state.current_index)
+	if online:
+		# Der Server entscheidet. Darstellung folgt mit dem naechsten Zustand.
+		if not _human_turn():
+			return {"ok": false, "reason": "Nicht am Zug"}
+		_net.send_action(action)
+		return {"ok": true, "reason": "", "pending": true}
 	var before := _snapshot()
 	var result: Dictionary = rules.apply_action(action)
 	_feedback(before, result, int(before.current))
@@ -975,6 +1100,11 @@ func end_turn() -> void:
 
 
 func next_deal() -> void:
+	if online:
+		if rules != null and str(rules.state.phase) == "round_end":
+			_net.ready_next()
+			_toast_text("Warte auf die anderen …")
+		return
 	if rules != null and str(rules.state.phase) == "round_end":
 		rules.apply_action({"type": "start_next_round"})
 		_reveal_until.clear()
@@ -1071,6 +1201,12 @@ func toggle_pause() -> void:
 
 
 func _on_main_menu() -> void:
+	if online and _net != null:
+		# Partie vorbei: Raum verlassen. Sonst bleibt der Platz fuer den Wiedereinstieg.
+		if rules != null and str(rules.state.phase) == "game_over":
+			_net.leave()
+		else:
+			_net.set_present(false)
 	_save()
 	var app := _app()
 	if app != null:
@@ -1078,6 +1214,13 @@ func _on_main_menu() -> void:
 
 
 func _on_play_again() -> void:
+	if online:
+		if _net != null:
+			_net.leave()
+		var app0 := _app()
+		if app0 != null:
+			app0.goto(app0.ONLINE)
+		return
 	var cfg := config.duplicate(true)
 	cfg.erase("seed")
 	cfg.erase("match_id")
@@ -1097,6 +1240,14 @@ func _process(delta: float) -> void:
 	var step := str(rules.state.turn_step)
 	# Pause bei Bube/Koenig-Auswahl (Spec Blitz-Modus).
 	var paused := step == "jack" or step == "king"
+	if online:
+		# Online laeuft der Zugtimer immer und nur auf dem Server (§10).
+		var mine := _human_turn()
+		_timer_bar.visible = mine
+		if mine:
+			_timer_bar.max_value = float(_meta.get("turn_seconds", 30.0))
+			_timer_bar.value = online_turn_left()
+		return
 	var running := bool(_setting("turn_timer")) and _human_turn() and not _pause_panel.visible
 	_timer_bar.visible = running
 	if not running:
@@ -1427,7 +1578,7 @@ func _card_name(card: Dictionary) -> String:
 
 func _save() -> void:
 	var app := _app()
-	if app == null or rules == null:
+	if app == null or rules == null or online:
 		return
 	if str(rules.state.phase) == "game_over":
 		app.saves.clear()
@@ -1448,6 +1599,9 @@ func _has_hard_ai() -> bool:
 
 
 func _record_round_once() -> void:
+	# Online v1 ohne Chips und Statistik (Ranglisten kommen mit v2).
+	if online:
+		return
 	var deal := int(rules.state.deal)
 	if _recorded_deal == deal:
 		return
@@ -1474,7 +1628,7 @@ func _record_round_once() -> void:
 
 
 func _record_game_once() -> void:
-	if _game_recorded:
+	if _game_recorded or online:
 		return
 	_game_recorded = true
 	var app := _app()

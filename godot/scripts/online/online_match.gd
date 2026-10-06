@@ -36,6 +36,7 @@ var version := 0
 var finished := false
 var end_reason := ""            # "game_over" | "abandoned"
 var last_public_action: Dictionary = {}
+var action_seq := 0             # zaehlt oeffentliche Aktionen, damit Clients jede genau einmal zeigen
 
 var _turn_key := ""
 var _turn_elapsed := 0.0
@@ -116,6 +117,7 @@ func meta() -> Dictionary:
 		"finished": finished,
 		"end_reason": end_reason,
 		"last_action": last_public_action.duplicate(true),
+		"action_seq": action_seq,
 	}
 
 
@@ -244,6 +246,7 @@ func _apply(action: Dictionary) -> Dictionary:
 	var result: Dictionary = rules.apply_action(action)
 	if bool(result.get("ok", false)):
 		last_public_action = _public_action(action)
+		action_seq += 1
 		version += 1
 	return result
 
@@ -254,6 +257,7 @@ func _machine_step(seat: int) -> void:
 		var result: Dictionary = ai.step(rules)
 		if bool(result.get("ok", false)):
 			last_public_action = _public_action(ai.last_action)
+			action_seq += 1
 			version += 1
 		else:
 			_finish_turn_safely(seat)
@@ -278,6 +282,9 @@ func _absent_turn(seat: int) -> void:
 			return
 		if bool(_apply({"type": "skip_turn", "seat": seat}).get("ok", false)):
 			return
+	# Gezogene Dame nicht ablegen: das gaebe eine Strafkarte. Stattdessen eintauschen.
+	if str(rules.state.turn_step) == "play" and rules.state.drawn_card != null and str(rules.state.drawn_card.rank) == "Q":
+		_apply({"type": "swap", "seat": seat, "hand_index": _worst_known_slot(seat)})
 	_finish_turn_safely(seat)
 
 
@@ -286,6 +293,14 @@ func _forced_queen(seat: int) -> void:
 	if not bool(_apply({"type": "draw_discard", "seat": seat}).get("ok", false)):
 		_finish_turn_safely(seat)
 		return
+	if not bool(_apply({"type": "swap", "seat": seat, "hand_index": _worst_known_slot(seat)}).get("ok", false)):
+		_finish_turn_safely(seat)
+		return
+	_finish_turn_safely(seat)
+
+
+# Hoechste bekannte eigene Karte, sonst die erste.
+func _worst_known_slot(seat: int) -> int:
 	var player: Dictionary = rules.state.players[seat]
 	var best := 0
 	var best_value := -1
@@ -293,10 +308,7 @@ func _forced_queen(seat: int) -> void:
 		if player.known.has(i) and int(player.hand[i].value) > best_value:
 			best_value = int(player.hand[i].value)
 			best = i
-	if not bool(_apply({"type": "swap", "seat": seat, "hand_index": best}).get("ok", false)):
-		_finish_turn_safely(seat)
-		return
-	_finish_turn_safely(seat)
+	return best
 
 
 func _finish_turn_safely(seat: int) -> void:
@@ -351,6 +363,7 @@ func _start_next_deal() -> void:
 			s.pending_penalty = false
 			rules.give_absence_penalty(i)
 	last_public_action = {"type": "start_next_round"}
+	action_seq += 1
 	version += 1
 
 

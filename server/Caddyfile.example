@@ -1,0 +1,6 @@
+# TLS fuer den Online-Server. Die Seite laeuft ueber https, Browser erlauben dann nur wss://.
+# Caddy holt das Zertifikat selbst. Domain anpassen, dann im Spiel als Server
+# "wss://dame.example.org" eintragen (oder in project.godot: dame/online/server_url).
+dame.example.org {
+	reverse_proxy 127.0.0.1:8910
+}

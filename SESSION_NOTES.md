@@ -45,3 +45,13 @@ Plan: `docs/superpowers/plans/2026-10-06-godot-pages-release.md`. Ziel: Godot-We
 - Plan: Headless-Godot-Server mit `DameRules`/`DameView` über `WebSocketMultiplayerPeer`, Lobby per 6-stelligem Code, Hosting auf VPS mit wss (`.claude/docs/ai/dame/10x/session-3.md`). Nächster Schritt: Bauplan „Online v1“.
 - PWA bleibt (Nutzer 2026-10-06): Wo und wie gespielt wird, ist egal; das Spiel muss überall gleich sein.
 - Web-Download halbiert (PR #9), Actions auf Node 24 (PR #7).
+
+## 2026-10-06 (Abend) – Online v1 (Cloud-Session)
+- Branch `ccr-91118fce-c92zag`. Neu: `godot/scripts/online/`, `scenes/server.tscn`, `scenes/online.tscn`, Menüpunkt „Online spielen“.
+- Server = dasselbe Godot-Projekt headless (`npm run server:godot`, Port 8910). Kein zweites Regelwerk.
+- Jeder Client bekommt nur `DameMirror.for_viewer` (verdeckte Karten als Platzhalter, kein Seed, kein fremdes Gedächtnis). Test: Sicht aus Spiegel == Sicht aus Original über ganze Partien.
+- Transport: `WebSocketPeer` statt `WebSocketMultiplayerPeer` (kein RPC-Pfadzwang). Client→Server JSON (geprüft), Server→Client `var_to_bytes`.
+- §10/§11 umgesetzt in `OnlineMatch` (Timer, Aussetzen, KI-Vertretung, Strafkarte beim Wiedereinstieg, Aufgabe). Neue Regelaktionen: `skip_turn`, `give_absence_penalty`.
+- Fix: 5–6 Plätze mischten ab der zweiten Ausgabe nur 1 Deck.
+- Tests: `test_online.gd` + `tools/net_smoke.gd` (echte Verbindung über localhost, inkl. Tisch im Online-Modus). 979 Checks grün.
+- Offen: Server hosten (VPS + Caddy für wss://, siehe `server/README.md`), dann `dame/online/server_url` in `project.godot` setzen. Online v1 ohne Chips/Statistik.

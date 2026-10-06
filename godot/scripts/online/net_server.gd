@@ -24,7 +24,8 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--port="):
 			port = int(arg.substr(7))
-	if get_tree().current_scene == self:
+	# Als Hauptszene gestartet (nicht in Tests eingebettet): sofort lauschen.
+	if scene_file_path == "res://scenes/server.tscn" and get_parent() == get_tree().root:
 		listen(port)
 
 

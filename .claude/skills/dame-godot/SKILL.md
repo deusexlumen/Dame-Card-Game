@@ -26,7 +26,7 @@ The table is a **first-person 3D scene** (`scripts/table3d/`): you sit at a roun
 7. Engine is Godot 4.7.2. `config/features=PackedStringArray("4.7", "GL Compatibility")`. Do not switch renderer.
 8. Rules source is the existing Godot code plus `CONCEPT_DECISIONS.md`. Jack: peek any face-down card. King: peek own card, then blind swap with opponent. Ace and Ten: no effect.
 9. No real-money purchase code. Only the `PurchaseProvider` stub.
-10. Online multiplayer is wanted (live only): rules in `CONCEPT_DECISIONS.md` §10/§11, plan in `.claude/docs/ai/dame/10x/session-3.md` (headless Godot server, `DameRules` + `DameView` over `WebSocketMultiplayerPeer`). Never write a second rules implementation for the server.
+10. Online multiplayer is wanted (live only): rules in `CONCEPT_DECISIONS.md` §10/§11. Implemented in `scripts/online/`: headless Godot server runs `DameRules`, every client gets only `DameMirror.for_viewer` (no hidden card ids, no seed). Never write a second rules implementation for the server, and never send raw `rules.state` to a client. In online mode the table sends actions to the server instead of calling `apply_action`.
 
 ## Build order
 
@@ -46,6 +46,9 @@ The table is a **first-person 3D scene** (`scripts/table3d/`): you sit at a roun
 | `scenes/card_slot.tscn` | One slot. Face from view, never from raw state |
 | `scripts/app.gd` (autoload `App`) | Services and scene switching. No game state |
 | `tests/run_all.gd` | Headless test entry |
+| `scripts/online/` | Online v1: `OnlineMatch` (server match, §10/§11), `DameMirror` (redacted state per seat), `RoomManager`, `NetServer`/`NetClient` (WebSocket), `NetProtocol` |
+| `scenes/server.tscn` | Headless server entry (`npm run server:godot`), deploy notes in `server/README.md` |
+| `scenes/online.tscn` | Online lobby screen; the table runs in online mode (`table_view.online`) |
 
 ## Knowledge graph
 

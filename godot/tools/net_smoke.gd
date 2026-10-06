@@ -1,7 +1,8 @@
 extends SceneTree
 
 # Echte Verbindung ueber localhost: Server + drei Clients in einem Prozess.
-# Lobby, Start, Zuege, Spiegel ohne verdeckte Karten, Abbruch + Wiedereinstieg.
+# Lobby, Start, Zuege, Spiegel ohne verdeckte Karten, Abbruch + Wiedereinstieg,
+# echter Tisch (table.tscn) im Online-Modus mit dem Client aus dem Autoload App.
 # Aufruf: godot --headless --path godot --script res://tools/net_smoke.gd
 
 const NetServerScript = preload("res://scripts/online/net_server.gd")
@@ -16,6 +17,7 @@ var _step := 0
 var _frames := 0
 var _fail := ""
 var _errors: Array = []
+var table
 
 func _initialize() -> void:
 	root.get_node("App").use_test_storage()
@@ -24,7 +26,9 @@ func _initialize() -> void:
 	if not server.listen(PORT):
 		_abort("Server startet nicht")
 		return
-	a = _client("a")
+	# Client a ist der Dienst aus App: so laeuft der Tisch genau wie im Spiel.
+	a = root.get_node("App").net()
+	a.failed.connect(func(reason): _errors.append("a: %s" % reason))
 	b = _client("b")
 	c = _client("c")
 	a.connect_to("ws://127.0.0.1:%d" % PORT)
@@ -91,11 +95,67 @@ func _process(_delta: float) -> bool:
 			if c.seat == 1 and _seat_present(a.last_state, 1) == true and not c.last_state.is_empty():
 				if not _check_mirror(c.last_state, 1):
 					return true
+				var app = root.get_node("App")
+				app.pending = {"mode": "online"}
+				table = load("res://scenes/table.tscn").instantiate()
+				table.settings_override = {"animations": false, "table_3d": false}
+				root.add_child(table)
+				_step = 8
+				_frames = 0
+		8:
+			if not (table.online and table.rules != null and table.viewer_seat == 0):
+				return false
+			if table.rules.state.deck.size() > 0 and not str(table.rules.state.deck[0].id).begins_with("x-"):
+				return _abort("Tisch haelt echte Stapelkarten")
+			if _frames % 10 != 0:
+				return false
+			var st: Dictionary = table.rules.state
+			if int(st.current_index) == 1:
+				_drive_remote(c, str(st.turn_step))
+			else:
+				# Platz 0 spielt seinen Zug ueber den Tisch zu Ende.
+				if str(st.turn_step) == "draw":
+					table._on_deck()
+				_step = 9
+		9:
+			var st: Dictionary = table.rules.state
+			if _frames % 10 != 0 or int(st.current_index) != 0:
+				return false
+			match str(st.turn_step):
+				"play":
+					if st.drawn_card == null or str(st.drawn_card.id).begins_with("x-"):
+						return _abort("Eigene gezogene Karte am Tisch verdeckt")
+					table._on_drawn()
+				"jack":
+					table._on_card(1, 0)
+				"king":
+					table._on_card(0, 0)
+					table._on_card(1, 0)
+				"extra":
+					table.end_turn()
+					_step = 10
+		10:
+			if int(table.rules.state.current_index) == 1:
 				print("NET_OK")
 				server.stop()
 				quit(0)
 				return true
 	return false
+
+
+# Gegenspieler (Platz 1) spielt einfach weiter, damit Platz 0 drankommt.
+func _drive_remote(cl, step: String) -> void:
+	match step:
+		"draw":
+			cl.send_action({"type": "draw_deck"})
+		"play":
+			cl.send_action({"type": "discard_drawn"})
+		"jack":
+			cl.send_action({"type": "look_card", "target_seat": 0, "hand_index": 0})
+		"king":
+			cl.send_action({"type": "king_swap", "opponent_seat": 0, "opponent_index": 0, "chosen_index": 0})
+		"extra":
+			cl.send_action({"type": "end_turn"})
 
 
 func _lobby_humans(info: Dictionary) -> int:

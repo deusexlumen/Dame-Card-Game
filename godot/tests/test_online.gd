@@ -23,6 +23,7 @@ func run(ctx) -> void:
 	_check_client_cannot_cheat()
 	_check_timeout_penalty()
 	_check_stage1_skip()
+	_check_stage1_mid_turn_queen()
 	_check_stage2_takeover_and_rejoin_penalty()
 	_check_stage3_forfeit()
 	_check_all_away_ends()
@@ -293,3 +294,23 @@ func _check_protocol() -> void:
 	t.expect(ProtoScript.decode_client(big).is_empty(), "Uebergrosse Nachricht angenommen")
 	var msg: Dictionary = ProtoScript.decode_client(JSON.stringify({"t": "action", "action": {"type": "swap", "hand_index": 2, "evil": {"x": 1}, "seat": 5}}))
 	t.expect(msg.action.has("hand_index") and not msg.action.has("evil") and not msg.action.has("seat"), "Aktion nicht bereinigt")
+
+
+# Abbruch nach dem Ziehen einer Dame: kein Ablegen (Strafkarte), sondern eintauschen.
+func _check_stage1_mid_turn_queen() -> void:
+	var m = _match(["human", "human"])
+	m.submit(0, {"type": "draw_deck"})
+	var queen := {}
+	for c in m.rules.state.deck:
+		if str(c.rank) == "Q":
+			queen = c
+			break
+	m.rules.state.deck.erase(queen)
+	m.rules.state.deck.append(m.rules.state.drawn_card)
+	queen.face_up = true
+	m.rules.state.drawn_card = queen
+	m.set_present(0, false)
+	m.tick(36.0)
+	t.expect(int(m.rules.state.current_index) == 1, "Abbruch mitten im Zug: Zug nicht beendet")
+	t.expect(m.rules.state.players[0].penalty_cards.is_empty(), "Abbruch mit gezogener Dame: Strafkarte vergeben")
+	t.expect(m.rules.assert_zones(), "Abbruch mit Dame: Zonen kaputt")
