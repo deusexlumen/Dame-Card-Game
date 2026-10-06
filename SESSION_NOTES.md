@@ -20,3 +20,11 @@ Plan: `docs/superpowers/plans/2026-10-06-godot-pages-release.md`. Ziel: Godot-We
 3. `deploy.yml` auf Godot umbauen (Godot + Templates, Tests, Web-Export, Smoke, Pages-Deploy).
 4. Push, PR, erste CI fixen, Merge nach `main` nur nach Go.
 5. Live-URL prüfen, Notizen + AGENTS.md aktualisieren.
+
+## 2026-10-06
+- Export-Templates per HTTP-Range geholt (Skript streamt nur Windows- + Web-nothreads-Einträge direkt auf Platte, ~120 MB statt 1,28 GB). Liegen in `%APPDATA%/Godot/export_templates/4.7.2.stable/`.
+- Lokal grün: `test:godot` (565 Checks), `export:godot` (Dame.exe 110 MB + Web), `test:godot:web`.
+- Fix: kaputte Regex in `scripts/serve-static.mjs` (Web-Smoke startete nicht).
+- `deploy.yml` neu: nur Godot (Tests, Export, Web-Smoke, Pages-Deploy). React-Jobs entfernt.
+- Pages-Quelle ist bereits „GitHub Actions“.
+- Nächstes: Push + PR (wartet auf Go), dann CI fixen, Merge nach Go.
