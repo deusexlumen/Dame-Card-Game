@@ -49,3 +49,13 @@ Es gibt keine "Schnappreaktion" anderer Spieler außerhalb ihres Zuges.
 
 - Spielwährung „Chips“, nur durch Spielen verdient, nur für Kosmetik. Keine kaufbaren Spielvorteile.
 - Echtgeld kommt später über die Schnittstelle `PurchaseProvider`. Im aktuellen Build nur ein Stub.
+
+## 9. Entscheidungen vom 2026-10-06 (verbindlich)
+
+- **Ass und Zehn:** In V1 ohne Wirkung (wie §6). Power-Effekte werden als **deaktiviertes Feature-Flag** vorbereitet (`power_effects`, Standard aus, nicht in den Einstellungen sichtbar).
+- **Sprache:** Deutsch und Englisch, umschaltbar in den Einstellungen. Alle Texte über Locale-Keys.
+- **Zugtimer:** Läuft die Zeit ab, zieht der Spieler **eine Strafkarte**, danach endet der Zug. Während der Zielauswahl von Bube und König pausiert der Timer.
+- **Spieleranzahl:** 2–6. Anzahl Decks = ⌈Spieler / 4⌉: 2–4 Spieler 1 Deck (52 Karten), 5–6 Spieler 2 Decks (104 Karten).
+- **3D-Tisch:** Bis zu 6 Plätze, radial im 60°-Abstand.
+- **Look:** Modern-Dark-Casino (siehe `docs/superpowers/specs/2026-06-06-professional-polish-design.md`). Der Terminal-/Phosphor-Look ist überholt und wird entfernt.
+- **Assets:** Beste kostenlose Option, Figuren und Animationen von Quaternius (CC0).

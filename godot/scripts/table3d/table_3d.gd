@@ -5,13 +5,14 @@ extends Node3D
 # Eingaben laufen ueber pick(), die Entscheidung trifft table_view.gd.
 
 const Card3DScript = preload("res://scripts/table3d/card_3d.gd")
-const Hand3DScript = preload("res://scripts/table3d/hand_3d.gd")
+const HandRigScript = preload("res://scripts/table3d/hand_rig.gd")
+const Figure3DScript = preload("res://scripts/table3d/figure_3d.gd")
 const UiThemeScript = preload("res://scripts/ui/ui_theme.gd")
 
 const TABLE_Y := 0.76
-const TABLE_R := 0.78
-const CARD_R := 0.44
-const FIGURE_R := 1.16
+const TABLE_R := 0.64
+const CARD_R := 0.37
+const FIGURE_R := 1.02
 const CARD_GAP := 0.078
 # Seitliche Plaetze leicht nach hinten gedreht, damit sie im Bild sitzen statt am Rand.
 const SEAT_ANGLE := {"self": 0.0, "left": -PI * 0.62, "right": PI * 0.62, "opposite": PI}
@@ -62,16 +63,17 @@ func build(p_accent: Color, p_back: String, table_color: Color) -> void:
 	_held = _new_card("drawn")
 	_held.visible = false
 	add_child(_held)
-	hand = Hand3DScript.new()
-	add_child(hand)
 	camera = Camera3D.new()
 	camera.fov = 60.0
 	camera.near = 0.03
 	camera.far = 30.0
-	camera.position = Vector3(0.0, 1.3, 1.12)
-	camera.rotation.x = deg_to_rad(-20.0)
+	camera.position = Vector3(0.0, 1.27, 0.98)
+	camera.rotation.x = deg_to_rad(-22.0)
 	add_child(camera)
 	camera.current = true
+	hand = HandRigScript.new()
+	add_child(hand)
+	hand.setup(camera, Figure3DScript.look_for("Spieler", 0).merged({"top": Color(0.16, 0.14, 0.2), "skin": "light", "g": "m"}, true))
 	hand.transform = _hand_rest()
 	_built = true
 
@@ -282,9 +284,6 @@ func _build_figure(root: Node3D, seat: int, name: String) -> Dictionary:
 	var fig := Node3D.new()
 	fig.position = Vector3(0, 0, FIGURE_R)
 	root.add_child(fig)
-	var cloth := _mat(FIGURE_COLORS[seat % FIGURE_COLORS.size()], 0.95)
-	var skin := _mat(SKIN_TONES[seat % SKIN_TONES.size()], 0.6)
-	var dark := _mat(Color(0.08, 0.06, 0.05), 0.7)
 	# Stuhl.
 	var chair_m := _mat(Color(0.18, 0.1, 0.06), 0.5)
 	var seat_box := BoxMesh.new()
@@ -293,39 +292,17 @@ func _build_figure(root: Node3D, seat: int, name: String) -> Dictionary:
 	var back_box := BoxMesh.new()
 	back_box.size = Vector3(0.46, 0.62, 0.05)
 	_mesh(back_box, chair_m, Vector3(0, 0.82, 0.27), fig)
-	# Koerper.
-	var torso := CapsuleMesh.new()
-	torso.radius = 0.19
-	torso.height = 0.68
-	var t := _mesh(torso, cloth, Vector3(0, 0.88, 0.04), fig)
-	t.scale = Vector3(1.0, 1.0, 0.72)
-	var neck := _mesh(_cyl(0.05, 0.055, 0.08, 12), skin, Vector3(0, 1.25, 0.03), fig)
-	neck.name = "Neck"
-	var head_mesh := SphereMesh.new()
-	head_mesh.radius = 0.115
-	head_mesh.height = 0.25
-	var head := _mesh(head_mesh, skin, Vector3(0, 1.39, 0.02), fig)
-	var hair_mesh := SphereMesh.new()
-	hair_mesh.radius = 0.12
-	hair_mesh.height = 0.24
-	var hair := _mesh(hair_mesh, _mat(HAIR_COLORS[seat % HAIR_COLORS.size()], 0.9), Vector3(0, 1.425, 0.035), fig)
-	hair.scale = Vector3(1.04, 0.92, 1.0)
-	var eye := SphereMesh.new()
-	eye.radius = 0.014
-	eye.height = 0.028
-	for sx in [-0.042, 0.042]:
-		_mesh(eye, dark, Vector3(sx, 1.4, -0.095), fig)
-	# Arme liegen auf der Tischkante, Haende vor den Karten.
-	for sx in [-1.0, 1.0]:
-		var shoulder := Vector3(sx * 0.2, 1.1, 0.02)
-		var elbow := Vector3(sx * 0.26, TABLE_Y + 0.07, -0.26)
-		var wrist := Vector3(sx * 0.15, TABLE_Y + 0.03, -0.42)
-		_limb(fig, shoulder, elbow, 0.055, cloth)
-		_limb(fig, elbow, wrist, 0.048, cloth)
-		var hand_mesh := SphereMesh.new()
-		hand_mesh.radius = 0.042
-		hand_mesh.height = 0.06
-		_mesh(hand_mesh, skin, wrist + Vector3(-sx * 0.01, 0.0, -0.035), fig)
+	var person = Figure3DScript.new()
+	fig.add_child(person)
+	person.build(Figure3DScript.look_for(name, seat))
+	# Modelle schauen nach +Z, am Tisch soll die Figur zur Mitte (-Z) sehen.
+	person.rotation.y = PI
+	var head: Node3D = person
+	# Haende liegen vor den eigenen Karten auf dem Tisch, Finger zur Mitte.
+	var hz := -(FIGURE_R - TABLE_R) - 0.13
+	person.rest_hands(
+		fig.global_transform * Transform3D(Basis(Vector3.UP, -0.35), Vector3(-0.16, TABLE_Y + 0.035, hz)),
+		fig.global_transform * Transform3D(Basis(Vector3.UP, 0.35), Vector3(0.16, TABLE_Y + 0.035, hz)))
 	var label := Label3D.new()
 	label.font = UiThemeScript.bold_font()
 	label.font_size = 40
@@ -346,7 +323,7 @@ func _build_figure(root: Node3D, seat: int, name: String) -> Dictionary:
 	glow.light_color = accent
 	glow.shadow_enabled = false
 	fig.add_child(glow)
-	return {"node": fig, "label": label, "glow": glow, "head": head}
+	return {"node": fig, "label": label, "glow": glow, "head": head, "person": person}
 
 
 func _limb(parent: Node3D, a: Vector3, b: Vector3, r: float, m: Material) -> void:
@@ -384,6 +361,8 @@ func sync(view: Dictionary, opts: Dictionary) -> void:
 	var hand_target_key := ""
 	for a in _pending:
 		var s := int(a.get("seat", -1))
+		if s != _viewer:
+			_figure_reach(s, a)
 		match str(a.get("type", "")):
 			"draw_deck":
 				from["held"] = _deck_top.global_transform
@@ -558,6 +537,38 @@ func sync(view: Dictionary, opts: Dictionary) -> void:
 		_markers["drawn"] = ""
 	_apply_hover()
 	_plan_hand(hand_plan, hand_target_key)
+
+
+# Gegner greift sichtbar nach Stapel, Ablage oder Karte (nur Darstellung).
+func _figure_reach(seat: int, a: Dictionary) -> void:
+	if not _figures.has(seat) or not animate:
+		return
+	var point := Vector3.INF
+	match str(a.get("type", "")):
+		"draw_deck":
+			point = _deck_top.global_position
+		"draw_discard", "discard_drawn", "discard_extra":
+			point = _discard_top.global_position
+		"swap":
+			var c = _slot(seat, int(a.get("hand_index", -1)))
+			if c != null:
+				point = c.global_position
+		"look_card":
+			var c2 = _slot(int(a.get("target_seat", -1)), int(a.get("hand_index", -1)))
+			if c2 != null:
+				point = c2.global_position
+		"king_swap":
+			var c3 = _slot(int(a.get("opponent_seat", -1)), int(a.get("opponent_index", -1)))
+			if c3 != null:
+				point = c3.global_position
+	if point == Vector3.INF:
+		return
+	var fig: Node3D = _figures[seat].node
+	var dir := point - fig.global_position
+	dir.y = 0.0
+	dir = dir.normalized()
+	var xf := Transform3D(Basis.looking_at(dir, Vector3.UP) * Basis(Vector3.RIGHT, -0.25), point - dir * 0.14 + Vector3(0, 0.05, 0))
+	_figures[seat].person.reach(xf)
 
 
 func _slot(seat: int, index: int):
