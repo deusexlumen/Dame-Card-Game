@@ -10,6 +10,7 @@ var t
 func run(ctx) -> void:
 	t = ctx
 	_check_seat_counts()
+	_check_second_deal_deck_count()
 	_check_seed_determinism()
 	_check_empty_piles()
 	_check_false_call_penalty_unique()
@@ -294,3 +295,13 @@ func _auto_turn(rules, call_from_round: int) -> bool:
 		t.expect(false, "Zugende scheitert Sitz %d Schritt %s: %s" % [seat, str(rules.state.turn_step), str(e.reason)])
 		return false
 	return true
+
+
+# 5-6 Plaetze spielen mit 2 Decks, auch ab der zweiten Ausgabe (CONCEPT_DECISIONS §9).
+func _check_second_deal_deck_count() -> void:
+	for n in [5, 6]:
+		var rules = _new_rules({"seed": 17, "seat_count": n, "ai_seats": []})
+		rules.state.phase = "round_end"
+		var r: Dictionary = rules.apply_action({"type": "start_next_round"})
+		t.expect(bool(r.ok), "%d Plaetze: zweite Ausgabe startet nicht" % n)
+		t.expect(rules.assert_zones(), "%d Plaetze: zweite Ausgabe mit falscher Kartenzahl: %s" % [n, rules.zone_error])

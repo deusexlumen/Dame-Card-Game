@@ -166,7 +166,7 @@ func apply_action(action: Dictionary) -> Dictionary:
 			return _fail("Extra-Ablegen nur im eigenen Zug")
 		return _fail("Nicht am Zug")
 	var player: Dictionary = state.players[seat]
-	if bool(player.locked) and type != "end_turn" and type != "timeout_penalty":
+	if bool(player.locked) and type != "end_turn" and type != "timeout_penalty" and type != "skip_turn":
 		return _fail("Karten des Ansagers sind gelockt")
 	match type:
 		"draw_deck":
@@ -189,6 +189,8 @@ func apply_action(action: Dictionary) -> Dictionary:
 			return _end_turn()
 		"timeout_penalty":
 			return _timeout_penalty()
+		"skip_turn":
+			return _skip_turn()
 		_:
 			return _fail("Unbekannte Aktion")
 
@@ -557,7 +559,7 @@ func _start_next_round() -> Dictionary:
 		for pen in p.penalty_cards:
 			carried[str(pen.id)] = true
 	var deck: Array = []
-	for card in _fresh_pool():
+	for card in _fresh_pool(deck_count_for(seat_count())):
 		if not carried.has(str(card.id)):
 			deck.append(card)
 	_shuffle(deck, rng)
@@ -786,6 +788,32 @@ func _timeout_penalty() -> Dictionary:
 	var card := _give_one_penalty(player, "timeout")
 	_log("%s: Zeit abgelaufen. Genau eine Strafkarte." % str(player.name))
 	state.last_action = "Zeit abgelaufen – Strafkarte für %s." % str(player.name)
+	return {"ok": true, "reason": "", "penalty": not card.is_empty()}
+
+
+# Online, Funkloch (CONCEPT_DECISIONS §11 Stufe 1): Spieler setzt aus.
+# Hand bleibt unveraendert, nichts wird gezogen, kein Effekt, keine Strafkarte.
+# Nur vor dem Ziehen. Ein Dame-Zwangszug laeuft regulaer ueber den Server.
+func _skip_turn() -> Dictionary:
+	if str(state.turn_step) != "draw" or state.drawn_card != null:
+		return _fail("Aussetzen nur vor dem Ziehen")
+	if must_take_queen():
+		return _fail("Zwangszug: die offene Dame muss genommen werden")
+	_log("%s ist nicht da und setzt aus." % _who())
+	state.turn_step = "extra"
+	return _end_turn()
+
+
+# Online (CONCEPT_DECISIONS §11 Stufe 2): Wiedereinstieg nach langer Abwesenheit.
+# Der Server ruft das zu Beginn der naechsten Ausgabe auf. Genau eine Strafkarte.
+func give_absence_penalty(seat: int) -> Dictionary:
+	if seat < 0 or seat >= seat_count():
+		return _fail("Ungültiger Platz")
+	var player: Dictionary = state.players[seat]
+	if bool(player.eliminated):
+		return _fail("Spieler ist ausgeschieden")
+	var card := _give_one_penalty(player, "absence")
+	_log("%s war zu lange weg. Genau eine Strafkarte." % str(player.name))
 	return {"ok": true, "reason": "", "penalty": not card.is_empty()}
 
 

@@ -232,6 +232,8 @@ const EN := {
 	"Dame ist jetzt nicht rufbar": "Dame cannot be called now",
 	"%s hat Dame gerufen. Jeder andere Spieler hat noch genau einen Zug.": "%s called Dame. Every other player has exactly one more turn.",
 	"%s kann nicht ziehen und setzt aus.": "%s cannot draw and passes.",
+	"%s ist nicht da und setzt aus.": "%s is away and passes.",
+	"%s war zu lange weg. Genau eine Strafkarte.": "%s was away too long. Exactly one penalty card.",
 	"Der Zug ist noch nicht fertig": "The turn is not finished yet",
 	"Zug kann jetzt nicht beendet werden": "The turn cannot be ended now",
 	"Letzter Zug nach der Ansage. Karten aufgedeckt.": "Last turn after the call. Cards revealed.",
