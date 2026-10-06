@@ -10,7 +10,8 @@ test('Web-Build startet ins Hauptmenue und reagiert auf Eingaben', async ({ page
   });
   page.on('pageerror', (err) => errors.push(err.message));
 
-  await page.goto('/');
+  // Relativ, damit der Test auch unter einem Unterpfad (GitHub Pages) laeuft.
+  await page.goto('./');
   const canvas = page.locator('canvas');
   await expect(canvas).toBeVisible();
   await expect.poll(() => messages.some((m) => m.includes('DAME_READY')), { timeout: 60000 }).toBe(true);

@@ -27,5 +27,8 @@ Plan: `docs/superpowers/plans/2026-10-06-godot-pages-release.md`. Ziel: Godot-We
 - Fix: kaputte Regex in `scripts/serve-static.mjs` (Web-Smoke startete nicht).
 - `deploy.yml` neu: nur Godot (Tests, Export, Web-Smoke, Pages-Deploy). React-Jobs entfernt.
 - Pages-Quelle ist bereits „GitHub Actions“.
-- Nächstes: Push + PR (wartet auf Go), dann CI fixen, Merge nach Go.
+- PR #4 gemergt (Merge-Commit), `Deploy to GitHub Pages` beim ersten Lauf grün.
+- **Live:** https://deusexlumen.github.io/Dame-Card-Game/ (Web-Smoke live bestanden).
+- Web-Smoke nutzt jetzt `goto('./')`, damit er auch unter Unterpfaden läuft.
+- Offen: Echtgeld-Anbieter, Multiplayer, Android. CI-Warnung: Actions auf Node 20 veraltet, `ubuntu-latest` wechselt ab 2026-10-19 auf Ubuntu 26.
 - PR #4 offen, CI grün. Konflikte mit main gelöst: main hatte nur ältere Stände (Squash von p1-hardening, doppelter Godot-Stufe-1-Commit) → Branch-Stand behalten, CLAUDE.md + 10x-Notizen übernommen, alte round_check-Dateien wieder entfernt.

@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Browser-based implementation of the German memory/bluff card game "Dame" (not checkers) for 2–6 players, human vs. human (hot-seat) or vs. AI. Pure client-side SPA (React 19 + TypeScript + Vite + Tailwind/shadcn), no backend. `AGENTS.md` holds the longer German project overview; `CONCEPT_DECISIONS.md` is the binding rules spec (extra-discard instead of real-time snapping, one penalty card per mistake, Queen always face-up and forces the next player, Dame-call locking/final-turn semantics). Design plans/specs from past work live in `docs/superpowers/`.
 
+**Main project is now the Godot client in `godot/`** (see the top of `AGENTS.md`, load the `dame-godot` skill). GitHub Pages deploys only the Godot web build. The React app below is kept as reference.
+
 ## Commands
 
 Package manager is **pnpm** (lockfile + CI use pnpm 9 / Node 22). `node_modules` is not committed — run `pnpm install` first.
