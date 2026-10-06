@@ -6,7 +6,8 @@ extends Node3D
 
 const BODY_DIR := "res://assets/characters/body/"
 const HAIR_DIR := "res://assets/characters/hair/"
-const ANIM_PATH := "res://assets/characters/anim/UAL1_Standard.glb"
+# Nur die genutzten Animationen (tools/strip_anims.gd aus UAL1_Standard.glb).
+const ANIM_PATH := "res://assets/characters/anim/sitting.res"
 const ClothShader = preload("res://shaders/clothed_body.gdshader")
 const ArmIKScript = preload("res://scripts/table3d/arm_ik.gd")
 
@@ -44,13 +45,7 @@ static func look_for(name: String, seat: int) -> Dictionary:
 
 static func animations() -> AnimationLibrary:
 	if _anim_lib == null:
-		var src: Node = (load(ANIM_PATH) as PackedScene).instantiate()
-		var ap: AnimationPlayer = src.get_node("AnimationPlayer")
-		_anim_lib = ap.get_animation_library("").duplicate(true)
-		src.free()
-		for n in ["Sitting_Idle", "Sitting_Talking", "Idle", "Dance"]:
-			if _anim_lib.has_animation(n):
-				_anim_lib.get_animation(n).loop_mode = Animation.LOOP_LINEAR
+		_anim_lib = load(ANIM_PATH)
 	return _anim_lib
 
 

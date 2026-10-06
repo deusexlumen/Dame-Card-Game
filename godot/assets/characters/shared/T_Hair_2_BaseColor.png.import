@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://u1f1boiohtbw"
-path="res://.godot/imported/T_Hair_2_Normal.png-46762a8a6fa4c67eae7a61c1be479ac8.ctex"
+uid="uid://c46raba2y6lot"
+path="res://.godot/imported/T_Hair_2_BaseColor.png-5859272f0218801a68a6d98fffd96ea9.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/characters/body/T_Hair_2_Normal.png"
-dest_files=["res://.godot/imported/T_Hair_2_Normal.png-46762a8a6fa4c67eae7a61c1be479ac8.ctex"]
+source_file="res://assets/characters/shared/T_Hair_2_BaseColor.png"
+dest_files=["res://.godot/imported/T_Hair_2_BaseColor.png-5859272f0218801a68a6d98fffd96ea9.ctex"]
 
 [params]
 
