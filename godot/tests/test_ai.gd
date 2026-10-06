@@ -14,6 +14,7 @@ func run(ctx) -> void:
 	_check_view_hides_foreign()
 	_check_drawn_card_privacy()
 	_check_jack_memory_in_view()
+	_check_view_geometry()
 	_check_policy_reads_view_only()
 	_check_ai_games()
 	_check_hard_beats_easy()
@@ -170,3 +171,12 @@ func _check_hard_beats_easy() -> void:
 			hard_wins += 1
 	print("FACT hard_vs_easy wins=%d/%d" % [hard_wins, games])
 	t.expect(hard_wins >= 20, "Schwer gewinnt zu selten gegen Einfach: %d/%d" % [hard_wins, games])
+
+
+func _check_view_geometry() -> void:
+	var rules = _new_rules({"seed": 5, "seat_count": 6, "ai_seats": []})
+	var view: Dictionary = DameViewScript.for_viewer(rules, 2)
+	for p in view.players:
+		t.expect(str(p.role) == DameRulesScript.seat_role_for(2, int(p.seat), 6), "Rolle ungleich statischer Funktion")
+		t.expect(is_equal_approx(float(p.angle), rules.seat_angle(2, int(p.seat))), "Winkel fehlt in der Sicht")
+		t.expect(p.has("deal_penalties"), "deal_penalties fehlt in der Sicht")

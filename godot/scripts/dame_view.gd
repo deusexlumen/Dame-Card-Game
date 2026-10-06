@@ -38,6 +38,8 @@ static func for_viewer(rules: RefCounted, viewer_seat: int) -> Dictionary:
 			"is_current": seat == int(state.current_index),
 			"is_self": own,
 			"role": rules._seat_role(viewer_seat, seat),
+			"deal_penalties": int(p.get("deal_penalties", 0)),
+			"angle": rules.seat_angle(viewer_seat, seat),
 			"cards": cards,
 		})
 	var is_my_turn := int(state.current_index) == viewer_seat
