@@ -93,6 +93,11 @@ Als „abwesend" gilt: Verbindung getrennt **oder** App/Tab im Hintergrund.
 - Während einer Dame-Ansage gelten dieselben Regeln. Der Ansager ist ohnehin gelockt.
 - Alle Zeitwerte sind Startwerte und werden nach ersten Testpartien justiert.
 
+**Host-Abbruch (Online per P2P, Entscheidung 2026-10-06)**
+- In Partien ohne Server führt ein Spieler als Host die Regeln aus. Verlässt er die Partie oder bricht seine Verbindung dauerhaft ab (nach den Stufen oben), endet die Partie für alle **ohne Wertung**: keine Niederlage, keine Chips, keine Aufgabe-Zählung.
+- Host-Wechsel mitten in der Partie gibt es in V1 nicht. Die Stufen 1 bis 3 gelten unverändert für alle anderen Spieler.
+- Technik: `docs/online-p2p-plan.md`.
+
 ## 12. Plattformen (Entscheidung 2026-10-06)
 
 Wo und wie gespielt wird, ist egal (Browser, als App installiert, Windows, später weitere). **Das Spiel muss überall gleich sein:** gleiche Regeln, gleicher Look, gleicher Ablauf. Plattformen dürfen nur Bedienung und Technik anpassen, nie das Spiel.
