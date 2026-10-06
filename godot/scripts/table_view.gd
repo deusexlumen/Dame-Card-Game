@@ -731,7 +731,7 @@ func _events(phase: String, current: int) -> void:
 	if _fx == null:
 		return
 	_fx.animate = bool(_setting("animations")) and not instant_ai
-	_fx.set_dame_active(phase == "dame_called")
+	_fx.set_dame_active(phase == "dame_called", int(rules.state.dame_turns_left))
 	if phase == "dame_called" and _last_phase == "play":
 		var caller := int(rules.state.dame_caller_index)
 		if caller >= 0:
@@ -753,6 +753,10 @@ func _events(phase: String, current: int) -> void:
 		var w := int(rules.state.winner_index)
 		if w >= 0 and not bool(rules.state.players[w].is_ai):
 			_fx.confetti()
+		if w >= 0:
+			_fx.winner(tr("Du gewinnst!") if w == _local_seat() else tr("%s gewinnt!") % str(rules.state.players[w].name))
+	elif phase != "game_over":
+		_fx.clear_winner()
 	_last_phase = phase
 	_last_current = current
 

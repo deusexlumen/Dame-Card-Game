@@ -27,6 +27,9 @@ const EN := {
 	"Anleitung": "How to play",
 	"Aussehen": "Appearance",
 	"Du bist am Zug": "Your turn",
+	"Letzte Runde – noch %d Züge": "Final round – %d turns left",
+	"Du gewinnst!": "You win!",
+	"%s gewinnt!": "%s wins!",
 	"Schließen [H]": "Close [H]",
 	# Einstellungen
 	"Langsam": "Slow",

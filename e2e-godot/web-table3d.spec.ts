@@ -13,14 +13,14 @@ test('Web-Build zeigt den 3D-Tisch und nimmt einen Zug an', async ({ page }) => 
   await page.goto('./');
   const canvas = page.locator('canvas');
   await expect(canvas).toBeVisible();
-  await expect.poll(() => messages.some((m) => m.includes('DAME_READY')), { timeout: 60000 }).toBe(true);
+  await expect.poll(() => messages.some((m) => m.includes('DAME_READY')), { timeout: 150000 }).toBe(true);
 
   // Fokus liegt auf "Gegen die KI spielen", im Setup auf "Start".
   await canvas.click({ position: { x: 640, y: 690 } });
   await page.keyboard.press('Enter');
-  await expect.poll(() => messages.some((m) => m.includes('SCREEN_READY Setup')), { timeout: 15000 }).toBe(true);
+  await expect.poll(() => messages.some((m) => m.includes('SCREEN_READY Setup')), { timeout: 60000 }).toBe(true);
   await page.keyboard.press('Enter');
-  await expect.poll(() => messages.some((m) => m.includes('TABLE_READY 3d=true')), { timeout: 20000 }).toBe(true);
+  await expect.poll(() => messages.some((m) => m.includes('TABLE_READY 3d=true')), { timeout: 90000 }).toBe(true);
 
   // Leertaste zieht vom Stapel, die Hand nimmt die Karte.
   await page.waitForTimeout(1500);

@@ -1,6 +1,6 @@
 ---
 name: dame-godot
-description: "Build DAME, the hidden-hand memory card game, in the Godot 4.7 project at godot/. Use when implementing table.tscn, Dame rules, card zones, peek memory, Dame-call, AI, menus, shop, phosphor UI, the first-person 3D table, export, or headless rule tests. Not for the React app, not for unrelated Godot 3D games, platformers, or other engines."
+description: "Build DAME, the hidden-hand memory card game, in the Godot 4.7 project at godot/. Use when implementing table.tscn, Dame rules, card zones, peek memory, Dame-call, AI, menus, shop, casino UI, the first-person 3D table, characters, i18n, export, or headless rule tests. Not for the React app, not for unrelated Godot 3D games, platformers, or other engines."
 type: workflow
 lifecycle: active
 ---
@@ -13,7 +13,7 @@ Read `references/rules.md` before any rule code. Read `references/architecture.m
 
 ## Look
 
-The table is a **first-person 3D scene** (`scripts/table3d/`): you sit at a round table, opponents sit as figures, your own cards lie face-down in front of you, and your right hand draws, holds and places cards. This is the user's core vision. Never ship a flat 2D table again. The 2D `SeatView`/`CardView` nodes stay only as invisible focus and test proxies. Menus stay 2D phosphor.
+The table is a **first-person 3D scene** (`scripts/table3d/`): you sit at a round table, opponents sit as figures, your own cards lie face-down in front of you, and your right hand draws, holds and places cards. This is the user's core vision. Never ship a flat 2D table again. The 2D `SeatView`/`CardView` nodes stay only as invisible focus and test proxies. Look is **modern dark casino** (gold, ivory, near-black; Inter + Playfair). The old terminal/phosphor look is obsolete and must not come back. Menus show the 3D table as a backdrop. Assets are free (CC0/OFL): Quaternius characters, Kenney audio. Read every spec in `docs/superpowers/specs/` and `CONCEPT_DECISIONS.md` (§9 = 2026-10-06 decisions) before changing look or rules.
 
 ## Hard stops
 
@@ -21,7 +21,7 @@ The table is a **first-person 3D scene** (`scripts/table3d/`): you sit at a roun
 2. Do not treat `face_up` as knowledge. Knowledge is a per-player memory. Human UI and AI may read only their own memory plus the public discard top.
 3. A card id exists in exactly one zone: deck, a hand slot, discard, drawn card, or a penalty pile. Move is remove-then-add. Tests assert zones after every mutation.
 4. Queen the card (`Q`, 0 points) is not the Dame call. Never merge them.
-5. User-facing strings and `last_action` stay German. Identifiers stay English.
+5. German and English. German text is the translation key (`scripts/i18n.gd`): plain labels translate automatically, formatted strings go through `tr()` before `%`, rule log lines through `I18n.line()`. Rules and `last_action` are written in German. Identifiers stay English.
 6. Rules live in a `RefCounted` with no `Node`, no `get_tree()`, no `await`. UI only projects a public view.
 7. Engine is Godot 4.7.2. `config/features=PackedStringArray("4.7", "GL Compatibility")`. Do not switch renderer.
 8. Rules source is the existing Godot code plus `CONCEPT_DECISIONS.md`. Jack: peek any face-down card. King: peek own card, then blind swap with opponent. Ace and Ten: no effect.
@@ -52,5 +52,5 @@ Start at `references/INDEX.md`.
 
 - [[rules]] — transitions and illegal moves
 - [[architecture]] — call down, signal up, test boundary
-- [[ui]] — hand, focus, phosphor, hidden faces
+- [[ui]] — 3D table, hand rig, casino theme, effects, hidden faces
 - [[gdscript-47]] — engine traps that break this port

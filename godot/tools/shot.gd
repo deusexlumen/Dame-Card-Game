@@ -44,6 +44,19 @@ func _apply_setup() -> void:
 	scene.instant_ai = true
 	scene.run_ai_until_human()
 	match _setup:
+		"fxdame":
+			scene._fx.animate = true
+			scene._fx.dame_called("Bruno")
+		"fxwin":
+			scene._fx.animate = true
+			scene._fx.confetti()
+			scene._fx.winner("Du gewinnst!")
+			scene._fx.set_dame_active(true, 2)
+		"think":
+			# Echte KI-Zeit: Platz 1 ist am Zug und "denkt nach".
+			scene.instant_ai = false
+			scene.rules.state.current_index = 1
+			scene._after_change()
 		"six":
 			scene.start({"seed": 5, "seat_count": 6, "ai_seats": [1, 2, 3, 4, 5], "names": ["Spieler", "Lotte", "Bruno", "Erika", "Kurt", "Hilde"]})
 			scene.run_ai_until_human()

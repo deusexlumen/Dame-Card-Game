@@ -24,7 +24,7 @@ Q having 0 points does not make it the Dame call. See [[architecture]] for the n
 ## State (Dictionary `rules.state`)
 
 - `players[]`: `seat`, `name`, `is_ai`, `difficulty`, `hand[]`, `known[]` (own hand indexes the player knows), `seen_ids[]` (foreign card ids the player has peeked), `penalty_cards[]`, `score`, `total_score`, `eliminated`, `locked`, `has_called_dame`
-- `seat_count` 2–4, `seed`, `deal` (deal number), `round` (circuit inside the deal)
+- `seat_count` 2–6 (decks = ceil(seats / 4), 52 cards each; seats sit on a 60° grid via `seat_angle`), `seed`, `deal` (deal number), `round` (circuit inside the deal)
 - `deck[]`, `discard[]`, `drawn_card`
 - `phase`: `play`, `dame_called`, `round_end`, `game_over`
 - `turn_step`: `draw`, `play`, `jack`, `king`, `extra`

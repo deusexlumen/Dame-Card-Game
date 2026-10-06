@@ -137,6 +137,12 @@ func _check_profile_and_shop() -> void:
 	t.expect(not odd.owns("gibtsnicht"), "unbekannter Artikel im Besitz")
 	t.expect(odd.equipped("card_face") == "face_klassisch", "nicht besessener Artikel ausgeruestet")
 	t.expect(odd.equipped("table") == "table_gruen", "Artikel aus falscher Kategorie ausgeruestet")
+	# Alter Terminal-Shop: Kaeufe werden genau einmal in Chips erstattet.
+	_write(path, '{"chips": 10, "owned": ["back_diagonal", "accent_magenta", "table_schwarz"], "equipped": {}}')
+	var legacy = ProfileServiceScript.new(path)
+	t.expect(legacy.chips() == 530 and not legacy.owns("table_schwarz"), "Altkaeufe nicht erstattet: %d" % legacy.chips())
+	var legacy2 = ProfileServiceScript.new(path)
+	t.expect(legacy2.chips() == 530, "Erstattung doppelt: %d" % legacy2.chips())
 	_write(path, "nicht json")
 	var broken = ProfileServiceScript.new(path)
 	t.expect(broken.chips() == 0 and FileAccess.file_exists(path + ".bak"), "kaputtes Profil nicht gesichert")

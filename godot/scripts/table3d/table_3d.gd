@@ -436,15 +436,16 @@ func _build_figure(root: Node3D, seat: int, name: String) -> Dictionary:
 	# "denkt nach ..." ueber dem Kopf, solange die KI am Zug ist.
 	var think := Label3D.new()
 	think.font = UiThemeScript.font()
-	think.font_size = 26
+	think.font_size = 28
 	think.fixed_size = true
-	think.pixel_size = 0.0009
+	think.pixel_size = 0.0013
 	think.outline_size = 8
 	think.outline_modulate = Color(0, 0, 0, 0.85)
 	think.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	think.no_depth_test = true
 	think.modulate = accent
-	think.position = Vector3(0, 1.72, 0)
+	# Direkt ueber dem Namensschild, damit es auch bei nahen Kopfpositionen im Bild bleibt.
+	think.position = Vector3(0, 1.2, -0.2)
 	think.text = tr("denkt nach …")
 	think.visible = false
 	fig.add_child(think)

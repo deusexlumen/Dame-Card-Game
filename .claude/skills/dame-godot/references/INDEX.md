@@ -8,7 +8,7 @@ description: "Index for the DAME Godot port. Read before choosing a reference."
 
 - [[rules]] — deck, points, phases, J/K/Q/A/10, Dame call, 50-point cut. Source of truth over the README.
 - [[architecture]] — where rules stop and the scene tree starts. Hidden-info boundary.
-- [[ui]] — four-slot hand, keyboard, theme. No rule logic.
+- [[ui]] — 3D table, first-person hand, casino theme, effects, keys. No rule logic.
 - [[gdscript-47]] — engine and renderer traps for this project.
 
 ## Cross-skill

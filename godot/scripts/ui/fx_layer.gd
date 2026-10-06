@@ -13,14 +13,19 @@ var _mat: ShaderMaterial
 var _banner: Label
 var _sub: Label
 var _turn: Label
+var _countdown: Label
+var _winner: Label
 var _dame_on := false
 var _pulse_t := 0.0
 
 func _ready() -> void:
+	# Feste Bildgroesse (Projekt skaliert 1280x720), Anker allein ergaben hier 0x0.
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	size = Vector2(1280, 720)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_vignette = ColorRect.new()
 	_vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_vignette.size = Vector2(1280, 720)
 	_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_mat = ShaderMaterial.new()
 	_mat.shader = VignetteShader
@@ -30,6 +35,10 @@ func _ready() -> void:
 	_banner.position = Vector2(0, 250)
 	_sub = _label(26, UiThemeScript.bold_font(), UiThemeScript.IVORY)
 	_sub.position = Vector2(0, 370)
+	_countdown = _label(22, UiThemeScript.bold_font(), Color(1.0, 0.55, 0.5))
+	_countdown.position = Vector2(0, 560)
+	_winner = _label(72, UiThemeScript.heading_font(), UiThemeScript.GOLD)
+	_winner.position = Vector2(0, 78)
 	_turn = _label(24, UiThemeScript.heading_font(), UiThemeScript.GOLD)
 	_turn.position = Vector2(0, 122)
 
@@ -57,12 +66,33 @@ func _process(delta: float) -> void:
 		_mat.set_shader_parameter("strength", 0.35 + 0.2 * sin(_pulse_t * 3.0))
 
 
-func set_dame_active(on: bool) -> void:
+# Countdown waehrend der Dame-Runde (Spec: Countdown-Overlay).
+func set_dame_active(on: bool, turns_left: int = 0) -> void:
+	_countdown.text = (tr("Letzte Runde – noch %d Züge") % turns_left) if on else ""
+	_countdown.modulate.a = 1.0 if on else 0.0
 	if on == _dame_on:
 		return
 	_dame_on = on
 	if not on:
 		_mat.set_shader_parameter("strength", 0.0)
+
+
+# Sieger zoomt gross in die Mitte (Spec: Gewinner-Feier).
+func winner(text: String) -> void:
+	_winner.text = text
+	if not animate:
+		_winner.modulate.a = 1.0
+		_winner.scale = Vector2.ONE
+		return
+	_winner.modulate.a = 0.0
+	_winner.scale = Vector2.ONE * 0.2
+	var tw := create_tween().set_parallel(true)
+	tw.tween_property(_winner, "modulate:a", 1.0, 0.3)
+	tw.tween_property(_winner, "scale", Vector2.ONE, 0.6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+func clear_winner() -> void:
+	_winner.modulate.a = 0.0
 
 
 # Grosser Moment: jemand ruft Dame.
