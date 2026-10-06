@@ -204,11 +204,11 @@ KI-Züge werden über die zentrale Funktion `decideAIMove(gameState, playerId, d
 
 ## Deployment
 
-Das Projekt ist für statisches Hosting vorkonfiguriert:
+GitHub Pages zeigt **nur den Godot-Web-Build**: https://deusexlumen.github.io/Dame-Card-Game/
 
-1. `npm run build` erzeugt den `dist/`-Ordner.
-2. `dist/` kann direkt auf einem Static-Hosting-Dienst (Netlify, Vercel, GitHub Pages, Cloudflare Pages) bereitgestellt werden.
-3. Die `base: './'`-Konfiguration in `vite.config.ts` stellt sicher, dass Assets mit relativen Pfaden referenziert werden.
+1. `.github/workflows/deploy.yml` läuft bei jedem Push auf `main`: Godot 4.7.2 + Templates, Headless-Tests, Export, Web-Smoke, Pages-Deploy.
+2. Web-Preset ist ohne Threads, daher keine COOP/COEP-Header nötig.
+3. Die React-App wird nicht mehr veröffentlicht. `npm run build` baut sie weiterhin lokal nach `dist/`.
 
 **Kein Server-Side-Rendering, keine API, keine Datenbank.**
 

@@ -366,4 +366,6 @@ Abweichungen vom Plan, bewusst entschieden:
 - **Gedächtnishilfe** als Einstellung: an = bekannte Karten bleiben offen, aus = nur kurz gezeigt.
 - **Bildröhren-Effekt** als Shader-Overlay (abschaltbar).
 
-Offen und nur durch den Nutzer zu entscheiden: Push/PR des Branches (CI lief noch nie), Veröffentlichung des Web-Builds (itch.io / GitHub Pages), Echtgeld-Anbieter, Multiplayer.
+**Update 2026-10-06:** PR #4 nach `main` gemergt, CI grün. Web-Build live auf GitHub Pages (https://deusexlumen.github.io/Dame-Card-Game/), React-Deploy entfernt.
+
+Offen und nur durch den Nutzer zu entscheiden: Echtgeld-Anbieter, Multiplayer, ggf. zusätzlich itch.io.
