@@ -6,7 +6,7 @@ extends RefCounted
 const Protocol = preload("res://scripts/net/net_protocol.gd")
 const Codec = preload("res://scripts/net/net_codec.gd")
 
-signal view_changed(view: Dictionary)
+signal view_changed(view: Dictionary, action: Dictionary)
 signal action_result(result: Dictionary)
 signal welcomed
 signal rejected(reason: String)
@@ -18,6 +18,10 @@ var latest_view: Dictionary = {}
 
 func _init(net_link) -> void:
 	link = net_link
+
+
+func is_authority() -> bool:
+	return false
 
 
 func connect_to_host() -> void:
@@ -44,6 +48,6 @@ func poll() -> void:
 					continue
 				rev = int(msg.rev)
 				latest_view = msg.get("view", {})
-				view_changed.emit(latest_view)
+				view_changed.emit(latest_view, msg.get("action", {}))
 			"result":
 				action_result.emit(msg)

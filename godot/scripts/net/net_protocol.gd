@@ -39,6 +39,17 @@ static func sanitize_action(raw) -> Dictionary:
 	return clean
 
 
+# Oeffentliche Form einer angenommenen Aktion fuer alle Tische (Animation, Toene).
+# Nur Whitelist-Felder; der Platz kommt vom Aufrufer, nie aus der Aktion.
+static func public_action(a: Dictionary, seat: int) -> Dictionary:
+	var type := str(a.get("type", ""))
+	var out := {"type": type, "seat": seat}
+	if PLAYER_ACTIONS.has(type):
+		for field in PLAYER_ACTIONS[type]:
+			out[field] = int(a.get(field, -1))
+	return out
+
+
 static func hello() -> Dictionary:
 	return {"t": "hello", "v": VERSION}
 

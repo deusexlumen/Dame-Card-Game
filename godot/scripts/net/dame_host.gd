@@ -9,7 +9,7 @@ const Protocol = preload("res://scripts/net/net_protocol.gd")
 const Codec = preload("res://scripts/net/net_codec.gd")
 const DameViewScript = preload("res://scripts/dame_view.gd")
 
-signal view_changed(view: Dictionary)
+signal view_changed(view: Dictionary, action: Dictionary)
 signal action_result(result: Dictionary)
 # Presence-Haken fuer die Abwesenheitsstufen (CONCEPT_DECISIONS §11), Logik folgt spaeter.
 signal peer_joined(peer_id: int)
@@ -20,12 +20,18 @@ var link
 var seat_of_peer := {}
 var rev := 0
 var latest_view: Dictionary = {}
+# Plaetze, die an diesem Geraet gespielt werden.
+var local_seats: Array = []
 
 
 # link darf null sein: dann spielt nur der Host-Spieler (lokal).
 func _init(match_rules, net_link = null) -> void:
 	rules = match_rules
 	link = net_link
+
+
+func is_authority() -> bool:
+	return true
 
 
 func seat_of(peer_id: int) -> int:
@@ -55,17 +61,40 @@ func poll() -> void:
 		_dispatch(handle_packet(int(pkt.from), pkt.bytes))
 
 
-# Timer und Rundenwechsel. Nur der Host darf diese Aktionen ausloesen.
-func system_action(action: Dictionary) -> Dictionary:
-	var type := str(action.get("type", ""))
-	if not Protocol.SYSTEM_ACTIONS.has(type):
-		return {"ok": false, "reason": "Keine Systemaktion"}
-	var clean := {"type": type}
-	if type == "timeout_penalty":
-		clean.seat = int(rules.state.current_index)
-	var res: Dictionary = rules.apply_action(clean)
+# Ein KI-Schritt auf dem Host; die angenommene Aktion geht mit der Sicht raus.
+func ai_step(ai) -> Dictionary:
+	var seat := int(rules.state.current_index)
+	var res: Dictionary = ai.step(rules)
 	if bool(res.get("ok", false)):
-		_dispatch(_broadcast())
+		_dispatch(_broadcast(Protocol.public_action(ai.last_action, seat)))
+	return res
+
+
+# Zeit abgelaufen: genau eine Strafkarte, dann sichere Ersatzaktionen bis Zugende.
+func timeout_turn(ai) -> Dictionary:
+	var seat := int(rules.state.current_index)
+	var pen: Dictionary = rules.apply_action({"type": "timeout_penalty", "seat": seat})
+	if not bool(pen.get("ok", false)):
+		return {"ok": false, "penalty": false}
+	_dispatch(_broadcast({"type": "timeout_penalty", "seat": seat}))
+	var guard := 0
+	while guard < 8 and int(rules.state.current_index) == seat:
+		var phase := str(rules.state.phase)
+		if phase != "play" and phase != "dame_called":
+			break
+		guard += 1
+		var fallback: Dictionary = ai.fallback_action(rules, seat)
+		if not bool(rules.apply_action(fallback).get("ok", false)):
+			break
+		_dispatch(_broadcast(Protocol.public_action(fallback, seat)))
+	return {"ok": true, "penalty": bool(pen.get("penalty", false))}
+
+
+# Naechste Runde starten (nur der Host).
+func next_round() -> Dictionary:
+	var res: Dictionary = rules.apply_action({"type": "start_next_round"})
+	if bool(res.get("ok", false)):
+		_dispatch(_broadcast({"type": "start_next_round", "seat": -1}))
 	return res
 
 
@@ -104,16 +133,16 @@ func submit(peer_id: int, raw) -> Array:
 	var ok := bool(res.get("ok", false))
 	var out: Array = [_result_to(peer_id, ok, str(res.get("reason", "")))]
 	if ok:
-		out.append_array(_broadcast())
+		out.append_array(_broadcast(Protocol.public_action(action, seat)))
 	return out
 
 
-func _broadcast() -> Array:
+func _broadcast(action: Dictionary = {}) -> Array:
 	rev += 1
 	var out: Array = []
 	for peer in seat_of_peer:
 		var view: Dictionary = DameViewScript.for_viewer(rules, int(seat_of_peer[peer]))
-		out.append({"to": int(peer), "msg": {"t": "view", "rev": rev, "view": view}})
+		out.append({"to": int(peer), "msg": {"t": "view", "rev": rev, "view": view, "action": action}})
 	return out
 
 
@@ -134,6 +163,6 @@ func _deliver_local(msg: Dictionary) -> void:
 	match str(msg.t):
 		"view":
 			latest_view = msg.view
-			view_changed.emit(latest_view)
+			view_changed.emit(latest_view, msg.get("action", {}))
 		"result":
 			action_result.emit(msg)

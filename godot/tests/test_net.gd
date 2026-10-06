@@ -34,6 +34,8 @@ func run(ctx) -> void:
 	_check_handshake()
 	_check_seat_authority()
 	_check_stale_view_dropped()
+	_check_public_actions()
+	_check_host_drives_ai_and_timeout()
 	_check_full_game_no_leak()
 
 
@@ -109,7 +111,8 @@ func _check_seat_authority() -> void:
 	t.expect(not _guest_act({"type": "start_next_round"}), "Gast startet Runde")
 	t.expect(not _guest_act({"type": "timeout_penalty"}), "Gast loest Strafkarte aus")
 	t.expect(rules.state.deck.size() == deck_before, "Abgelehnte Gastaktion hat den Stapel veraendert")
-	t.expect(not bool(host.system_action({"type": "draw_deck"}).ok), "Systemaktion nimmt Spieleraktion an")
+	t.expect(not _guest_act({"type": "start_next_round", "seat": 1}), "Gast startet Runde mit Platzangabe")
+	t.expect(rules.state.deck.size() == deck_before, "Gast-Systemaktion hat den Stapel veraendert")
 	var lurker = hub.link(5)
 	lurker.send(Protocol.HOST_PEER, Codec.encode(Protocol.action({"type": "draw_deck"})))
 	host.poll()
@@ -121,6 +124,41 @@ func _check_seat_authority() -> void:
 	guest.poll()
 	t.expect(str(guest.latest_view.turn_step) == "play", "Gast sieht den Zug des Hosts nicht")
 	t.expect(not bool(guest.latest_view.drawn.known), "Gast sieht die gezogene Karte des Hosts")
+
+
+func _check_public_actions() -> void:
+	var a := Protocol.public_action({"type": "king_swap", "opponent_seat": 2, "opponent_index": 1, "chosen_index": 0, "rank": "K", "id": "x"}, 1)
+	t.expect(a.keys().size() == 5 and int(a.seat) == 1 and not a.has("rank") and not a.has("id"), "Aktion traegt fremde Felder")
+	t.expect(Protocol.public_action({"type": "timeout_penalty", "seat": 0, "card": {}}, 0).keys().size() == 2, "Systemaktion traegt Zusatzfelder")
+	var b := Protocol.public_action({"type": "draw_deck", "seat": 2}, 0)
+	t.expect(int(b.seat) == 0 and b.keys().size() == 2, "Seat aus Aktion statt Parameter")
+
+
+func _check_host_drives_ai_and_timeout() -> void:
+	_setup(44)
+	var actions: Array = []
+	guest.view_changed.connect(func(_v, a): actions.append(a))
+	host.send_action({"type": "draw_deck"})
+	host.send_action({"type": "discard_drawn"})
+	host.send_action({"type": "end_turn"})
+	guest.poll()
+	t.expect(not actions.is_empty() and str(actions[-1].type) == "end_turn" and int(actions[-1].seat) == 0, "Gast bekommt Aktion des Hosts nicht")
+	t.expect(int(rules.state.current_index) == GUEST_SEAT, "Testannahme: Gast ist nach dem Host dran")
+	var ai = DameAIScript.new(1)
+	var pen_before: int = rules.state.players[1].penalty_cards.size()
+	var n_before := actions.size()
+	var res: Dictionary = host.timeout_turn(ai)
+	guest.poll()
+	t.expect(bool(res.ok) and int(rules.state.current_index) == 2, "Zeitablauf beendet den Zug nicht")
+	t.expect(rules.state.players[1].penalty_cards.size() == pen_before + 1, "Zeitablauf ohne Strafkarte")
+	t.expect(str(actions[-1].type) == "end_turn", "Ersatzaktionen nicht einzeln verschickt")
+	t.expect(str(actions[n_before].type) == "timeout_penalty" and actions.size() - n_before >= 2, "Strafkarte nicht einzeln verschickt")
+	var r2: Dictionary = host.ai_step(ai)
+	guest.poll()
+	t.expect(bool(r2.ok) and int(actions[-1].seat) == 2, "KI-Schritt nicht verschickt")
+	t.expect(host.is_authority() and not guest.is_authority(), "is_authority falsch")
+	# Zugfreie Runde: next_round nur im passenden Zustand, sonst abgelehnt.
+	t.expect(not bool(host.next_round().get("ok", false)), "next_round mitten in der Runde")
 
 
 func _check_stale_view_dropped() -> void:
@@ -153,7 +191,7 @@ func _check_full_game_no_leak() -> void:
 			steps += 1
 			var phase := str(rules.state.phase)
 			if phase == "round_end":
-				host.system_action({"type": "start_next_round"})
+				host.next_round()
 				guest.poll()
 				continue
 			var cur := int(rules.state.current_index)
@@ -171,7 +209,7 @@ func _check_full_game_no_leak() -> void:
 						ok = true
 						break
 			if not ok:
-				host.system_action({"type": "timeout_penalty"})
+				host.timeout_turn(ai)
 				guest.poll()
 			elif is_guest:
 				guest_ok += 1
@@ -218,8 +256,15 @@ func _candidates(view: Dictionary) -> Array:
 	return out
 
 
-func _on_guest_view(view: Dictionary) -> void:
+func _on_guest_view(view: Dictionary, action: Dictionary) -> void:
 	guest_views += 1
+	if not action.is_empty():
+		var type := str(action.get("type", ""))
+		var allowed: Array = ["type", "seat"]
+		allowed.append_array(Protocol.PLAYER_ACTIONS.get(type, []))
+		t.expect(Protocol.PLAYER_ACTIONS.has(type) or Protocol.SYSTEM_ACTIONS.has(type), "Unbekannter Aktionstyp in Sicht")
+		for k in action.keys():
+			t.expect(allowed.has(k), "Aktion traegt unerlaubtes Feld %s" % k)
 	var expected: Dictionary = DameViewScript.for_viewer(rules, GUEST_SEAT)
 	t.expect(var_to_str(view) == var_to_str(expected), "Gastsicht weicht von DameView ab")
 	# private_look darf die ID der eigenen angesehenen Karte tragen, sonst keine IDs.
