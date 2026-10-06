@@ -1,5 +1,6 @@
 // Startet die Godot-Headless-Tests und prüft das Ergebnis.
 // 1) Suites in tests/run_all.tscn  2) echter Szenenfluss tools/flow_smoke.gd
+// 3) echte Online-Verbindung ueber localhost tools/net_smoke.gd
 import { spawnSync } from 'node:child_process';
 
 const bin = process.env.GODOT_BIN
@@ -8,6 +9,7 @@ const bin = process.env.GODOT_BIN
 const runs = [
   { args: ['--headless', '--path', 'godot', 'res://tests/run_all.tscn'], marker: /ALL_TESTS_OK/ },
   { args: ['--headless', '--path', 'godot', '--script', 'res://tools/flow_smoke.gd'], marker: /FLOW_OK/ },
+  { args: ['--headless', '--path', 'godot', '--script', 'res://tools/net_smoke.gd'], marker: /NET_OK/ },
 ];
 
 let failed = false;

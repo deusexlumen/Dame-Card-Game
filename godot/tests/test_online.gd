@@ -9,6 +9,8 @@ const DameAIScript = preload("res://scripts/dame_ai.gd")
 const DamePolicyScript = preload("res://scripts/dame_policy.gd")
 const DameMirrorScript = preload("res://scripts/online/dame_mirror.gd")
 const OnlineMatchScript = preload("res://scripts/online/online_match.gd")
+const RoomManagerScript = preload("res://scripts/online/room_manager.gd")
+const ProtoScript = preload("res://scripts/online/net_protocol.gd")
 
 var t
 
@@ -25,6 +27,8 @@ func run(ctx) -> void:
 	_check_stage3_forfeit()
 	_check_all_away_ends()
 	_check_full_online_game()
+	_check_rooms()
+	_check_protocol()
 
 
 # ---------------------------------------------------------------- Spiegel
@@ -255,3 +259,37 @@ func _check_full_online_game() -> void:
 			t.expect(false, "Online-Partie: Zonen kaputt: %s" % m.rules.zone_error)
 			return
 	t.expect(m.finished and m.end_reason == "game_over", "Online-Partie endet nicht regulaer (%s, %d Schritte)" % [m.end_reason, guard])
+
+
+# ---------------------------------------------------------------- Lobby
+
+func _check_rooms() -> void:
+	var rm = RoomManagerScript.new()
+	t.expect(not bool(rm.join("NOPE42", "X").ok), "Unbekannter Code wird angenommen")
+	var host: Dictionary = rm.create("Anna", {"seat_count": 2})
+	t.expect(bool(host.ok) and str(host.code).length() == 6, "Raum wird nicht erstellt")
+	var guest: Dictionary = rm.join(str(host.code).to_lower(), "Ben")
+	t.expect(bool(guest.ok) and int(guest.seat) == 1, "Beitritt mit Kleinbuchstaben scheitert")
+	t.expect(not bool(rm.join(host.code, "Cem").ok), "Voller Tisch nimmt weitere Spieler")
+	t.expect(str(guest.token) != str(host.token) and str(guest.token).length() == 32, "Token unsicher")
+	t.expect(not bool(rm.start(host.code, guest.token).ok), "Gast darf starten")
+	rm.leave(host.code, guest.token)
+	t.expect(str(rm.rooms[host.code].seats[1].kind) == "open", "Verlassen der Lobby gibt den Platz nicht frei")
+	guest = rm.join(host.code, "Ben")
+	t.expect(bool(rm.start(host.code, host.token).ok), "Gastgeber kann nicht starten")
+	t.expect(not bool(rm.join(host.code, "Cem").ok), "Beitritt in laufende Partie moeglich")
+	var again: Dictionary = rm.rejoin(host.code, guest.token)
+	t.expect(bool(again.ok) and int(again.seat) == 1, "Wiedereinstieg mit Token scheitert")
+	t.expect(not bool(rm.rejoin(host.code, "falsch").ok), "Wiedereinstieg mit falschem Token")
+	t.expect(not bool(rm.action(host.code, "falsch", {"type": "draw_deck"}).ok), "Aktion ohne Token angenommen")
+	t.expect(RoomManagerScript.clean_name("  <b>Ä\u0007lex</b>  ", 2).find("<") < 0, "Name nicht bereinigt")
+	t.expect(RoomManagerScript.clean_name("   ", 2) == "Spieler 3", "Leerer Name ohne Ersatz")
+
+
+func _check_protocol() -> void:
+	t.expect(ProtoScript.decode_client("{kaputt").is_empty(), "Kaputtes JSON angenommen")
+	t.expect(ProtoScript.decode_client(JSON.stringify({"t": "hack"})).is_empty(), "Unbekannter Typ angenommen")
+	var big := JSON.stringify({"t": "join", "code": "A".repeat(5000)})
+	t.expect(ProtoScript.decode_client(big).is_empty(), "Uebergrosse Nachricht angenommen")
+	var msg: Dictionary = ProtoScript.decode_client(JSON.stringify({"t": "action", "action": {"type": "swap", "hand_index": 2, "evil": {"x": 1}, "seat": 5}}))
+	t.expect(msg.action.has("hand_index") and not msg.action.has("evil") and not msg.action.has("seat"), "Aktion nicht bereinigt")
