@@ -18,7 +18,7 @@ const types = {
 
 createServer(async (req, res) => {
   const url = decodeURIComponent((req.url ?? '/').split('?')[0]);
-  const rel = normalize(url === '/' ? '/index.html' : url).replace(/^([/\])+/, '');
+  const rel = normalize(url === '/' ? '/index.html' : url).replace(/^[/\\]+/, '');
   if (rel.startsWith('..')) {
     res.writeHead(403).end();
     return;
