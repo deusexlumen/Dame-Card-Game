@@ -19,6 +19,7 @@ const DEFAULTS := {
 	"turn_timer_seconds": 30,
 	"memory_aid": true,
 	"crt_effect": true,
+	"table_3d": true,
 	"default_difficulty": "medium",
 	"fullscreen": false,
 	"player_name": "Spieler",

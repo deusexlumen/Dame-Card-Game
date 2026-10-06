@@ -12,6 +12,7 @@ const SeatViewScript = preload("res://scripts/ui/seat_view.gd")
 const CardViewScript = preload("res://scripts/ui/card_view.gd")
 const UiThemeScript = preload("res://scripts/ui/ui_theme.gd")
 const CatalogScript = preload("res://scripts/services/catalog.gd")
+const Table3DScript = preload("res://scripts/table3d/table_3d.gd")
 
 const REVEAL_DEAL_MS := 5000
 const REVEAL_PEEK_MS := 3000
@@ -40,6 +41,11 @@ var _turn_left := 0.0
 var _turn_owner := -1
 var _accent := Color(0.55, 1.0, 0.55)
 var _back_style := "raster"
+# 3D-Tisch in Egoperspektive. Die 2D-Plaetze bleiben unsichtbar fuer Fokus und Tests.
+var _use_3d := true
+var _view3d: SubViewportContainer
+var _table3d
+var _piles: HBoxContainer
 
 var _bg: ColorRect
 var _seats := {}
@@ -70,7 +76,10 @@ var _pause_panel: PanelContainer
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	_load_cosmetics()
+	_use_3d = bool(_setting("table_3d"))
 	_build_ui()
+	# Marker fuer den Web-Smoke-Test.
+	print("TABLE_READY 3d=%s" % str(_use_3d))
 	if rules != null:
 		return
 	if not pending_config.is_empty():
@@ -105,7 +114,7 @@ func _setting(key: String):
 	var app := _app()
 	if app != null:
 		return app.settings.get_value(key)
-	var defaults := {"memory_aid": true, "animations": true, "turn_timer": false, "turn_timer_seconds": 30, "ai_speed": "normal"}
+	var defaults := {"memory_aid": true, "animations": true, "turn_timer": false, "turn_timer_seconds": 30, "ai_speed": "normal", "table_3d": true}
 	return defaults.get(key)
 
 
@@ -192,6 +201,8 @@ func _build_ui() -> void:
 	var app := _app()
 	_bg.color = app.table_color() if app != null else Color(0.02, 0.035, 0.02)
 	add_child(_bg)
+	if _use_3d:
+		_build_3d(_bg.color)
 
 	var top := HBoxContainer.new()
 	top.position = Vector2(16, 8)
@@ -221,6 +232,7 @@ func _build_ui() -> void:
 	add_child(_prompt)
 
 	var piles := HBoxContainer.new()
+	_piles = piles
 	piles.position = Vector2(445, 250)
 	piles.size = Vector2(390, 180)
 	piles.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -279,10 +291,26 @@ func _build_ui() -> void:
 	_ai_timer.timeout.connect(_ai_step)
 	add_child(_ai_timer)
 
+	if _use_3d:
+		_layout_hud_3d()
 	_build_round_panel()
 	_build_over_panel()
 	_build_handoff()
 	_build_pause()
+
+
+# HUD ueber der 3D-Szene: Hinweise oben, Tisch und Hand bleiben frei.
+func _layout_hud_3d() -> void:
+	_piles.modulate = Color(1, 1, 1, 0)
+	_prompt.position = Vector2(240, 44)
+	_actions.position = Vector2(240, 74)
+	_toast.position = Vector2(240, 122)
+	_log.position = Vector2(14, 330)
+	_log.size = Vector2(300, 200)
+	_keys.position = Vector2(14, 556)
+	for l in [_info, _prompt, _toast, _log, _keys]:
+		l.add_theme_constant_override("outline_size", 6)
+		l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 
 
 func _pile_box(caption: String) -> Array:
@@ -310,6 +338,7 @@ func _layout_seats() -> void:
 	for seat in range(n):
 		var role: String = rules._seat_role(anchor_seat, seat)
 		var sv = SeatViewScript.new()
+		sv.ghost = _use_3d
 		sv.accent = _accent
 		sv.back_style = _back_style
 		sv.setup(seat, role != "self")
@@ -319,6 +348,13 @@ func _layout_seats() -> void:
 		move_child(sv, 1)
 		_seats[seat] = sv
 	_place_seats()
+	if _table3d != null:
+		var roles := {}
+		var names := {}
+		for seat in range(n):
+			roles[seat] = rules._seat_role(anchor_seat, seat)
+			names[seat] = str(rules.state.players[seat].name)
+		_table3d.layout(roles, names)
 
 
 func _place_seats() -> void:
@@ -433,6 +469,72 @@ func _build_pause() -> void:
 	vb.add_child(menu)
 
 
+func _build_3d(bg: Color) -> void:
+	_view3d = SubViewportContainer.new()
+	_view3d.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_view3d.stretch = true
+	_view3d.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_view3d)
+	var vp := SubViewport.new()
+	vp.size = Vector2i(1280, 720)
+	vp.msaa_3d = Viewport.MSAA_4X
+	vp.handle_input_locally = false
+	_view3d.add_child(vp)
+	_table3d = Table3DScript.new()
+	vp.add_child(_table3d)
+	_table3d.build(_accent, _back_style, bg)
+	_view3d.gui_input.connect(_on_view3d_input)
+
+
+func _on_view3d_input(event: InputEvent) -> void:
+	if _table3d == null:
+		return
+	if event is InputEventMouseMotion:
+		var info: Dictionary = _table3d.pick(event.position)
+		_table3d.set_hover(info)
+		_view3d.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if _table3d.is_target(info) else Control.CURSOR_ARROW
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		var hit: Dictionary = _table3d.pick(event.position)
+		match str(hit.get("kind", "")):
+			"card":
+				_on_card(int(hit.seat), int(hit.index))
+			"deck":
+				_on_deck()
+			"discard":
+				_on_discard()
+			"drawn":
+				_on_drawn()
+		accept_event()
+
+
+func _sync_3d() -> void:
+	var targets := {}
+	for seat in _seats:
+		targets[seat] = _targets_for(seat, _view.players[seat])
+	_table3d.animate = bool(_setting("animations"))
+	_table3d.sync(_view, {
+		"face": _face_for,
+		"peek": func(seat: int, i: int) -> bool: return int(_reveal_until.get("%d:%d" % [seat, i], 0)) > Time.get_ticks_msec(),
+		"targets": targets,
+		"selected": king_own if king_own >= 0 else selected,
+		"drawn_face": _drawn_view.shows_face(),
+		"deck_target": _deck_view.targetable,
+		"discard_target": _discard_view.targetable,
+		"drawn_target": _drawn_view.targetable,
+	})
+	# Unsichtbare 2D-Reste duerfen keine Klicks abfangen.
+	for sv in _seats.values():
+		_ghostify(sv)
+	_ghostify(_piles)
+
+
+static func _ghostify(node: Node) -> void:
+	if node is Control:
+		(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for c in node.get_children():
+		_ghostify(c)
+
+
 # ---------------------------------------------------------------- Ablauf
 
 func _after_change() -> void:
@@ -475,6 +577,8 @@ func _begin_handoff(seat: int) -> void:
 	for sv in _seats.values():
 		sv.clear_faces()
 	_drawn_view.set_card({}, false)
+	if _table3d != null:
+		_table3d.clear_faces()
 	var name := str(rules.state.players[seat].name)
 	_handoff_label.text = "Gerät an %s weitergeben.\nNiemand sonst schaut hin." % name
 	_handoff_button.text = "Ich bin %s – Karten zeigen [Enter]" % name
@@ -507,6 +611,8 @@ func _ai_step() -> void:
 		return
 	var before := _snapshot()
 	var result: Dictionary = ai.step(rules)
+	if _table3d != null and bool(result.get("ok", false)):
+		_table3d.queue_action(ai.last_action)
 	_feedback(before, result, int(before.current))
 	_save()
 	_after_change()
@@ -534,6 +640,8 @@ func act(action: Dictionary) -> Dictionary:
 	var result: Dictionary = rules.apply_action(action)
 	_feedback(before, result, int(before.current))
 	if bool(result.ok):
+		if _table3d != null:
+			_table3d.queue_action(action)
 		selected = -1
 		king_own = -1
 		_after_human_action(action)
@@ -807,9 +915,12 @@ func timeout_turn() -> void:
 	var guard := 0
 	while guard < 8 and int(rules.state.current_index) == seat and _human_turn():
 		guard += 1
-		var r: Dictionary = rules.apply_action(ai.fallback_action(rules, seat))
+		var fallback: Dictionary = ai.fallback_action(rules, seat)
+		var r: Dictionary = rules.apply_action(fallback)
 		if not bool(r.ok):
 			break
+		if _table3d != null:
+			_table3d.queue_action(fallback)
 	_toast_text("Zeit abgelaufen – Zug automatisch beendet.")
 	_sound("error")
 	_save()
@@ -895,6 +1006,8 @@ func _refresh() -> void:
 	_drawn_view.targetable = _human_turn() and step == "play"
 	for cv in [_deck_view, _discard_view, _drawn_view]:
 		cv.queue_redraw()
+	if _table3d != null:
+		_sync_3d()
 	_info.text = _info_text()
 	_prompt.text = _prompt_text()
 	_log.text = "\n".join(PackedStringArray(_view.log.slice(maxi(0, _view.log.size() - 9))))
