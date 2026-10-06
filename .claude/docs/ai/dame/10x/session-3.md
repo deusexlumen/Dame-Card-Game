@@ -10,20 +10,27 @@ Das Spiel wird **komplett neu in Godot** gebaut. Die React-Webversion ist nur no
 - **KI:** `src/lib/aiPlayer.ts` mit 3 Stufen als Vorlage für Bots und die „vorsichtige Ersatz-KI" bei Abbruch.
 - **Produktplan:** Session 2 gilt weiter (Online v1 per Link → v2 Matchmaking/Rangliste → Kosmetik ohne Pay-to-win). Gestrichen: PWA, Web-spezifische Quick-Wins.
 
-## Backend-Empfehlung neu: Nakama statt Supabase
-Für ein Godot-Echtzeit-Kartenspiel ist **Nakama** (Open-Source-Gameserver von Heroic Labs) die passendere Wahl:
-- Offizieller **Godot-Client** (GDScript).
-- **Server-autoritative Matches** mit Tick-Loop: Der Server hält die verdeckten Karten, Clients bekommen nur ihre erlaubte Sicht.
-- **Presence, Reconnect und Matchmaking eingebaut**, also genau das, was die Abbruch-Stufen (60 s / 2 Min. / 5 Min.) brauchen.
-- Match-Logik kann in **TypeScript** geschrieben werden, damit lässt sich `gameLogic.ts` fast 1:1 als Server-Regelwerk übernehmen. Godot rendert nur noch und schickt Aktionen (`GameAction` aus `types/game.ts`).
-- Gerätebasierte Anmeldung ohne Account-Zwang, später Social Login; Leaderboards und Wallet/Inventar für Kosmetik sind ebenfalls eingebaut.
-- Hosting: selbst (Docker + Postgres/CockroachDB, ein kleiner VPS reicht anfangs) oder Heroic Cloud.
+## Stand im Repo (gefunden 2026-10-06)
+Das Godot-Projekt existiert bereits in `godot/` auf `main` (Godot 4.7.2, live auf GitHub Pages, 565 Tests, 3D-Casino-Tisch, 2–6 Spieler, Hot-Seat, KI, Chips/Shop). Die Regeln sind in GDScript neu geschrieben und weichen von der React-Version ab (König, Ass/Zehn, Mehrfach-Decks, Timeout-Strafkarte; siehe `CONCEPT_DECISIONS.md` §6–§9).
 
-Alternative: **Headless-Godot-Server** mit Godots eigenem High-Level-Multiplayer. Vorteil: Regeln einmal in GDScript für Client und Server. Nachteil: Matchmaking, Reconnect, Accounts, Leaderboards alles selbst bauen. Nur sinnvoll, wenn bewusst alles in Godot bleiben soll.
+Wichtig für Online: Die Architektur ist schon fast server-tauglich.
+- `DameRules.apply_action(action: Dictionary)` ist der einzige Schreibzugriff (eine Aktion rein, Ergebnis raus).
+- `DameRules.to_dict()` / `from_dict()` serialisieren den kompletten Zustand.
+- `DameView.for_viewer(state, viewer_id)` erzeugt genau die erlaubte Sicht pro Spieler (eigene bekannte Karten, Gegner nur als Anzahl, Deck nur als Zahl). Das ist exakt das, was ein Server an jeden Client schicken muss.
+- Die KI arbeitet bereits nur auf `DameView`, nicht auf dem vollen Zustand.
 
-Supabase rutscht ab: Es hat keinen Godot-First-Support für autoritative Echtzeit-Matches, und Presence/Tick-Logik müsste man selbst zusammenstecken.
+## Backend-Empfehlung (revidiert): Headless-Godot-Server
+Weil die Regeln jetzt in GDScript leben, wäre ein Nakama-TypeScript-Server eine **zweite Regel-Implementierung**, die auseinanderlaufen kann. Daher:
 
-## Offen
-- Gibt es schon ein Godot-Projekt/Repo? (Dieses Repo ist aktuell nur in `deusexlumen/Dame-Card-Game` freigegeben.)
-- Godot-Version (Annahme: 4.x) und Zielplattformen (Annahme: Android/iOS + Desktop, Web optional).
-- Bauen wir Godot im selben Repo (z. B. `godot/` + `server/`) oder in einem neuen?
+- **Autoritativer Server = dasselbe Godot-Projekt, headless gestartet** (`--headless`, eigene Server-Szene). Er hält `DameRules`, nimmt Aktionen per RPC entgegen, validiert über `apply_action` und schickt jedem Client nur `DameView.for_viewer(...)`.
+- **Transport: `WebSocketMultiplayerPeer`.** Funktioniert im Web-Export (Browser kann kein ENet) und nativ. Später optional WebRTC.
+- **Ein Regelcode für Offline, Hot-Seat und Online.** Die 565 Tests sichern auch den Server ab.
+- **Lobby v1 selbst gebaut und klein:** Partie erstellen → 6-stelliger Code/Link → beitreten. Ein Server-Prozess kann viele Partien parallel halten (Kartenspiel = wenig Last).
+- **Presence/Abbruch-Stufen (§11)** direkt im Server: Verbindungs- und Fokus-Events (`NOTIFICATION_APPLICATION_FOCUS_OUT`, Web `visibilitychange`) zählen die Reserven.
+- **Hosting:** kleiner VPS (Hetzner o. Ä.) mit Docker-Image des Godot-Servers hinter TLS (wss://), weil die Seite über https läuft.
+- **Später (v2):** Für Accounts, Freunde, Matchmaking, Ranglisten und Echtgeld-Inventar kann **Nakama daneben** kommen. Dann macht Nakama Matchmaking/Accounts und vermittelt an Godot-Server-Instanzen, die Regeln bleiben in Godot.
+
+Verworfen: Nakama-only mit TS-Regeln (doppelte Regeln), Supabase (kein Echtzeit-Tick, Presence/Autorität selbst stricken).
+
+## Nächster Schritt
+Bauplan „Online v1" im Stil von `docs/superpowers/plans/2026-10-04-dame-godot-bauplan.md`: Server-Szene, RPC-Protokoll (Aktion rein, View raus), Lobby/Codes, Reconnect-Token, Abbruch-Stufen, Server-Tests, Docker/Deploy, Web-Client gegen wss.
