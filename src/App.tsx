@@ -81,7 +81,7 @@ function AppContent() {
   useEffect(() => {
     const shouldPlay = gameMode === 'menu' && musicStarted && settings.musicEnabled;
     if (shouldPlay) {
-      playMusicTrack('/sounds/music/menu.mp3').catch(() => {
+      playMusicTrack(`${import.meta.env.BASE_URL}sounds/music/menu.mp3`).catch(() => {
         startBackgroundMusic();
       });
     } else {

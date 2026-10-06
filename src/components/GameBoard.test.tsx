@@ -78,6 +78,8 @@ describe('GameBoard', () => {
   });
 
   it('keeps the start dialog open when the overlay is clicked', () => {
+    // Mock-Rückgabe vorheriger Tests zurücksetzen, damit kein laufendes Spiel gerendert wird
+    vi.mocked(useGameEngine).mockReturnValue({ ...baseMockReturn });
     renderWithProviders(<GameBoard playerConfigs={playerConfigs} onBackToMenu={vi.fn()} />);
     expect(screen.getByText('Kartenspiel mit Bluff und Strategie')).toBeInTheDocument();
 
