@@ -18,6 +18,10 @@ func _initialize() -> void:
 	var app := root.get_node_or_null("App")
 	if app != null:
 		app.use_test_storage()
+		# setup "en": alles auf Englisch.
+		if _setup == "en":
+			app.settings.set_value("language", "en")
+			load("res://scripts/i18n.gd").install("en")
 	change_scene_to_file(scene)
 
 

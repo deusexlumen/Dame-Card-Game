@@ -24,6 +24,8 @@ const EN := {
 	"Zurück [Esc]": "Back [Esc]",
 	"Menü [Esc]": "Menu [Esc]",
 	"Hilfe [H]": "Help [H]",
+	"Anleitung": "How to play",
+	"Schließen [H]": "Close [H]",
 	# Einstellungen
 	"Langsam": "Slow",
 	"Normal": "Normal",
@@ -188,6 +190,7 @@ const EN := {
 	"DAME!": "DAME!",
 	"Letzter Zug!": "Final turn!",
 	"Zug von %s": "%s's turn",
+	"%s ruft Dame – jeder hat noch einen Zug!": "%s calls Dame – everyone gets one more turn!",
 	# Karten
 	"Herz": "Hearts",
 	"Pik": "Spades",
@@ -251,6 +254,8 @@ const EN := {
 	"Keine Strafkarte mehr verfügbar (%s).": "No penalty card left (%s).",
 	"Extra-Karte abgelegt, Hand leer. Dame automatisch gerufen.": "Extra card discarded, hand empty. Dame called automatically.",
 	"Spieler": "Player",
+	"Ausgabe": "Deal",
+	"Gesamt": "Total",
 	"Gegenüber": "Opposite",
 	"Links": "Left",
 	"Rechts": "Right",

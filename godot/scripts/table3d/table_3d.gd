@@ -56,6 +56,7 @@ var _hover: Dictionary = {}
 var _markers := {}
 var _built := false
 var _card_r := CARD_R
+var _phase := ""
 
 # cos: {"accent", "back", "face", "felt", "lang"} aus Profil und Einstellungen.
 func build(cos: Dictionary) -> void:
@@ -426,7 +427,22 @@ func _build_figure(root: Node3D, seat: int, name: String) -> Dictionary:
 	glow.light_color = accent
 	glow.shadow_enabled = false
 	fig.add_child(glow)
-	return {"node": fig, "label": label, "glow": glow, "head": head, "person": person}
+	# "denkt nach ..." ueber dem Kopf, solange die KI am Zug ist.
+	var think := Label3D.new()
+	think.font = UiThemeScript.font()
+	think.font_size = 26
+	think.fixed_size = true
+	think.pixel_size = 0.0009
+	think.outline_size = 8
+	think.outline_modulate = Color(0, 0, 0, 0.85)
+	think.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	think.no_depth_test = true
+	think.modulate = accent
+	think.position = Vector3(0, 1.72, 0)
+	think.text = tr("denkt nach …")
+	think.visible = false
+	fig.add_child(think)
+	return {"node": fig, "label": label, "glow": glow, "head": head, "person": person, "think": think}
 
 
 func _limb(parent: Node3D, a: Vector3, b: Vector3, r: float, m: Material) -> void:
@@ -521,6 +537,10 @@ func sync(view: Dictionary, opts: Dictionary) -> void:
 	var selected := int(opts.get("selected", -1))
 	_markers.clear()
 	var deal_order := 0
+	# Rundenende: alle Karten drehen sich nacheinander um (Spec Dame-Call-Event).
+	var reveal := str(view.phase) == "round_end" and _phase != "round_end"
+	_phase = str(view.phase)
+	var reveal_order := 0
 	for p in view.players:
 		var seat := int(p.seat)
 		if not _seat_roots.has(seat):
@@ -546,7 +566,11 @@ func sync(view: Dictionary, opts: Dictionary) -> void:
 			var key := "slot:%d:%d" % [seat, i]
 			var show: bool = face_cb.call(seat, i, list[i]) if face_cb.is_valid() else false
 			var peeking: bool = peek_cb.call(seat, i) if peek_cb.is_valid() and seat == _viewer else false
-			c.set_card(list[i], show, animate and not dealing)
+			var fdelay := 0.0
+			if reveal and show and not c.face_up:
+				fdelay = reveal_order * 0.07
+				reveal_order += 1
+			c.set_card(list[i], show, animate and not dealing, fdelay)
 			var local := Transform3D(Basis(), Vector3((i - (n - 1) / 2.0) * gap, TABLE_Y + Card3DScript.T / 2.0 + 0.0008, _card_r))
 			if peeking and show:
 				# Kurz anheben und zum Gesicht kippen wie beim Spicken.
@@ -697,6 +721,15 @@ func _update_figure(seat: int, p: Dictionary) -> void:
 	label.modulate = accent if bool(p.is_current) else (Color(1, 1, 1, 0.4) if bool(p.eliminated) else Color(0.92, 0.9, 0.86))
 	(f.glow as OmniLight3D).light_energy = 0.9 if bool(p.is_current) else 0.0
 	(f.node as Node3D).visible = true
+	var thinking := bool(p.is_current) and bool(p.is_ai) and (_phase == "play" or _phase == "dame_called")
+	var think: Label3D = f.think
+	if thinking and not think.visible and animate:
+		think.modulate.a = 0.0
+		var tw := think.create_tween().set_loops(4)
+		tw.tween_property(think, "modulate:a", 1.0, 0.35)
+		tw.tween_property(think, "modulate:a", 0.45, 0.35)
+	think.visible = thinking
+	f.person.talk(thinking)
 
 
 func _pulse_figure(seat: int) -> void:

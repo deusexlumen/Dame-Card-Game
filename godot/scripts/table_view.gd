@@ -14,8 +14,49 @@ const UiThemeScript = preload("res://scripts/ui/ui_theme.gd")
 const CatalogScript = preload("res://scripts/services/catalog.gd")
 const Table3DScript = preload("res://scripts/table3d/table_3d.gd")
 const I18nScript = preload("res://scripts/i18n.gd")
+const FxLayerScript = preload("res://scripts/ui/fx_layer.gd")
 
 const REVEAL_DEAL_MS := 5000
+const HELP_DE := """[b]Dein Zug[/b]
+1. Ziehe vom [b]Stapel[/b] (Leertaste) oder nimm die oberste Karte der [b]Ablage[/b].
+2. Tausche sie gegen eine eigene Karte (Karte anklicken) oder lege sie direkt ab (A).
+3. Passt eine eigene Karte zum Rang der Ablage, darfst du sie zusätzlich ablegen (X). Falsch = eine Strafkarte.
+4. Zug beenden (Enter).
+
+[b]Ziel[/b]
+Möglichst wenige Punkte. Über 50 Gesamtpunkte scheidest du aus, genau 50 setzt auf 0.
+Ass 1 · Zwei bis Zehn nach Augen · Bube 10 · König 10 · Dame 0
+
+[b]Sonderkarten[/b]
+[b]Bube:[/b] Sieh dir eine beliebige verdeckte Karte an, deine oder eine fremde.
+[b]König:[/b] Sieh dir eine eigene Karte an und tausche sie blind mit einer Karte eines Gegners.
+[b]Dame:[/b] Wer sie ablegt, bekommt eine Strafkarte. Eine offene Dame muss der nächste Spieler nehmen.
+
+[b]Dame rufen[/b]
+Ab Runde 3 zu Beginn deines Zuges (D), wenn du glaubst, die wenigsten Punkte zu haben. Alle anderen haben noch genau einen Zug. Nur mit strikt weniger Punkten liegst du richtig, sonst startest du die nächste Ausgabe mit 5 Karten.
+
+[b]Tasten[/b]
+1–6 Karte wählen · Leertaste ziehen · Enter bestätigen / Zug beenden · A gezogene Karte ablegen · X extra ablegen · D Dame rufen · Z/E Ansehen verdecken · H Hilfe · Esc Menü"""
+const HELP_EN := """[b]Your turn[/b]
+1. Draw from the [b]deck[/b] (Space) or take the top card of the [b]discard[/b].
+2. Swap it for one of your cards (click the card) or discard it directly (A).
+3. If one of your cards matches the discard's rank, you may discard it too (X). Wrong = one penalty card.
+4. End your turn (Enter).
+
+[b]Goal[/b]
+As few points as possible. Above 50 total points you are out, exactly 50 resets to 0.
+Ace 1 · Two to Ten by pips · Jack 10 · King 10 · Queen 0
+
+[b]Special cards[/b]
+[b]Jack:[/b] Look at any face-down card, yours or someone else's.
+[b]King:[/b] Look at one of your cards and swap it blind with an opponent's card.
+[b]Queen:[/b] Whoever discards it gets a penalty card. An open queen must be taken by the next player.
+
+[b]Calling Dame[/b]
+From round 3, at the start of your turn (D), if you think you have the fewest points. Everyone else gets exactly one more turn. You are only right with strictly fewer points; otherwise you start the next deal with 5 cards.
+
+[b]Keys[/b]
+1–6 pick card · Space draw · Enter confirm / end turn · A discard drawn card · X extra discard · D call Dame · Z/E hide peek · H help · Esc menu"""
 const REVEAL_PEEK_MS := 3000
 const REVEAL_SWAP_MS := 2200
 
@@ -75,6 +116,13 @@ var _round_button: Button
 var _over_panel: PanelContainer
 var _over_text: RichTextLabel
 var _pause_panel: PanelContainer
+var _help_panel: PanelContainer
+var _fx
+var _last_phase := ""
+var _last_current := -1
+# 0..1: Punkte zaehlen am Rundenende hoch.
+var _sum_t := 1.0
+var _bars: VBoxContainer
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -208,6 +256,8 @@ func _build_ui() -> void:
 	add_child(_bg)
 	if _use_3d:
 		_build_3d(_bg.color)
+	_fx = FxLayerScript.new()
+	add_child(_fx)
 
 	var top := HBoxContainer.new()
 	top.position = Vector2(16, 8)
@@ -223,6 +273,11 @@ func _build_ui() -> void:
 	_timer_bar.show_percentage = false
 	_timer_bar.visible = false
 	top.add_child(_timer_bar)
+	var help := Button.new()
+	help.text = "Hilfe [H]"
+	help.focus_mode = Control.FOCUS_NONE
+	help.pressed.connect(toggle_help)
+	top.add_child(help)
 	var menu := Button.new()
 	menu.text = "Menü [Esc]"
 	menu.focus_mode = Control.FOCUS_NONE
@@ -281,6 +336,7 @@ func _build_ui() -> void:
 	_keys.add_theme_font_size_override("font_size", 12)
 	_keys.modulate = Color(1, 1, 1, 0.65)
 	_keys.text = "Tasten\n1-6  Karte wählen\nLeertaste  vom Stapel ziehen\nEnter  bestätigen / Zug beenden\nA  gezogene Karte ablegen\nX  Extra ablegen\nD  Dame rufen\nZ / E  Ansehen verdecken\nEsc  abbrechen / Menü"
+	_keys.visible = false
 	add_child(_keys)
 
 	_toast = Label.new()
@@ -302,6 +358,7 @@ func _build_ui() -> void:
 	_build_over_panel()
 	_build_handoff()
 	_build_pause()
+	_build_help()
 
 
 # HUD ueber der 3D-Szene: Hinweise oben, Tisch und Hand bleiben frei.
@@ -419,6 +476,9 @@ func _build_over_panel() -> void:
 	_over_text.add_theme_font_size_override("normal_font_size", 16)
 	_over_text.add_theme_font_size_override("bold_font_size", 22)
 	vb.add_child(_over_text)
+	_bars = VBoxContainer.new()
+	_bars.add_theme_constant_override("separation", 4)
+	vb.add_child(_bars)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 16)
@@ -453,6 +513,49 @@ func _build_handoff() -> void:
 	_handoff_button = Button.new()
 	_handoff_button.pressed.connect(confirm_handoff)
 	vb.add_child(_handoff_button)
+
+
+# Anleitung im Spiel (Spec: Tutorial-Fenster): kompakte Regeln und Tasten, scrollbar.
+func _build_help() -> void:
+	_help_panel = _panel(Vector2(190, 70), Vector2(900, 590))
+	_help_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 10)
+	_help_panel.add_child(vb)
+	var title := Label.new()
+	title.text = "Anleitung"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_override("font", UiThemeScript.heading_font())
+	title.add_theme_font_size_override("font_size", 28)
+	vb.add_child(title)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(860, 450)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	vb.add_child(scroll)
+	var text := RichTextLabel.new()
+	text.name = "HelpText"
+	text.bbcode_enabled = true
+	text.fit_content = true
+	text.scroll_active = false
+	text.custom_minimum_size = Vector2(840, 0)
+	text.add_theme_font_size_override("normal_font_size", 16)
+	text.add_theme_font_size_override("bold_font_size", 17)
+	text.text = HELP_EN if _lang == "en" else HELP_DE
+	scroll.add_child(text)
+	var close := Button.new()
+	close.text = "Schließen [H]"
+	close.pressed.connect(toggle_help)
+	vb.add_child(close)
+
+
+func toggle_help() -> void:
+	_help_panel.visible = not _help_panel.visible
+	if _help_panel.visible:
+		_pause_panel.visible = false
+		_ai_timer.paused = true
+		_help_panel.get_child(0).get_child(2).grab_focus()
+	else:
+		_ai_timer.paused = false
 
 
 func _build_pause() -> void:
@@ -564,6 +667,7 @@ func _after_change() -> void:
 			_begin_handoff(current)
 	if not current_is_ai or phase == "round_end" or phase == "game_over":
 		_ai_timer.stop()
+	_events(phase, current)
 	_refresh()
 	if (phase == "play" or phase == "dame_called") and current_is_ai and not handoff_pending:
 		if instant_ai:
@@ -572,6 +676,35 @@ func _after_change() -> void:
 		else:
 			_ai_timer.start(maxf(_ai_delay(), 0.05))
 	state_changed.emit()
+
+
+func _events(phase: String, current: int) -> void:
+	if _fx == null:
+		return
+	_fx.animate = bool(_setting("animations")) and not instant_ai
+	_fx.set_dame_active(phase == "dame_called")
+	if phase == "dame_called" and _last_phase == "play":
+		var caller := int(rules.state.dame_caller_index)
+		if caller >= 0:
+			_fx.dame_called(str(rules.state.players[caller].name))
+	elif (phase == "play" or phase == "dame_called") and current != _last_current and not handoff_pending:
+		_fx.turn_banner(tr("Zug von %s") % str(rules.state.players[current].name))
+	if phase == "round_end" and _last_phase != "round_end":
+		# Punkte zaehlen sichtbar hoch.
+		_sum_t = 0.0 if _fx.animate else 1.0
+		if _fx.animate:
+			var tw := create_tween()
+			tw.tween_interval(0.6)
+			tw.tween_method(func(v: float) -> void:
+				_sum_t = v
+				if _round_panel.visible:
+					_round_text.text = _round_summary(), 0.0, 1.0, 1.2)
+	if phase == "game_over" and _last_phase != "game_over":
+		var w := int(rules.state.winner_index)
+		if w >= 0 and not bool(rules.state.players[w].is_ai):
+			_fx.confetti()
+	_last_phase = phase
+	_last_current = current
 
 
 func _begin_handoff(seat: int) -> void:
@@ -805,6 +938,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
 	var key: int = event.keycode
+	if _help_panel.visible:
+		if key == KEY_H or key == KEY_ESCAPE:
+			toggle_help()
+			accept_event()
+		return
+	if key == KEY_H and not handoff_pending:
+		toggle_help()
+		accept_event()
+		return
 	if _pause_panel.visible:
 		if key == KEY_ESCAPE:
 			toggle_pause()
@@ -1040,6 +1182,7 @@ func _refresh() -> void:
 			_round_button.grab_focus()
 	if phase == "game_over":
 		_over_text.text = _game_summary()
+		_fill_bars()
 	if selected >= 0 and _seats.has(viewer_seat):
 		var cv = _seats[viewer_seat].card_at(selected)
 		if cv != null and not cv.has_focus():
@@ -1049,7 +1192,7 @@ func _refresh() -> void:
 func _info_text() -> String:
 	var parts: Array = [tr("Ausgabe %d") % int(_view.deal), tr("Runde %d") % int(_view.round)]
 	if bool(_view.safe_phase) and str(_view.phase) == "play":
-		parts.append("Safe Phase (Dame ab Runde 3)")
+		parts.append(tr("Safe Phase (Dame ab Runde 3)"))
 	if str(_view.phase) == "dame_called":
 		parts.append(tr("DAME gerufen – noch %d Züge") % int(_view.dame_turns_left))
 	return "  ·  ".join(PackedStringArray(parts))
@@ -1125,6 +1268,34 @@ func _action_button(text: String, cb: Callable, enabled: bool) -> void:
 	_actions.add_child(b)
 
 
+# Gesamtpunkte als Balken, laufen beim Spielende von 0 hoch (Grenze 50 markiert).
+func _fill_bars() -> void:
+	if _bars == null or _bars.get_child_count() > 0:
+		return
+	for p in _view.players:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		var name := Label.new()
+		name.text = str(p.name)
+		name.custom_minimum_size = Vector2(150, 0)
+		row.add_child(name)
+		var bar := ProgressBar.new()
+		bar.max_value = 60
+		bar.show_percentage = false
+		bar.custom_minimum_size = Vector2(330, 16)
+		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(bar)
+		var val := Label.new()
+		val.text = str(int(p.total_score))
+		row.add_child(val)
+		_bars.add_child(row)
+		var target := float(mini(int(p.total_score), 60))
+		if bool(_setting("animations")) and not instant_ai:
+			create_tween().tween_property(bar, "value", target, 1.0).set_delay(0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		else:
+			bar.value = target
+
+
 func _round_summary() -> String:
 	var lines: Array = []
 	var caller := int(_view.dame_caller_index)
@@ -1133,22 +1304,27 @@ func _round_summary() -> String:
 		var me := caller == _local_seat()
 		if bool(_view.last_round_false_call):
 			if me:
-				lines.append("[b]Du hast dich verrechnet![/b] Strafkarte in der nächsten Ausgabe.")
+				lines.append(tr("[b]Du hast dich verrechnet![/b] Strafkarte in der nächsten Ausgabe."))
 			else:
 				lines.append(tr("[b]%s hat sich verrechnet![/b] Strafkarte in der nächsten Ausgabe.") % cname)
 		elif me:
-			lines.append("[b]Du hast Dame richtig gerufen![/b]")
+			lines.append(tr("[b]Du hast Dame richtig gerufen![/b]"))
 		else:
 			lines.append(tr("[b]%s hat Dame richtig gerufen.[/b]") % cname)
 	lines.append("")
-	lines.append("Spieler          Ausgabe  Gesamt")
+	# Echte Tabelle: die Casino-Schrift hat keine festen Zeichenbreiten.
+	var cells: Array = ["[b]%s[/b]" % tr("Spieler"), "[b]%s[/b]" % tr("Ausgabe"), "[b]%s[/b]" % tr("Gesamt")]
 	for p in _view.players:
 		var status := ""
 		if bool(p.eliminated):
-			status = "  raus"
-		lines.append("%-16s %7d  %6d%s" % [str(p.name).substr(0, 16), int(p.score), int(p.total_score), status])
+			status = tr("  raus")
+		# Gesamt startet beim alten Stand und zaehlt die Ausgabe dazu.
+		var sc := int(round(int(p.score) * _sum_t))
+		var tot := int(p.total_score) - int(p.score) + sc
+		cells.append_array([str(p.name), str(sc), str(tot) + status])
+	lines.append("[table=3]" + "".join(PackedStringArray(cells.map(func(c): return "[cell padding=0,2,28,2]%s[/cell]" % c))) + "[/table]")
 	lines.append("")
-	lines.append("Über 50 scheidet aus, genau 50 setzt auf 0.")
+	lines.append(tr("Über 50 scheidet aus, genau 50 setzt auf 0."))
 	return "\n".join(PackedStringArray(lines))
 
 
@@ -1157,7 +1333,7 @@ func _game_summary() -> String:
 	var lines: Array = []
 	if w >= 0:
 		if w == _local_seat():
-			lines.append("[b]Du gewinnst![/b]")
+			lines.append(tr("[b]Du gewinnst![/b]"))
 		else:
 			lines.append(tr("[b]%s gewinnt![/b]") % str(_view.players[w].name))
 	lines.append("")
@@ -1167,9 +1343,11 @@ func _game_summary() -> String:
 			return not bool(a.eliminated)
 		return int(a.total_score) < int(b.total_score))
 	var place := 1
+	var cells: Array = []
 	for p in order:
-		lines.append(tr("%d. %-16s %4d Punkte%s") % [place, str(p.name).substr(0, 16), int(p.total_score), "  (raus)" if bool(p.eliminated) else ""])
+		cells.append_array(["%d." % place, str(p.name), tr("%d Punkte") % int(p.total_score), tr("  (raus)") if bool(p.eliminated) else ""])
 		place += 1
+	lines.append("[table=4]" + "".join(PackedStringArray(cells.map(func(c): return "[cell padding=0,2,24,2]%s[/cell]" % c))) + "[/table]")
 	var earned := int(config.get("_chips_earned", 0))
 	if earned > 0:
 		lines.append("")

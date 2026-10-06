@@ -22,6 +22,7 @@ func run(ctx) -> void:
 	_check_save_service()
 	_check_profile_and_shop()
 	_check_audio()
+	_check_english()
 	if app != null:
 		_check_screens()
 
@@ -141,6 +142,24 @@ func _check_profile_and_shop() -> void:
 	for it in CatalogScript.ITEMS:
 		t.expect(int(it.price) >= 0 and CatalogScript.CATEGORIES.has(str(it.category)), "Katalogeintrag ungueltig: " + str(it.id))
 	_clean(path)
+
+
+func _check_english() -> void:
+	var I18n = load("res://scripts/i18n.gd")
+	I18n.install("en")
+	t.expect(I18n.t("Regeln") == "Rules", "Englisch: Menuetext")
+	t.expect(TranslationServer.translate("Einstellungen") == "Settings", "Englisch: Godot-Uebersetzung fehlt")
+	t.expect(I18n.line("Bruno zieht vom Stapel.") == "Bruno draws from the deck.", "Englisch: Protokoll " + I18n.line("Bruno zieht vom Stapel."))
+	t.expect(I18n.line("Lotte nimmt Herz Dame von der Ablage.") == "Lotte takes Queen of Hearts from the discard.", "Englisch: Kartenname " + I18n.line("Lotte nimmt Herz Dame von der Ablage."))
+	t.expect(I18n.line("Erika legt Pik 7 ab. Bube: eine verdeckte Karte ansehen, ohne Tausch.").ends_with("no swap."), "Englisch: Nachsatz")
+	t.expect(I18n.line("unbekannter Satz") == "unbekannter Satz", "Englisch: Unbekanntes bleibt")
+	I18n.install("de")
+	t.expect(TranslationServer.translate("Einstellungen") == "Einstellungen" and I18n.line("Bruno zieht vom Stapel.") == "Bruno zieht vom Stapel.", "Deutsch nach Rueckwechsel kaputt")
+	# Jeder Schluessel mit Platzhaltern braucht dieselben Platzhalter im Englischen.
+	for k in I18n.EN:
+		var de_n: int = str(k).count("%s") + str(k).count("%d")
+		var en_n: int = str(I18n.EN[k]).count("%s") + str(I18n.EN[k]).count("%d")
+		t.expect(de_n == en_n, "Platzhalter passen nicht: " + str(k))
 
 
 func _check_audio() -> void:

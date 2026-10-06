@@ -105,7 +105,7 @@ func shows_face() -> bool:
 	return face_up and not card.is_empty() and bool(card.get("known", false))
 
 
-func set_card(data: Dictionary, show_face: bool, animate: bool) -> void:
+func set_card(data: Dictionary, show_face: bool, animate: bool, delay: float = 0.0) -> void:
 	card = data
 	visible = not data.is_empty()
 	var want := show_face and bool(data.get("known", false))
@@ -123,9 +123,9 @@ func set_card(data: Dictionary, show_face: bool, animate: bool) -> void:
 		return
 	# Umdrehen mit kurzem Anheben, damit die Karte nicht durch den Tisch dreht.
 	_flip_tween = create_tween().set_parallel(true)
-	_flip_tween.tween_property(_flip, "rotation:z", target, 0.32).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_flip_tween.tween_property(_flip, "position:y", 0.05, 0.16).set_ease(Tween.EASE_OUT)
-	_flip_tween.tween_property(_flip, "position:y", 0.0, 0.16).set_ease(Tween.EASE_IN).set_delay(0.16)
+	_flip_tween.tween_property(_flip, "rotation:z", target, 0.32).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT).set_delay(delay)
+	_flip_tween.tween_property(_flip, "position:y", 0.05, 0.16).set_ease(Tween.EASE_OUT).set_delay(delay)
+	_flip_tween.tween_property(_flip, "position:y", 0.0, 0.16).set_ease(Tween.EASE_IN).set_delay(delay + 0.16)
 
 
 func _fill_face() -> void:
