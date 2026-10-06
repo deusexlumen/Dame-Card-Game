@@ -38,3 +38,10 @@ Plan: `docs/superpowers/plans/2026-10-06-godot-pages-release.md`. Ziel: Godot-We
 - Egoperspektive mit Quaternius-Figuren (CC0), eigener Arm per IK, Casino-Look, echte CC0-Sounds, 2–6 Spieler, Zugtimer-Strafkarte, Deutsch/Englisch, Effekte, Skin-Schnellauswahl, 3D-Kulisse in Menüs, PWA.
 - Entscheidungen in `CONCEPT_DECISIONS.md` §9. Terminal-Look ist überholt.
 - Web-Build ~60 MB (pck 20 MB), Web-Tests grün. Noch nicht gepusht.
+
+## 2026-10-06 (Abend) – Online ist gewollt
+- PR #8 kam aus einer anderen Claude-Session im Auftrag des Nutzers: **Multiplayer ist nicht mehr ausgeschlossen.**
+- Online nur live (§10: Zugtimer immer an, 20/30/45 s), Verbindungsabbruch in 3 Stufen (§11) – siehe `CONCEPT_DECISIONS.md`.
+- Plan: Headless-Godot-Server mit `DameRules`/`DameView` über `WebSocketMultiplayerPeer`, Lobby per 6-stelligem Code, Hosting auf VPS mit wss (`.claude/docs/ai/dame/10x/session-3.md`). Nächster Schritt: Bauplan „Online v1“.
+- Widerspruch zu klären: session-3.md streicht PWA, im Godot-Web-Export ist PWA seit heute an.
+- Web-Download halbiert (PR #9), Actions auf Node 24 (PR #7).
