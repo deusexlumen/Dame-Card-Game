@@ -1,0 +1,69 @@
+name: Godot
+
+on:
+  push:
+    paths: ['godot/**', 'scripts/godot-*.mjs', 'scripts/serve-static.mjs', 'e2e-godot/**', 'playwright.godot.config.ts', '.github/workflows/godot.yml']
+  pull_request:
+    paths: ['godot/**', 'scripts/godot-*.mjs', 'scripts/serve-static.mjs', 'e2e-godot/**', 'playwright.godot.config.ts', '.github/workflows/godot.yml']
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: 4.7.2
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Godot
+        run: |
+          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          echo "GODOT_BIN=$PWD/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Import project
+        run: $GODOT_BIN --headless --path godot --import || true
+      - name: Headless tests
+        run: node scripts/godot-test.mjs
+
+  export:
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Godot and export templates
+        run: |
+          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          echo "GODOT_BIN=$PWD/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+          curl -sSL -o templates.tpz https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates
+          unzip -q templates.tpz -d tpl
+          mv tpl/templates ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+      - name: Import project
+        run: $GODOT_BIN --headless --path godot --import || true
+      - name: Export Windows + Web
+        run: node scripts/godot-export.mjs --skip-smoke
+      - name: Web smoke test
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          pnpm exec playwright test -c playwright.godot.config.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dame-windows
+          path: build/windows/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dame-web
+          path: build/web/

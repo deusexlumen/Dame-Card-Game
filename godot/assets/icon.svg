@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect width="256" height="256" rx="40" fill="#050905"/>
+  <g transform="rotate(-10 128 128)">
+    <rect x="62" y="40" width="132" height="184" rx="14" fill="#0a140a" stroke="#4d8c4d" stroke-width="6"/>
+  </g>
+  <rect x="70" y="34" width="132" height="184" rx="14" fill="#0b170b" stroke="#8cff8c" stroke-width="7"/>
+  <text x="136" y="160" font-family="DejaVu Sans Mono, monospace" font-weight="bold" font-size="112" fill="#8cff8c" text-anchor="middle">D</text>
+  <text x="92" y="78" font-family="DejaVu Sans Mono, monospace" font-weight="bold" font-size="30" fill="#8cff8c">D</text>
+  <path d="M 92 92 l 9 -12 l 9 12 l -9 12 z" fill="#ffb08c"/>
+</svg>

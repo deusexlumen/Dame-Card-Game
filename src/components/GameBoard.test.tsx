@@ -1,216 +1,45 @@
-import * as React from 'react';
+import '@/test/gameBoardTestUtils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { screen, fireEvent, within } from '@testing-library/react';
 import { GameBoard } from './GameBoard';
-import { I18nProvider, useI18n } from '@/lib/i18n';
-import type { PlayerConfig } from '@/hooks/useGameEngine';
-import type { GameState } from '@/types/game';
-
-const mockConfirmTurn = vi.fn();
-const mockStartGame = vi.fn();
-const mockLoadSavedGame = vi.fn();
-const mockDrawFromDeck = vi.fn();
-const mockDrawFromDiscard = vi.fn();
-const mockSelectHandCard = vi.fn();
-const mockConfirmSwap = vi.fn();
-const mockDiscardDrawnCard = vi.fn();
-const mockActivateJack = vi.fn();
-const mockActivateKing = vi.fn();
-const mockActivateAce = vi.fn();
-const mockActivateTen = vi.fn();
-const mockPeekKingTarget = vi.fn();
-const mockCallDame = vi.fn();
-const mockTryDiscardExtra = vi.fn();
-const mockEndTurn = vi.fn();
-const mockStartNextRound = vi.fn();
-const mockResetGame = vi.fn();
-const mockPauseTurnTimer = vi.fn();
-const mockResumeTurnTimer = vi.fn();
-
-function createMockGameState(currentPlayerIndex = 0): GameState {
-  return {
-    players: [
-      {
-        id: 'p1',
-        name: 'Anna',
-        hand: [
-          { id: 'c1', suit: 'hearts', rank: '7', value: 7, isVisible: false },
-          { id: 'c2', suit: 'diamonds', rank: '8', value: 8, isVisible: false },
-          { id: 'c3', suit: 'clubs', rank: '9', value: 9, isVisible: false },
-          { id: 'c4', suit: 'spades', rank: '10', value: 10, isVisible: false },
-        ],
-        visibleCardIndices: [0, 1],
-        score: 0,
-        totalScore: 0,
-        isActive: true,
-        isEliminated: false,
-        hasCalledDame: false,
-        penaltyCards: [],
-        memory: [],
-        isAI: false,
-        isHuman: true,
-      },
-      {
-        id: 'p2',
-        name: 'Bob',
-        hand: [
-          { id: 'c5', suit: 'hearts', rank: '2', value: 2, isVisible: false },
-          { id: 'c6', suit: 'diamonds', rank: '3', value: 3, isVisible: false },
-          { id: 'c7', suit: 'clubs', rank: '4', value: 4, isVisible: false },
-          { id: 'c8', suit: 'spades', rank: '5', value: 5, isVisible: false },
-        ],
-        visibleCardIndices: [0, 1],
-        score: 0,
-        totalScore: 0,
-        isActive: false,
-        isEliminated: false,
-        hasCalledDame: false,
-        penaltyCards: [],
-        memory: [],
-        isAI: true,
-        isHuman: false,
-      },
-    ],
-    currentPlayerIndex,
-    deck: [],
-    discardPile: [],
-    phase: 'FIRST_TURN',
-    round: 1,
-    turnInRound: 1,
-    dameCallerId: null,
-    cardsLogged: false,
-    safePhase: true,
-    lastAction: null,
-    roundStartPlayerIndex: 0,
-    dameCallTurnsRemaining: null,
-  };
-}
-
-const baseMockReturn = {
-  gameState: null,
-  drawnCard: null,
-  selectedHandIndex: null,
-  gameMessage: 'Willkommen!',
-  messageKey: 'game.welcome',
-  winner: null,
-  isAIThinking: false,
-  currentAIDifficulty: null,
-  turnOverlayOpen: false,
-  confirmTurn: mockConfirmTurn,
-  startGame: mockStartGame,
-  loadSavedGame: mockLoadSavedGame,
-  hasSavedGame: false,
-  drawFromDeck: mockDrawFromDeck,
-  drawFromDiscard: mockDrawFromDiscard,
-  selectHandCard: mockSelectHandCard,
-  confirmSwap: mockConfirmSwap,
-  discardDrawnCard: mockDiscardDrawnCard,
-  activateJack: mockActivateJack,
-  activateKing: mockActivateKing,
-  activateAce: mockActivateAce,
-  activateTen: mockActivateTen,
-  peekKingTarget: mockPeekKingTarget,
-  callDame: mockCallDame,
-  tryDiscardExtra: mockTryDiscardExtra,
-  endTurn: mockEndTurn,
-  startNextRound: mockStartNextRound,
-  resetGame: mockResetGame,
-  canCallDameNow: false,
-  isCurrentPlayerHuman: true,
-  turnTimeLeft: null,
-  pauseTurnTimer: mockPauseTurnTimer,
-  resumeTurnTimer: mockResumeTurnTimer,
-};
+import { useGameEngine } from '@/hooks/useGameEngine';
+import {
+  renderWithProviders,
+  playerConfigs,
+  createMockGameState,
+  baseMockEngineReturn,
+  resetGameBoardMocks,
+  mockDrawFromDeck,
+  mockDrawFromDiscard,
+  mockSelectHandCard,
+  mockConfirmSwap,
+  mockDiscardDrawnCard,
+  mockActivateJack,
+  mockActivateKing,
+  mockCallDame,
+  mockEndTurn,
+  mockStartNextRound,
+} from '@/test/gameBoardTestUtils';
 
 vi.mock('@/hooks/useGameEngine', async () => {
   const actual = await vi.importActual<typeof import('@/hooks/useGameEngine')>('@/hooks/useGameEngine');
   return {
     ...actual,
-    useGameEngine: vi.fn(() => baseMockReturn),
+    useGameEngine: vi.fn(() => baseMockEngineReturn),
   };
 });
-
-vi.mock('@/hooks/useGameStats', () => ({
-  useGameStats: () => ({
-    stats: { games: 0, wins: 0, rounds: 0, bestRound: 0, dameCalls: 0, successfulDameCalls: 0 },
-    clear: vi.fn(),
-    recordRound: vi.fn(),
-    recordGame: vi.fn(),
-  }),
-}));
-
-vi.mock('@/hooks/useSettings', () => ({
-  useSettings: () => ({
-    settings: {
-      aiSpeed: 'normal',
-      turnTimer: false,
-      turnTimerSeconds: 30,
-      powerEffects: true,
-      musicEnabled: false,
-      soundEnabled: true,
-      table3d: false,
-      defaultAIDifficulty: 'medium',
-    },
-  }),
-}));
-
-vi.mock('@/hooks/useSkins', () => ({
-  useSkins: () => ({ activeSkins: {} }),
-}));
-
-vi.mock('@/lib/sounds', () => ({
-  playCardDraw: vi.fn(),
-  playCardPlace: vi.fn(),
-  playCardFlip: vi.fn(),
-  playDameCall: vi.fn(),
-  playWinSound: vi.fn(),
-  playPenaltySound: vi.fn(),
-  startBackgroundMusic: vi.fn(),
-  stopBackgroundMusic: vi.fn(),
-}));
-
-vi.mock('sonner', () => ({
-  Toaster: () => null,
-  toast: {
-    success: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-  },
-}));
-
-import { useGameEngine } from '@/hooks/useGameEngine';
-
-function renderWithProviders(ui: React.ReactElement) {
-  return render(
-    <I18nProvider>
-      <LanguageSetter />
-      {ui}
-    </I18nProvider>
-  );
-}
-
-function LanguageSetter() {
-  const { setLanguage } = useI18n();
-  React.useEffect(() => {
-    setLanguage('de');
-  }, [setLanguage]);
-  return null;
-}
 
 describe('GameBoard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetGameBoardMocks();
+    vi.mocked(useGameEngine).mockReturnValue(baseMockEngineReturn);
   });
-
-  const playerConfigs: PlayerConfig[] = [
-    { name: 'Anna', isAI: false, isHuman: true },
-    { name: 'Bob', isAI: true, isHuman: false, difficulty: 'easy' },
-  ];
 
   it('renders the turn overlay when turnOverlayOpen is true', () => {
     const mockedUseGameEngine = vi.mocked(useGameEngine);
     mockedUseGameEngine.mockReturnValue({
-      ...baseMockReturn,
+      ...baseMockEngineReturn,
       gameState: createMockGameState(0),
       turnOverlayOpen: true,
     });
@@ -224,7 +53,7 @@ describe('GameBoard', () => {
   it('calls confirmTurn when the ready button is clicked', () => {
     const mockedUseGameEngine = vi.mocked(useGameEngine);
     mockedUseGameEngine.mockReturnValue({
-      ...baseMockReturn,
+      ...baseMockEngineReturn,
       gameState: createMockGameState(0),
       turnOverlayOpen: true,
     });
@@ -232,13 +61,13 @@ describe('GameBoard', () => {
     renderWithProviders(<GameBoard playerConfigs={playerConfigs} onBackToMenu={vi.fn()} />);
 
     fireEvent.click(screen.getByText('Ich bin bereit'));
-    expect(mockConfirmTurn).toHaveBeenCalledTimes(1);
+    expect(baseMockEngineReturn.confirmTurn).toHaveBeenCalledTimes(1);
   });
 
   it('does not render the turn overlay when turnOverlayOpen is false', () => {
     const mockedUseGameEngine = vi.mocked(useGameEngine);
     mockedUseGameEngine.mockReturnValue({
-      ...baseMockReturn,
+      ...baseMockEngineReturn,
       gameState: createMockGameState(0),
       turnOverlayOpen: false,
     });
@@ -260,5 +89,155 @@ describe('GameBoard', () => {
     }
 
     expect(screen.getByText('Kartenspiel mit Bluff und Strategie')).toBeInTheDocument();
+  });
+
+  describe('interactions', () => {
+    it('calls drawFromDeck when the draw pile is clicked', () => {
+      vi.mocked(useGameEngine).mockReturnValue({
+        ...baseMockEngineReturn,
+        gameState: createMockGameState(0),
+        isCurrentPlayerHuman: true,
+        isAIThinking: false,
+      });
+
+      renderWithProviders(<GameBoard playerConfigs={playerConfigs} onBackToMenu={vi.fn()} />);
+      const stacks = screen.getAllByLabelText('Stapel auswählen');
+      fireEvent.click(stacks[0]);
+      expect(mockDrawFromDeck).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls drawFromDiscard when the discard pile is clicked', () => {
+      const state = createMockGameState(0);
+      state.discardPile = [{ id: 'd1', suit: 'hearts', rank: '5', value: 5, isVisible: true }];
+      vi.mocked(useGameEngine).mockReturnValue({
+        ...baseMockEngineReturn,
+        gameState: state,
+        isCurrentPlayerHuman: true,
+        isAIThinking: false,
+      });
+
+      renderWithProviders(<GameBoard playerConfigs={playerConfigs} onBackToMenu={vi.fn()} />);
+      const stacks = screen.getAllByLabelText('Stapel auswählen');
+      fireEvent.click(stacks[1]);
+      expect(mockDrawFromDiscard).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls selectHandCard when a hand card is clicked while a card is drawn', () => {
+      vi.mocked(useGameEngine).mockReturnValue({
+        ...baseMockEngineReturn,
+        gameState: createMockGameState(0),
+        drawnCard: { id: 'drawn', suit: 'spades', rank: 'J', value: 10, isVisible: true },
+        isCurrentPlayerHuman: true,
+        isAIThinking: false,
+      });
+
+      renderWithProviders(<GameBoard playerConfigs={playerConfigs} onBackToMenu={vi.fn()} />);
+      const ownCards = screen.getAllByTestId('player-hand-card-0');
+      fireEvent.click(within(ownCards[ownCards.length - 1]).getByRole('button'));
+      expect(mockSelectHandCard).toHaveBeenCalledWith(0);
+    });
+
+    it('calls confirmSwap when the swap confirmation button is clicked', () => {
+      vi.mocked(useGameEngine).mockReturnValue({
+        ...baseMockEngineReturn,
+        gameState: createMockGameState(0),
+        drawnCard: { id: 'drawn', suit: 'spades', rank: 'J', value: 10, isVisible: true },
+        selectedHandIndex: 0,
+        isCurrentPlayerHuman: true,
+      });
+
+      renderWithProviders(<GameBoard playerConfigs={playerConfigs} onBackToMenu={vi.fn()} />);
+      fireEvent.click(screen.getByText('Tauschen bestätigen'));
+      expect(mockConfirmSwap).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls discardDrawnCard when the discard button is clicked', () => {
+      vi.mocked(useGameEngine).mockReturnValue({
+        ...baseMockEngineReturn,
+        gameState: createMockGameState(0),
+        drawnCard: { id: 'drawn', suit: 'spades', rank: '4', value: 4, isVisible: true },
+        isCurrentPlayerHuman: true,
+      });
+
+      renderWithProviders(<GameBoard playerConfigs={playerConfigs} onBackToMenu={vi.fn()} />);
+      fireEvent.click(screen.getByText('Ablegen'));
+      expect(mockDiscardDrawnCard).toHaveBeenCalledTimes(1);
+    });
+
+    it('opens the Jack effect dialog and calls activateJack', () => {
+      vi.mocked(useGameEngine).mockReturnValue({
+        ...baseMockEngineReturn,
+        gameState: createMockGameState(0),
+        drawnCard: { id: 'drawn', suit: 'spades', rank: 'J', value: 10, isVisible: true },
+        isCurrentPlayerHuman: true,
+      });
+
+      renderWithProviders(<GameBoard playerConfigs={playerConfigs} onBackToMenu={vi.fn()} />);
+      fireEvent.click(screen.getByText('Bube'));
+      expect(screen.getByText('Bube-Effekt')).toBeInTheDocument();
+
+      const opponentSection = screen.getByText('Karten von Bob').closest('div') as HTMLElement;
+      const opponentCard = within(opponentSection).getByTestId('jack-target-card-0');
+      fireEvent.click(within(opponentCard).getByRole('button'));
+      expect(mockActivateJack).toHaveBeenCalledWith('p2', 0);
+    });
+
+    it('opens the King effect dialog, selects opponent/card, and calls activateKing', () => {
+      const engineState = {
+        ...baseMockEngineReturn,
+        gameState: createMockGameState(0),
+        drawnCard: { id: 'drawn', suit: 'spades' as const, rank: 'K' as const, value: 10, isVisible: true },
+        isCurrentPlayerHuman: true,
+      };
+      vi.mocked(useGameEngine).mockReturnValue(engineState);
+
+      const { rerender } = renderWithProviders(<GameBoard playerConfigs={playerConfigs} onBackToMenu={vi.fn()} />);
+      fireEvent.click(screen.getByText('König'));
+      expect(screen.getByText('König-Effekt')).toBeInTheDocument();
+
+      const ownCards = screen.getAllByTestId(/king-own-card/);
+      fireEvent.click(within(ownCards[0]).getByRole('button'));
+
+      // Simulate engine selecting the own hand card
+      vi.mocked(useGameEngine).mockReturnValue({ ...engineState, selectedHandIndex: 0 });
+      rerender(<GameBoard playerConfigs={playerConfigs} onBackToMenu={vi.fn()} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Bob' }));
+      const opponentCards = screen.getAllByTestId(/king-opponent-card/);
+      fireEvent.click(within(opponentCards[0]).getByRole('button'));
+      fireEvent.click(screen.getByText('Tauschen'));
+      expect(mockActivateKing).toHaveBeenCalledWith('p2', 0, 0);
+    });
+
+    it('calls callDame and endTurn when the Dame button is clicked', () => {
+      vi.mocked(useGameEngine).mockReturnValue({
+        ...baseMockEngineReturn,
+        gameState: createMockGameState(0),
+        canCallDameNow: true,
+        isCurrentPlayerHuman: true,
+      });
+
+      renderWithProviders(<GameBoard playerConfigs={playerConfigs} onBackToMenu={vi.fn()} />);
+      fireEvent.click(screen.getByText('Dame rufen!'));
+      expect(mockCallDame).toHaveBeenCalledTimes(1);
+      expect(mockEndTurn).toHaveBeenCalledTimes(1);
+    });
+
+    it('renders the round end dialog and calls startNextRound', () => {
+      const state = createMockGameState(0);
+      state.phase = 'ROUND_END';
+      state.players[0].score = 10;
+      state.players[0].totalScore = 10;
+      vi.mocked(useGameEngine).mockReturnValue({
+        ...baseMockEngineReturn,
+        gameState: state,
+      });
+
+      renderWithProviders(<GameBoard playerConfigs={playerConfigs} onBackToMenu={vi.fn()} />);
+      expect(screen.getByText('Runde 1 beendet!')).toBeInTheDocument();
+      expect(screen.getByText('+10 pts')).toBeInTheDocument();
+      fireEvent.click(screen.getByText('Nächste Runde'));
+      expect(mockStartNextRound).toHaveBeenCalledTimes(1);
+    });
   });
 });

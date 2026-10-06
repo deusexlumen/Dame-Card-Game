@@ -19,6 +19,7 @@ interface PlayerHandProps {
   peekedIndices?: number[];
   peekPhase?: boolean;
   cardClassName?: string;
+  testIdPrefix?: string;
 }
 
 export function PlayerHand({
@@ -36,6 +37,7 @@ export function PlayerHand({
   peekedIndices = [],
   peekPhase = false,
   cardClassName,
+  testIdPrefix = 'player-hand-card',
 }: PlayerHandProps) {
   const { t } = useI18n();
   // Gegner-Karten immer verdeckt zeigen, auch wenn der Gegner am Zug ist
@@ -83,7 +85,7 @@ export function PlayerHand({
             (isOpponent && peekedIndices.includes(index));
 
           return (
-            <div key={card.id} className="relative">
+            <div key={card.id} className="relative" data-testid={`${testIdPrefix}-${index}`}>
               <CardComponent
                 card={card}
                 isVisible={isOpponent ? false : isVisible}

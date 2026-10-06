@@ -400,6 +400,7 @@ export function useGameEngine(
     clearAITimeouts();
     isAIMovingRef.current = false;
     clearTimer();
+    setTurnTimeLeft(null);
     setIsTimerPaused(false);
     setAiPlayers(aiMap);
     setGameState(newGame);
@@ -463,6 +464,9 @@ export function useGameEngine(
       if (!isAI) {
         setMessage('game.drawnCardPrompt', { rank: card.rank });
       }
+
+      // Draw move finished – allow the post-draw AI effect to take over.
+      isAIMovingRef.current = false;
     }
   }, [setMessage]);
 
@@ -481,6 +485,9 @@ export function useGameEngine(
       if (!isAI) {
         setMessage('game.drawnFromDiscard', { rank: card.rank });
       }
+
+      // Draw move finished – allow the post-draw AI effect to take over.
+      isAIMovingRef.current = false;
     }
   }, [setMessage]);
 

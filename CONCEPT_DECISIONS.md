@@ -30,3 +30,22 @@ Es gibt keine "Schnappreaktion" anderer Spieler außerhalb ihres Zuges.
 - Jeder andere Spieler erhält noch **genau einen vollständigen Zug**.
 - Danach werden alle Karten aufgedeckt, Punkte berechnet und der Verlierer ermittelt.
 - Hat ein anderer Spieler gleich viele oder weniger Punkte als der Ansager, erhält der Ansager in der nächsten Runde eine Strafkarte (5 statt 4 Karten).
+
+## 6. Sonderkarten (Godot-Fassung, verbindlich)
+
+- **Bube:** Beim Ablegen eine beliebige verdeckte Karte ansehen (eigene oder fremde). Kein Tausch.
+- **König:** Eine eigene verdeckte Karte ansehen, dann blind mit einer gegnerischen Karte tauschen. Die Gegnerkarte bleibt ungesehen, beide liegen danach verdeckt.
+- **Ass und Zehn:** Keine Sonderwirkung.
+- **Dame-Ansage:** Ansager gewinnt nur mit strikt weniger Punkten als jeder andere. Gleichstand = falsch.
+- **Safe Phase:** Die ersten zwei Umläufe jeder Ausgabe. Keine Ansage, kein Dame-Zwangszug.
+
+## 7. Spielende
+
+- Über 50 Punkte = ausgeschieden. Genau 50 = zurück auf 0.
+- Spielende, wenn höchstens ein Spieler übrig ist oder kein menschlicher Spieler mehr im Spiel ist.
+- Sieger: der verbliebene Spieler mit den wenigsten Gesamtpunkten.
+
+## 8. Ökonomie
+
+- Spielwährung „Chips“, nur durch Spielen verdient, nur für Kosmetik. Keine kaufbaren Spielvorteile.
+- Echtgeld kommt später über die Schnittstelle `PurchaseProvider`. Im aktuellen Build nur ein Stub.

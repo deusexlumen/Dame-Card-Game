@@ -4,6 +4,20 @@ Diese Datei dokumentiert die Architektur, den Technologie-Stack und die Entwickl
 
 ---
 
+## Hauptprojekt: Godot-Client (`godot/`)
+
+Seit 2026-10-04 ist der Godot-Client das Hauptprojekt. Die React-App unten bleibt als Nachschlagewerk. Für Godot-Arbeit den Skill `dame-godot` laden.
+
+- Engine: Godot 4.7.2, GL Compatibility, Hauptszene `res://scenes/main_menu.tscn`
+- Regeln: `godot/scripts/dame_rules.gd` + `CONCEPT_DECISIONS.md` (verbindlich)
+- Tests: `npm run test:godot` (Headless-Suites + echter Szenenfluss)
+- Export: `npm run export:godot` → `build/windows/Dame.exe`, `build/web/`
+- Web-Smoke: `npm run test:godot:web`
+- Godot-Pfad lokal per `GODOT_BIN` überschreibbar
+- Bauplan und Stand: `docs/superpowers/plans/2026-10-04-dame-godot-bauplan.md`
+
+---
+
 ## Projektübersicht
 
 **Dame Kartenspiel** ist eine browserbasierte Implementierung des deutschen Kartenspiels „Dame" (nicht zu verwechseln mit Dame/Checkers). Es handelt sich um ein strategisches Kartenspiel mit Bluff-Elementen für 2–6 Spieler, bei dem menschliche Spieler gegen KI-Gegner oder andere Menschen antreten können.
