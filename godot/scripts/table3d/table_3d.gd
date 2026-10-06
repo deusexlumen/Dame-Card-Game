@@ -58,6 +58,7 @@ var _built := false
 var _card_r := CARD_R
 var _phase := ""
 var _felt_mat: StandardMaterial3D
+var _orbit := -1.0
 
 # cos: {"accent", "back", "face", "felt", "lang"} aus Profil und Einstellungen.
 func build(cos: Dictionary) -> void:
@@ -80,11 +81,14 @@ func build(cos: Dictionary) -> void:
 	camera.rotation.x = deg_to_rad(-22.0)
 	add_child(camera)
 	camera.current = true
+	_built = true
+	if bool(cos.get("showcase", false)):
+		_build_showcase()
+		return
 	hand = HandRigScript.new()
 	add_child(hand)
 	hand.setup(camera, Figure3DScript.look_for("Spieler", 0).merged({"top": Color(0.16, 0.14, 0.2), "skin": "light", "g": "m"}, true))
 	hand.transform = _hand_rest()
-	_built = true
 
 
 # Filzfarbe aus der Tischfarbe des Profils, aber nie so dunkel, dass Karten verschwinden.
@@ -952,6 +956,48 @@ func card_node_count() -> int:
 func is_target(info: Dictionary) -> bool:
 	var k := _hover_key(info)
 	return k != "" and str(_markers.get(k, "")) != ""
+
+
+# Kulisse fuer die Menues: vier Figuren am Tisch, Karten ausgeteilt, Kamera kreist.
+func _build_showcase() -> void:
+	var roles := {}
+	var names := {}
+	var angles := {}
+	var who := ["Lotte", "Bruno", "Erika", "Kurt"]
+	for i in range(4):
+		roles[i] = "seat"
+		names[i] = who[i]
+		angles[i] = -45.0 - i * 90.0
+	layout(roles, names, angles)
+	for seat in _figures:
+		(_figures[seat].label as Label3D).visible = false
+	for seat in _seat_roots:
+		var root: Node3D = _seat_roots[seat]
+		for i in range(4):
+			var c = _new_card("hand")
+			add_child(c)
+			c.global_transform = root.global_transform * Transform3D(Basis(), Vector3((i - 1.5) * CARD_GAP, TABLE_Y + Card3DScript.T / 2.0 + 0.0008, CARD_R))
+			c.set_card({"known": false}, false, false)
+	_deck_top.set_card({"known": false}, false, false)
+	_deck_top.global_transform = Transform3D(Basis(Vector3.UP, 0.04), DECK_POS + Vector3(0, TABLE_Y + 0.015, 0))
+	(_deck_stack.mesh as BoxMesh).size = Vector3(Card3DScript.W - 0.001, 0.014, Card3DScript.H - 0.001)
+	_deck_stack.position = DECK_POS + Vector3(0, TABLE_Y + 0.007, 0)
+	_discard_top.set_card({"known": true, "rank": "Q", "suit": "hearts", "value": 0}, true, false)
+	_discard_top.global_transform = Transform3D(Basis(Vector3.UP, -0.2), DISCARD_POS + Vector3(0, TABLE_Y + 0.001, 0))
+	_discard_stack.visible = false
+	_deck_label.visible = false
+	_discard_label.visible = false
+	_self_label.visible = false
+	_orbit = 0.0
+	camera.fov = 50.0
+
+
+func _process(delta: float) -> void:
+	if _orbit < 0.0 or camera == null:
+		return
+	_orbit += delta * 0.06
+	var pos := Vector3(sin(_orbit) * 2.6, 1.8, cos(_orbit) * 2.6)
+	camera.look_at_from_position(pos, Vector3(0, 0.82, 0), Vector3.UP)
 
 
 # Skin-Schnellauswahl im Spiel: Karten und Filz sofort umstellen.
