@@ -1,152 +1,66 @@
-# ♛ DAME — Memory, Risk & Bluff
+# DAME – Memory, Risk & Bluff
 
-[![Version](https://img.shields.io/badge/version-0.1.0--alpha-orange)](./)
-[![Deploy](https://img.shields.io/github/deployments/deusexlumen/Dame-Card-Game/github-pages?label=deploy&logo=github)](https://deusexlumen.github.io/Dame-Card-Game/)
-[![Build](https://img.shields.io/badge/build-passing-brightgreen?logo=githubactions)](https://github.com/deusexlumen/Dame-Card-Game/actions)
-[![Tests](https://img.shields.io/badge/tests-57%2F57-brightgreen?logo=vitest)](./)
-[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript)](https://www.typescriptlang.org/)
-[![Vite](https://img.shields.io/badge/Vite-7-646CFF?logo=vite)](https://vitejs.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss)](https://tailwindcss.com/)
+A card game for 2–6 players, seen **in first person at a 3D casino table**. You sit in a dark back room under a hanging lamp, your opponents sit at the table with you, and your own hand draws, holds and places the cards.
 
-> **A browser-based card game for 2–6 players.**  
-> Human vs. human or human vs. AI — fully client-side, no backend, no tracking.
-
-> 🚧 **Alpha version:** The game is playable, but features, balance and UI may still change. Feedback welcome!
-
-🚀 **Play live:** https://deusexlumen.github.io/Dame-Card-Game/
-
-🌐 **German version:** [README.md](./README.md)
+**Play live:** https://deusexlumen.github.io/Dame-Card-Game/
+**Deutsche Version:** [README.md](./README.md)
 
 ---
 
-## 🎴 What is DAME?
+## What is DAME?
 
-DAME is a tactical memory card game with bluffing elements. You never really know your own cards — only what you can remember.
+A tactical memory card game with bluffing. Your own cards lie face down in front of you; you only know them from memory.
 
-- Each player gets **4 face-down cards** and may look at **only 2** of them.
-- After that the cards stay face down. You have to remember **position and value**.
-- Draw, swap, bluff — and call **"Dame"** at the right moment to end the round.
-- Mistakes are punished with **penalty cards**. Information is everything.
+- Everyone gets **4 face-down cards** and may look at **2** of them.
+- Draw, swap, discard and remember what lies where.
+- From round 3 you may **call “Dame”** if you think you have the fewest points.
+- Mistakes cost **exactly one penalty card**. Above 50 points you are out.
 
-Visually DAME feels like the **terminal of an archived cyber system**: black background, green phosphor glow, geometric symbols, monospace typography.
+The binding rules are in [`CONCEPT_DECISIONS.md`](./CONCEPT_DECISIONS.md); the full guide is also in the game (menu “Rules” or key **H** at the table).
 
----
+## Features
 
-## ✨ Features
+- **First-person 3D table** with real characters (sitting animations, hands on the table, reaching for deck and discard) and your own hand with moving fingers. Switchable to a classic 2D view.
+- **2–6 players**, human vs. AI (3 levels) or hot seat on one device. Two decks from 5 players on.
+- **Casino look**: card art, back room with a bar, chip stacks, gold theme.
+- **Big moments**: Dame call with a red pulse, cards flip one after another, points count up, confetti for the winner.
+- **Shop** for cosmetics only (card backs, card faces, table felt), paid with chips you earn by playing. Quick picker in the pause menu.
+- **Sound and music**: real card sounds and a calm jazz loop.
+- **German and English**, turn timer (penalty card when time runs out), statistics, save and resume.
+- **Web and Windows**. Installable as an app in the browser; play with mouse, keyboard or touch.
 
-|  |  |
-|---|---|
-| 🎮 **2–6 players** | Human vs. human or with AI opponents |
-| 🤖 **3 AI levels** | Easy, Medium, Hard — with different aggression and bluffing strategies |
-| 👁️ **Jack (J)** | Look at your own or an opponent's card |
-| 👑 **King (K)** | Briefly reveal an opponent's card and swap it deliberately — both cards stay face-down |
-| 🃏 **Queen (Q)** | Penalty card when discarded; open Queen forces the next player to take it |
-| ⚡ **Extra discard** | Discard matching cards immediately |
-| 📢 **Dame call** | End the round early — but beware of a wrong call |
-| 🎯 **50-point rule** | Over 50 = eliminated, exactly 50 = reset to 0 |
-| 📊 **Statistics** | Local game statistics in the browser |
-| 🔊 **Sound & music** | Procedural Web Audio sounds, toggleable ambient music |
-| 🎬 **Animations** | Framer Motion transitions for cards and UI |
-| ♿ **Accessibility** | Keyboard controls, ARIA labels, screen reader support |
-
----
-
-## 🕹️ Quick start
-
-```bash
-# 1. Clone repo
-git clone https://github.com/deusexlumen/Dame-Card-Game.git
-cd Dame-Card-Game
-
-# 2. Install dependencies (pnpm)
-pnpm install
-
-# 3. Start dev server
-pnpm dev
-
-# 4. Run tests
-pnpm test
-```
-
-Done! The server usually runs at `http://localhost:5173/Dame-Card-Game/`.
-
----
-
-## 📋 Core rules
-
-1. **Setup:** 4 face-down cards per player, 2 of which may be peeked at.
-2. **Turn:** Draw from the draw or discard pile. Decide: keep, swap, or discard.
-3. **Extra discard:** If you have a card with the same value as the top discard card, you may discard it immediately. You can still take further actions afterwards — but if you have no cards left after it, **Dame is called automatically**.
-4. **Special cards:**
-   - **Queen (Q)** → Penalty card when discarded; an open Queen must be taken by the next player.
-   - **Jack (J)** → Look at any face-down card.
-   - **King (K)** → Briefly reveal an opponent's card and swap it deliberately. **After the swap both cards remain face-down.**
-5. **Dame call:** Whoever believes they have the lowest points calls "Dame". If wrong, they start the next round with **5 instead of 4 cards**.
-
-The complete design decisions are documented in [`CONCEPT_DECISIONS.md`](./CONCEPT_DECISIONS.md) (German).
-
----
-
-## ⌨️ Keyboard controls
+## Keys
 
 | Key | Action |
 |---|---|
-| `Space` | Draw card / discard drawn card |
-| `1` – `4` | Select hand card |
-| `Enter` | Confirm swap |
-| `D` | Call Dame |
-| `Z` / `E` | End turn |
-| `Esc` | Close dialog |
+| 1–6 | Pick card |
+| Space | Draw from deck |
+| Enter | Confirm / end turn |
+| A | Discard drawn card |
+| X | Extra discard |
+| D | Call Dame |
+| H | How to play |
+| Esc | Cancel / menu |
 
----
+## Development
 
-## 🛠️ Tech stack
-
-- **Framework:** React 19
-- **Language:** TypeScript 5.9
-- **Build:** Vite 7
-- **Styling:** Tailwind CSS 3.4 + shadcn/ui
-- **Animations:** Framer Motion
-- **Sound:** Web Audio API
-- **Tests:** Vitest + jsdom
-- **Linting:** ESLint 9
-
----
-
-## 🌍 Deployment
-
-Every push to `main` is automatically deployed to **GitHub Pages**.
-
-- **Live URL:** https://deusexlumen.github.io/Dame-Card-Game/
-- **Workflow:** [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml)
-- **Base path:** `/Dame-Card-Game/`
-
----
-
-## 🧪 Tests
+The game is a Godot 4.7 project in [`godot/`](./godot) (GL Compatibility). The old React version under `src/` is kept for reference only.
 
 ```bash
-pnpm vitest run   # run tests once
-pnpm test:ui      # run tests with UI
+npm run test:godot       # headless tests and scene flow
+npm run export:godot     # Windows (build/windows/Dame.exe) and web (build/web)
+npm run test:godot:web   # check the web build in a browser (Playwright)
 ```
 
-Covered areas:
-- Game mechanics (draw, swap, discard)
-- Special card effects (Jack, King, Queen)
-- Dame call & penalty system
-- AI decision logic per difficulty level
+Override the Godot path with `GODOT_BIN`. Every push to `main` tests, exports and publishes the web build to GitHub Pages.
 
----
+Asset tools live in `godot/tools/assets/` (card art, room textures, clothing masks).
 
-## 📸 Screenshot
+## Credits
 
-![DAME game board](./docs/screenshot.png)
+- Characters and animations: [Quaternius](https://quaternius.com) (CC0)
+- Card sounds, clicks, jingles: [Kenney](https://kenney.nl) (CC0)
+- Music: “jazz improvisation looped” by Alex McCulloch / Pro Sensory (CC0)
+- Fonts: Inter and Playfair Display (SIL OFL), DejaVu (free)
 
----
-
-## 📝 License
-
-**All rights reserved.**  
-The source code, design, game mechanics and all assets of this project are proprietary.  
-Use, reproduction, distribution or modification without express permission is not permitted.
+Details: `godot/assets/audio/CREDITS.txt`, `godot/assets/characters/LICENSE_*.txt`, `godot/assets/fonts/`.

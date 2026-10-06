@@ -23,6 +23,7 @@ func run(ctx) -> void:
 	_check_profile_and_shop()
 	_check_audio()
 	_check_english()
+	_check_touch_targets()
 	if app != null:
 		_check_screens()
 
@@ -142,6 +143,15 @@ func _check_profile_and_shop() -> void:
 	for it in CatalogScript.ITEMS:
 		t.expect(int(it.price) >= 0 and CatalogScript.CATEGORIES.has(str(it.category)), "Katalogeintrag ungueltig: " + str(it.id))
 	_clean(path)
+
+
+func _check_touch_targets() -> void:
+	var b := Button.new()
+	b.theme = load("res://scripts/ui/ui_theme.gd").build()
+	b.text = "Test"
+	t.root.add_child(b)
+	t.expect(b.get_combined_minimum_size().y >= 44.0, "Knopf kleiner als 44 px: %s" % str(b.get_combined_minimum_size()))
+	b.free()
 
 
 func _check_english() -> void:

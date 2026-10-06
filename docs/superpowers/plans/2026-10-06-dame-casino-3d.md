@@ -11,13 +11,13 @@
 | # | Inhalt | Status |
 |---|---|---|
 | C1 | Figuren (Quaternius UBC, CC0) mit Kleidung, Sitz-Animationen, eigener Arm mit Fingern statt Grundformen | erledigt |
-| C2 | Casino-Look: Theme, Schriften, Menüs, Shop, Regeln, Statistik, Einstellungen; Bildröhren-Effekt raus; Raum/Tisch/Licht; Kartenfront klassisch, Kartenrücken im Casino-Stil | größtenteils (offen: 3D-Kulisse hinter Menüs, HUD-Panels, Tastenliste → Hilfe) |
+| C2 | Casino-Look: Theme, Schriften, Menüs, Shop, Regeln, Statistik, Einstellungen; Bildröhren-Effekt raus; Raum/Tisch/Licht; Kartenfront klassisch, Kartenrücken im Casino-Stil | erledigt |
 | C3 | Echte Sounds (CC0, z. B. Kenney Casino Audio) + Musikschleife als Datei, Niederlage-Sound | erledigt |
 | C4 | Regeln: 2–6 Spieler, Decks = ⌈P/4⌉, 6 Plätze radial 60°; Zugtimer = Strafkarte + Zugende, Pause bei Bube/König; Feature-Flag `power_effects` (aus) | erledigt |
-| C5 | Deutsch + Englisch, Locale-Keys, Umschalter in Einstellungen | teilweise (offen: englischer Regeltext, Test für Englisch, Restprüfung) |
-| C6 | Ereignisse: Dame-Ruf (roter Puls, Countdown, alle Karten drehen, Punkte zählen hoch), Sieger-Feier (Konfetti, Gewinnerkarte, Balken), KI-denkt-Anzeige, Spielerwechsel-Überblendung, Anleitung im Spiel | offen |
-| C7 | Shop: Kategorie Kartenvorderseiten statt Phosphor-Farbe, Kaufbestätigung, Skin-Schnellauswahl im Spiel | teilweise (Kartenvorderseiten + Kaufbestätigung erledigt; offen: Schnellauswahl im Spiel) |
-| C8 | Touch/Handy (Tippflächen ≥ 44 px, Layout), PWA im Web-Export, README auf Godot, Barrierefreiheit (zuletzt) | offen |
+| C5 | Deutsch + Englisch, Locale-Keys, Umschalter in Einstellungen | erledigt |
+| C6 | Ereignisse: Dame-Ruf (roter Puls, Countdown, alle Karten drehen, Punkte zählen hoch), Sieger-Feier (Konfetti, Gewinnerkarte, Balken), KI-denkt-Anzeige, Spielerwechsel-Überblendung, Anleitung im Spiel | erledigt |
+| C7 | Shop: Kategorie Kartenvorderseiten statt Phosphor-Farbe, Kaufbestätigung, Skin-Schnellauswahl im Spiel | erledigt |
+| C8 | Touch/Handy (Tippflächen ≥ 44 px, Layout), PWA im Web-Export, README auf Godot, Barrierefreiheit (zuletzt) | erledigt bis auf Barrierefreiheit (Screenreader) – zurückgestellt; Hochformat auf Handys wird nur skaliert |
 
 ## Prüfung je Meilenstein
 

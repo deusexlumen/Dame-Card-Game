@@ -79,12 +79,13 @@ static func build(_accent: Color = GOLD) -> Theme:
 		th.set_color("font_pressed_color", type, IVORY)
 		th.set_color("font_focus_color", type, GOLD)
 
+	# Knopf-Innenabstand so, dass jede Tippflaeche mindestens 44 px hoch ist (Touch).
 	for type in ["Button", "OptionButton", "MenuButton"]:
-		th.set_stylebox("normal", type, box(btn, GOLD_DIM))
-		th.set_stylebox("hover", type, box(btn_hover, GOLD))
-		th.set_stylebox("pressed", type, box(GOLD, GOLD, 1))
-		th.set_stylebox("focus", type, box(Color(0, 0, 0, 0), GOLD, 2))
-		th.set_stylebox("disabled", type, box(Color(0.07, 0.065, 0.07), Color(0.22, 0.2, 0.18)))
+		th.set_stylebox("normal", type, box(btn, GOLD_DIM, 1, 8, 16))
+		th.set_stylebox("hover", type, box(btn_hover, GOLD, 1, 8, 16))
+		th.set_stylebox("pressed", type, box(GOLD, GOLD, 1, 8, 16))
+		th.set_stylebox("focus", type, box(Color(0, 0, 0, 0), GOLD, 2, 8, 16))
+		th.set_stylebox("disabled", type, box(Color(0.07, 0.065, 0.07), Color(0.22, 0.2, 0.18), 1, 8, 16))
 		th.set_font("font", type, bold_font())
 		th.set_color("font_color", type, IVORY)
 		th.set_color("font_hover_color", type, GOLD)

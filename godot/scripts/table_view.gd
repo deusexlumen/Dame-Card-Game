@@ -737,7 +737,8 @@ func _events(phase: String, current: int) -> void:
 		if caller >= 0:
 			_fx.dame_called(str(rules.state.players[caller].name))
 	elif (phase == "play" or phase == "dame_called") and current != _last_current and not handoff_pending:
-		_fx.turn_banner(tr("Zug von %s") % str(rules.state.players[current].name))
+		var mine := current == viewer_seat and not bool(rules.state.players[current].is_ai)
+		_fx.turn_banner(tr("Du bist am Zug") if mine else tr("Zug von %s") % str(rules.state.players[current].name))
 	if phase == "round_end" and _last_phase != "round_end":
 		# Punkte zaehlen sichtbar hoch.
 		_sum_t = 0.0 if _fx.animate else 1.0

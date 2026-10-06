@@ -26,6 +26,7 @@ const EN := {
 	"Hilfe [H]": "Help [H]",
 	"Anleitung": "How to play",
 	"Aussehen": "Appearance",
+	"Du bist am Zug": "Your turn",
 	"Schließen [H]": "Close [H]",
 	# Einstellungen
 	"Langsam": "Slow",

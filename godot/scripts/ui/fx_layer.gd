@@ -30,8 +30,8 @@ func _ready() -> void:
 	_banner.position = Vector2(0, 250)
 	_sub = _label(26, UiThemeScript.bold_font(), UiThemeScript.IVORY)
 	_sub.position = Vector2(0, 370)
-	_turn = _label(30, UiThemeScript.heading_font(), UiThemeScript.GOLD)
-	_turn.position = Vector2(0, 150)
+	_turn = _label(24, UiThemeScript.heading_font(), UiThemeScript.GOLD)
+	_turn.position = Vector2(0, 122)
 
 
 func _label(size: int, f: Font, c: Color) -> Label:
@@ -90,10 +90,10 @@ func turn_banner(text: String) -> void:
 	if not animate:
 		return
 	_turn.modulate.a = 0.0
-	_turn.position.y = 165
+	_turn.position.y = 134
 	var tw := create_tween().set_parallel(true)
 	tw.tween_property(_turn, "modulate:a", 1.0, 0.25)
-	tw.tween_property(_turn, "position:y", 150.0, 0.25)
+	tw.tween_property(_turn, "position:y", 122.0, 0.25)
 	tw.chain().tween_interval(0.8)
 	tw.chain().tween_property(_turn, "modulate:a", 0.0, 0.4)
 
