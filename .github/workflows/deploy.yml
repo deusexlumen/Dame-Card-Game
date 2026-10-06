@@ -1,5 +1,6 @@
 name: Deploy to GitHub Pages
 
+# Pages zeigt nur den Godot-Web-Build. Der React-Code bleibt im Repo, wird aber nicht mehr veroeffentlicht.
 on:
   push:
     branches: [main]
@@ -14,82 +15,53 @@ concurrency:
   group: 'pages'
   cancel-in-progress: false
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'pnpm'
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Run unit tests
-        run: pnpm test -- --run
+env:
+  GODOT_VERSION: 4.7.2
 
+jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: 9
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'pnpm'
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Build
-        run: pnpm run build
-      - name: Upload artifact
+      - name: Install Godot and export templates
+        run: |
+          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          echo "GODOT_BIN=$PWD/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+          curl -sSL -o templates.tpz https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates
+          unzip -q templates.tpz -d tpl
+          mv tpl/templates ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+      - name: Import project
+        run: $GODOT_BIN --headless --path godot --import || true
+      - name: Headless tests
+        run: node scripts/godot-test.mjs
+      - name: Export
+        run: node scripts/godot-export.mjs --skip-smoke
+      - name: Web smoke test
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          pnpm exec playwright test -c playwright.godot.config.ts
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist
-
-  e2e:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'pnpm'
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: github-pages
-          path: ./dist
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
-      - name: Run E2E tests
-        run: pnpm exec playwright test
+          path: build/web
 
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: [build, test, e2e]
+    needs: build
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
