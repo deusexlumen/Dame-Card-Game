@@ -15,13 +15,13 @@ extends RefCounted
 const RtcCode = preload("res://scripts/net/rtc_code.gd")
 const PeerLink = preload("res://scripts/net/peer_link.gd")
 const I18n = preload("res://scripts/i18n.gd")
+const IceServers = preload("res://scripts/net/ice_servers.gd")
 
 signal invite_ready(code: String)
 signal answer_ready(code: String)
 signal connected(link)
 signal failed(reason: String)
 
-const ICE_CONFIG := {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
 const HOST_PEER := 1
 const GATHER_MAX_MS := 8000        # ICE-Sammlung hoechstens so lange
 const OFFER_ID_LEN := 8
@@ -32,7 +32,7 @@ const USED_TEXT := "Diese Einladung wurde schon benutzt."
 const SETUP_TEXT := "Verbindung konnte nicht vorbereitet werden."
 
 # Vor start_host()/join() setzbar (Tests: {"iceServers": []}, nur lokale Kandidaten).
-var ice_config: Dictionary = ICE_CONFIG
+var ice_config: Dictionary = IceServers.default_config()
 # Host: Zeitlimit ab accept_answer (beide Seiten sind dann bereit).
 var host_timeout_ms := 30000
 # Gast: Zeitlimit ab answer_ready. Lang, weil ein Mensch die Antwort erst noch
@@ -248,8 +248,7 @@ func _check_gathering(slot: Dictionary, now: int) -> void:
 	if not (complete or overdue):
 		return
 	var cands: Array = slot.candidates
-	if cands.size() > RtcCode.MAX_CANDIDATES:
-		cands = cands.slice(0, RtcCode.MAX_CANDIDATES)
+	cands = IceServers.limit_candidates(cands, RtcCode.MAX_CANDIDATES)
 	var kind := "offer" if _is_host else "answer"
 	var code: String = RtcCode.encode(kind, str(slot.offer_id), int(slot.guest_id), str(slot.sdp), cands)
 	slot.code_sent = true
