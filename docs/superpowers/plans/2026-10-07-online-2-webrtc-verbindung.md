@@ -6,7 +6,7 @@
 
 **Architecture:** Ein `PeerLink` macht aus jedem Godot-`MultiplayerPeer` dieselbe `send`/`receive`-Schnittstelle, die heute der Loopback-Link hat. Dadurch bleiben `DameHost`/`DameGuest` unverändert. Ein `RtcConnector` baut die WebRTC-Verbindung auf und packt Angebot/Antwort samt ICE-Kandidaten in je einen kurzen Code (nicht-trickelnd: erst senden, wenn alle Kandidaten gesammelt sind). Der Tisch bekommt den fehlenden Online-Host-Modus. Raumcode über Supabase folgt im nächsten Plan; Copy-Paste bleibt danach als Fallback.
 
-**Tech Stack:** Godot 4.7.2 (`WebRTCPeerConnection`, `WebRTCMultiplayerPeer`, `ENetMultiplayerPeer` für Tests), GDExtension `webrtc-native` 1.2.1 (MIT) für Windows/Linux, Playwright für den Browser-Test.
+**Tech Stack:** Godot 4.7.2 (`WebRTCPeerConnection`, `WebRTCMultiplayerPeer`, `ENetMultiplayerPeer` für Tests), GDExtension `webrtc-native` 1.2.2 (MIT, per Skript geladen) für Windows/Linux, Playwright für den Browser-Test.
 
 **Spec:** `docs/online-p2p-plan.md`, `CONCEPT_DECISIONS.md` §10–§12. Baut auf Branch `feat/online-net-core` (PR #14) auf; dieser Plan läuft auf `feat/online-webrtc`.
 
@@ -51,7 +51,7 @@
 | `godot/scripts/table_view.gd` | Online-Host-Modus |
 | `godot/scripts/screens/online_screen.gd` + `godot/scenes/online.tscn` (neu) | Test-UI: Hosten / Beitreten mit Codes |
 | `godot/scripts/screens/main_menu.gd` | Menüpunkt „Online (Test)“ |
-| `godot/addons/webrtc/` (neu) | `webrtc-native` für Windows x86_64 und Linux x86_64 |
+| `scripts/fetch-webrtc.mjs` (neu), `godot/addons/webrtc/` (geladen, nicht im Repo) | `webrtc-native` für Windows x86_64 und Linux x86_64 |
 | `godot/tests/test_peer_link.gd`, `test_rtc_code.gd`, `test_online_table.gd` (neu) | Headless-Tests |
 | `e2e-godot/online-webrtc.spec.ts` (neu) | Zwei Browser-Seiten verbinden sich und spielen einen Zug |
 
@@ -106,11 +106,11 @@ Hinweis: ENet ist nur Testtransport, damit die Link-Schicht ohne WebRTC headless
 
 ### Task 4: webrtc-native einbinden
 
-- [ ] **Step 1:** Release `1.2.1-stable` von https://github.com/godotengine/webrtc-native/releases laden (Datei `godot-extension-4.1-webrtc.zip` bzw. die im Release für Godot 4.3+ ausgewiesene Datei), in eigenes leeres Verzeichnis entpacken, Lizenz prüfen (MIT). Nur Windows x86_64 und Linux x86_64 nach `godot/addons/webrtc/` übernehmen (plus `.gdextension`, Lizenzdatei). Größe notieren.
+- [ ] **Step 1:** `webrtc-native` **1.2.2-stable** (Asset `godot-extension-webrtc_native.zip`, ca. 37 MB, MIT) wird **nicht ins Repo gelegt**, sondern per Skript geladen: `scripts/fetch-webrtc.mjs` lädt das Release in ein leeres Temp-Verzeichnis, prüft die SHA-256-Prüfsumme (im Skript fest hinterlegt, beim ersten Laden ermittelt und im Commit dokumentiert), entpackt und kopiert nur Windows x86_64 und Linux x86_64 plus `.gdextension` und Lizenz nach `godot/addons/webrtc/`. `godot/addons/webrtc/` kommt in `.gitignore` (außer einer README mit dem Ladebefehl). `npm run fetch:webrtc` als Skript in `package.json`.
 - [ ] **Step 2:** Prüfen, dass Headless-Godot unter Windows die Erweiterung lädt: kleines Testskript erzeugt `WebRTCPeerConnection.new()` und `initialize({})` liefert `OK`.
 - [ ] **Step 3:** Export-Presets: Windows-Export enthält die DLL (Export laufen lassen, `build/windows/` prüfen); Web-Export enthält sie **nicht** (Browser hat WebRTC eingebaut; Größe des Web-Builds darf nicht steigen).
 - [ ] **Step 4:** CI (`.github/workflows/deploy.yml`) läuft unter Linux: sicherstellen, dass die Godot-Tests dort die Linux-Bibliothek laden (oder die WebRTC-Tests ohne Erweiterung sauber überspringen, mit sichtbarem Hinweis statt stillem Grün).
-- [ ] **Step 5: Commit** `chore: webrtc-native 1.2.1 fuer Windows und Linux` (Lizenz in `godot/addons/webrtc/` und Hinweis in `README.md`/Credits, falls dort Lizenzen gelistet sind).
+- [ ] **Step 5: Commit** `chore: webrtc-native 1.2.2 per Ladeskript fuer Windows und Linux` (Lizenz in `godot/addons/webrtc/` und Hinweis in `README.md`/Credits, falls dort Lizenzen gelistet sind).
 
 ---
 
@@ -167,6 +167,14 @@ Hinweis: ENet ist nur Testtransport, damit die Link-Schicht ohne WebRTC headless
 - [ ] Commit `docs: Online-Verbindung per WebRTC (Codes)`
 
 ---
+
+## Vorlage PR #11 (Server-Variante, nicht mergen)
+
+PR #11 enthält eine fertige Online-Variante mit eigenem Server. Für diesen Plan als **Referenz** lesen (`git show origin/ccr-91118fce-c92zag:<pfad>`), nicht übernehmen:
+- Task 2: Online-Modus in `godot/scripts/table_view.gd` und Pending-Modus `online` in `godot/scripts/app.gd`.
+- Task 6: `godot/scripts/screens/online_screen.gd`, `godot/scenes/online.tscn`, Texte in `godot/scripts/i18n.gd`.
+- Nicht übernehmen: `DameMirror` (wir haben die strengere `DameView`), WebSocket-Server/Client, `server/`.
+- Für den §11-Plan später: `online_match.gd` (Zugtimer, Abwesenheitsstufen per `tick(delta)`), Regelaktionen `skip_turn`/`give_absence_penalty`, Nachrichten-Ratenlimit aus `net_protocol.gd`, Token-Wiedereinstieg aus `room_manager.gd`.
 
 ## Weg bis „Freunde können spielen“ (Stand nach diesem Plan)
 
