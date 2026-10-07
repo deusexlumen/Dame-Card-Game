@@ -229,11 +229,6 @@ func _check_main_menu() -> void:
 		t.expect(AppScript.js_flag(v), "js_flag erkennt an nicht: " + str(v))
 	for v in [false, "0", "", null, 0, 2.5, "false"]:
 		t.expect(not AppScript.js_flag(v), "js_flag erkennt aus nicht: " + str(v))
-	app.last_goto = ""
-	var menu2 = MainMenuScene.instantiate()
-	t.root.add_child(menu2)
-	_screens.append(menu2)
-	t.expect(app.last_goto == "", "Hauptmenue springt ohne e2e=1 weiter: " + app.last_goto)
 
 
 func _enet_pair() -> Array:

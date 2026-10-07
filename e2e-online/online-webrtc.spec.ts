@@ -54,6 +54,7 @@ async function bridgeReady(page: Page, fn: string): Promise<void> {
 
 // Bei Fehlschlag: Konsolenzeilen beider Seiten ausgeben (Diagnose ohne Bildschirm).
 const logs: Log[] = [];
+// eslint-disable-next-line no-empty-pattern
 test.afterEach(async ({}, info) => {
   if (info.status === info.expectedStatus) return;
   logs.forEach((log, i) => {
