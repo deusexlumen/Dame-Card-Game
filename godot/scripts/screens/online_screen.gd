@@ -95,6 +95,9 @@ var _guest_link = null
 var _guest_session = null
 var _guest_deadline := 0
 var _guest_rejected := false
+var _guest_lost := false
+# Host: Antwort angenommen, Verbindung laeuft. Keine neue Einladung (wuerde den Platz still abbauen).
+var _host_connecting := false
 var _handed_off := false
 var _e2e := false
 # JavaScriptBridge-Callbacks muessen referenziert bleiben, sonst sind sie weg.
@@ -254,7 +257,7 @@ func _beep_error() -> void:
 
 # Neue Einladung. Ein spaeterer Klick ersetzt die alte (gleicher Gast-Platz).
 func host_invite() -> void:
-	if _handed_off:
+	if _handed_off or _host_connecting:
 		return
 	host_error.text = ""
 	if _host_rtc == null or _host_rtc.is_closed():
@@ -288,6 +291,8 @@ func host_accept(text: String) -> void:
 		_beep_error()
 		return
 	host_status.text = CONNECTING_TEXT
+	_host_connecting = true
+	invite_button.disabled = true
 
 
 func _on_host_invite(code: String) -> void:
@@ -310,6 +315,8 @@ func _on_host_failed(reason: String) -> void:
 	host_status.text = ""
 	# Die Einladung ist verbraucht: nicht mehr zum Kopieren anbieten.
 	invite_edit.text = ""
+	_host_connecting = false
+	invite_button.disabled = false
 
 
 func host_config() -> Dictionary:
@@ -388,6 +395,7 @@ func guest_join(text: String) -> void:
 	if _guest_rtc != rtc:
 		return  # schon synchron gescheitert
 	join_edit.editable = false
+	join_button.disabled = true
 	guest_status.text = MAKING_ANSWER_TEXT
 	cancel_button.visible = true
 
@@ -432,26 +440,48 @@ func _reset_guest_ui() -> void:
 	guest_status.text = ""
 	answer_out_edit.text = ""
 	join_edit.editable = true
+	join_button.disabled = false
 	cancel_button.visible = false
 
 
 func _close_guest() -> void:
+	_unhook_guest_session()
 	var rtc = _guest_rtc
 	_guest_rtc = null
 	_guest_link = null
 	_guest_session = null
 	_guest_rejected = false
+	_guest_lost = false
 	if rtc != null:
 		rtc.close()
 
 
 func _start_guest_session() -> void:
 	_guest_session = DameGuest.new(_guest_link)
-	_guest_session.rejected.connect(func(_reason: String) -> void: _guest_rejected = true)
+	# Methoden statt Lambdas: Session und Link reisen zum Tisch, die Verbindungen
+	# werden bei der Uebergabe wieder geloest (_unhook_guest_session).
+	_guest_session.rejected.connect(_on_guest_rejected)
+	_guest_link.peer_disconnected.connect(_on_guest_link_disconnected)
 	_guest_session.connect_to_host()
 	_guest_deadline = Time.get_ticks_msec() + first_view_ms
 	guest_status.text = WAIT_START_TEXT
 	cancel_button.visible = true
+
+
+func _on_guest_rejected(_reason: String) -> void:
+	_guest_rejected = true
+
+
+func _on_guest_link_disconnected(peer_id: int) -> void:
+	if peer_id == 1:
+		_guest_lost = true
+
+
+func _unhook_guest_session() -> void:
+	if _guest_session != null and _guest_session.rejected.is_connected(_on_guest_rejected):
+		_guest_session.rejected.disconnect(_on_guest_rejected)
+	if _guest_link != null and _guest_link.peer_disconnected.is_connected(_on_guest_link_disconnected):
+		_guest_link.peer_disconnected.disconnect(_on_guest_link_disconnected)
 
 
 func _handoff_guest() -> void:
@@ -459,6 +489,7 @@ func _handoff_guest() -> void:
 	var session = _guest_session
 	var owner_rtc = _guest_rtc
 	var seat := int(session.latest_view.get("viewer_seat", -1))
+	_unhook_guest_session()
 	_handed_off = true
 	_guest_rtc = null
 	_guest_link = null
@@ -495,10 +526,13 @@ func poll_net() -> void:
 		if _guest_rtc == guest and _guest_link != null:
 			_start_guest_session()
 		return
-	if not _guest_link.is_open():
+	if _guest_lost or not _guest_link.is_open():
 		_guest_fail(LOST_TEXT)
 		return
 	_guest_session.poll()
+	if _guest_lost:
+		_guest_fail(LOST_TEXT)
+		return
 	if _guest_rejected:
 		_guest_fail(REJECTED_TEXT)
 		return
@@ -513,6 +547,9 @@ func _close_host() -> void:
 	var rtc = _host_rtc
 	_host_rtc = null
 	_host_link = null
+	_host_connecting = false
+	if invite_button != null:
+		invite_button.disabled = false
 	if rtc != null:
 		rtc.close()
 
@@ -521,6 +558,7 @@ func _close_host() -> void:
 func shutdown() -> void:
 	_close_host()
 	_close_guest()
+	_unregister_e2e()
 
 
 func go_back() -> void:
@@ -547,3 +585,15 @@ func _register_e2e() -> void:
 	win.dameHostInvite = host_cb
 	win.dameGuestJoin = join_cb
 	win.dameHostAccept = accept_cb
+
+
+# Fenster-Funktionen loesen, damit Playwright nach dem Verlassen keinen toten Bildschirm ruft.
+func _unregister_e2e() -> void:
+	if not _e2e or _js_callbacks.is_empty():
+		return
+	var win = JavaScriptBridge.get_interface("window")
+	if win != null:
+		win.dameHostInvite = null
+		win.dameGuestJoin = null
+		win.dameHostAccept = null
+	_js_callbacks = []

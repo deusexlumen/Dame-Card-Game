@@ -15,6 +15,7 @@ const RtcConnector = preload("res://scripts/net/rtc_connector.gd")
 const RtcCode = preload("res://scripts/net/rtc_code.gd")
 const PeerLink = preload("res://scripts/net/peer_link.gd")
 const I18n = preload("res://scripts/i18n.gd")
+const NetCodec = preload("res://scripts/net/net_codec.gd")
 
 const WAIT_CAP_MS := 15000
 const LOCAL_ICE := {"iceServers": []}
@@ -55,7 +56,7 @@ func run(ctx) -> void:
 		t.expect(OS.get_environment("DAME_REQUIRE_WEBRTC") != "1", "WebRTC-Erweiterung fehlt, DAME_REQUIRE_WEBRTC=1 verlangt sie")
 	else:
 		var rtc_checks: Array[Callable] = [_check_dropped_connector_kills_link, _check_guest_retry,
-				_check_screen_to_table]
+				_check_screen_to_table, _check_guest_no_start, _check_guest_rejected, _check_guest_lost]
 		for check in rtc_checks:
 			check.call()
 			_cleanup()
@@ -121,7 +122,7 @@ func _wait(cond: Callable, what: String) -> bool:
 # Fuegt Zeichen ein, die Chat-Apps beim Kopieren einstreuen.
 static func _dirty(code: String) -> String:
 	var nbsp := String.chr(0x00A0)
-	var zw := String.chr(0x200B) + String.chr(0x200C) + String.chr(0x200D) + String.chr(0xFEFF)
+	var zw := String.chr(0x200B) + String.chr(0x200C) + String.chr(0x200D) + String.chr(0xFEFF) 			+ String.chr(0x200E) + String.chr(0x200F) + String.chr(0x180B) + String.chr(0x180C) + String.chr(0x180D)
 	var mid := code.length() / 2
 	return zw + " " + code.substr(0, 10) + nbsp + code.substr(10, mid - 10) + String.chr(0x2009) + "\n" \
 			+ code.substr(mid, 5) + zw + code.substr(mid + 5) + String.chr(0x3000) + nbsp
@@ -359,7 +360,9 @@ func _check_guest_retry() -> void:
 	var first = s._guest_rtc
 	t.expect(first != null and s.guest_error.text == "", "Beitreten mit gueltigem Code scheitert: " + s.guest_error.text)
 	t.expect(s.cancel_button.visible, "Abbrechen nicht sichtbar")
+	t.expect(s.join_button.disabled, "Weiter waehrend laufendem Beitritt bedienbar")
 	s.cancel_button.pressed.emit()
+	t.expect(not s.join_button.disabled, "Weiter nach Abbrechen gesperrt")
 	t.expect(first.is_closed() and s._guest_rtc == null, "Abbrechen schliesst den Connector nicht")
 	t.expect(not s.cancel_button.visible and s.answer_out_edit.text == "" and s.join_edit.editable, "Abbrechen setzt den Bildschirm nicht zurueck")
 	s.guest_join(_dirty(st.invite))
@@ -371,6 +374,7 @@ func _check_guest_retry() -> void:
 		return s.answer_out_edit.text != "", "Antwortcode nach erneutem Versuch"):
 		return
 	t.expect(s.guest_status.text == OnlineScreen.WAIT_HOST_TEXT, "Status nicht 'Warte auf den Host'")
+	t.expect(s.join_button.disabled, "Weiter bei angezeigter Antwort bedienbar")
 	t.expect(RtcCode.decode(s.answer_out_edit.text, "answer").ok, "Antwortcode im Feld ungueltig")
 	# Host-Fehler: falscher Code im Antwortfeld des Host-Bildschirms.
 	var hs = _screen()
@@ -442,6 +446,11 @@ func _connect_screens() -> Dictionary:
 	hs.answer_in_edit.text = _dirty(gs.answer_out_edit.text)
 	hs.connect_button.pressed.emit()
 	t.expect(hs.host_error.text == "", "Host lehnt Antwort ab: " + hs.host_error.text)
+	# Waehrend der Verbindung keine neue Einladung (wuerde den Platz still abbauen).
+	var invite_before: String = hs.invite_edit.text
+	t.expect(hs.invite_button.disabled, "Einladung erstellen waehrend Verbinden bedienbar")
+	hs.host_invite()
+	t.expect(hs.invite_edit.text == invite_before and hs.host_status.text == OnlineScreen.CONNECTING_TEXT, "Neue Einladung waehrend Verbinden angenommen")
 	if not _wait(func():
 		hs.poll_net()
 		gs.poll_net()
@@ -476,3 +485,87 @@ func _connect_screens() -> Dictionary:
 		t.expect(false, "Gast-Tisch ohne Session oder Sicht")
 		return {}
 	return {"host_rtc": host_rtc, "guest_rtc": guest_rtc, "host_table": host_table, "guest_table": guest_table}
+
+
+# ---------- Gast wartet nach der Verbindung: Zeitlimit, Ablehnung, Abbruch ----------
+
+# Verbindet einen rohen Host-Connector (ohne Tisch) mit dem Gast-Bildschirm gs.
+# Liefert {"host", "hlink", "grtc"} oder {} (dann schon ein Fehlschlag gemeldet).
+func _guest_screen_connected(gs) -> Dictionary:
+	var host := _make()
+	var st := {"invite": "", "hlink": null}
+	host.invite_ready.connect(func(c): st.invite = c)
+	host.connected.connect(func(l): st.hlink = l)
+	host.start_host()
+	host.create_invite(2)
+	if not _wait(func():
+		host.poll()
+		return st.invite != "", "Einladung (Gast wartet)"):
+		return {}
+	gs.guest_join(st.invite)
+	var grtc = gs._guest_rtc
+	if not _wait(func():
+		host.poll()
+		gs.poll_net()
+		return gs.answer_out_edit.text != "", "Antwort (Gast wartet)"):
+		return {}
+	var r: Dictionary = host.accept_answer(gs.answer_out_edit.text)
+	t.expect(bool(r.ok), "Host nimmt Antwort nicht an")
+	if not _wait(func():
+		host.poll()
+		gs.poll_net()
+		return st.hlink != null and gs._guest_session != null, "Gast verbunden, wartet auf Sicht"):
+		return {}
+	t.expect(gs.guest_status.text == OnlineScreen.WAIT_START_TEXT, "Status nicht 'Warte auf den Spielbeginn'")
+	return {"host": host, "hlink": st.hlink, "grtc": grtc}
+
+
+func _expect_guest_failed(gs, grtc, text: String, what: String) -> void:
+	t.expect(gs.guest_error.text == text, what + ": falscher Fehlertext: " + gs.guest_error.text)
+	t.expect(grtc.is_closed() and gs._guest_rtc == null, what + ": Connector nicht geschlossen")
+	t.expect(not gs.join_button.disabled and gs.join_edit.editable and not gs.cancel_button.visible, what + ": Bildschirm nicht zurueckgesetzt")
+	t.expect(app.pending.is_empty(), what + ": trotzdem an den Tisch")
+
+
+func _check_guest_no_start() -> void:
+	var gs = _screen()
+	gs.first_view_ms = 300
+	var c := _guest_screen_connected(gs)
+	if c.is_empty():
+		return
+	# Host antwortet nie (kein Tisch): nach first_view_ms Fehler.
+	_wait(func():
+		c.host.poll()
+		gs.poll_net()
+		return gs.guest_error.text != "", "Zeitlimit erste Sicht")
+	_expect_guest_failed(gs, c.grtc, OnlineScreen.NO_START_TEXT, "Kein Spielbeginn")
+	# Neuer Versuch mit neuer Einladung klappt (neuer Connector).
+	var old = c.grtc
+	c.clear()
+	var again := _guest_screen_connected(gs)
+	t.expect(not again.is_empty() and again.grtc != old, "Neuer Versuch nach Zeitlimit scheitert")
+
+
+func _check_guest_rejected() -> void:
+	var gs = _screen()
+	var c := _guest_screen_connected(gs)
+	if c.is_empty():
+		return
+	c.hlink.send(2, NetCodec.encode({"t": "reject", "reason": "Falsche Spielversion"}))
+	_wait(func():
+		c.host.poll()
+		gs.poll_net()
+		return gs.guest_error.text != "", "Ablehnung beim Gast")
+	_expect_guest_failed(gs, c.grtc, OnlineScreen.REJECTED_TEXT, "Abgelehnt")
+
+
+func _check_guest_lost() -> void:
+	var gs = _screen()
+	var c := _guest_screen_connected(gs)
+	if c.is_empty():
+		return
+	c.host.close()
+	_wait(func():
+		gs.poll_net()
+		return gs.guest_error.text != "", "Verbindungsabbruch beim Gast")
+	_expect_guest_failed(gs, c.grtc, OnlineScreen.LOST_TEXT, "Host weg")

@@ -45,7 +45,7 @@ static func encode(kind: String, offer_id: String, peer_id: int, sdp: String, ca
 
 # Entfernt Leerraum, den Chat-Apps und Editoren beim Kopieren einstreuen: ASCII-
 # Leerraum, geschuetzte Leerzeichen (U+00A0, U+202F), Nullbreitenzeichen
-# (U+200B-U+200D, U+2060, U+FEFF) und sonstigen Unicode-Leerraum. Codezeichen bleiben.
+# (U+200B-U+200D, U+2060, U+FEFF), Richtungsmarken (U+200E/F) und sonstigen Unicode-Leerraum. Codezeichen bleiben.
 static func clean(code: String) -> String:
 	var out := ""
 	for i in code.length():
@@ -57,7 +57,11 @@ static func clean(code: String) -> String:
 static func _is_space(c: int) -> bool:
 	if c <= 0x20 or c == 0x7F or c == 0x85 or c == 0xA0:
 		return true
-	if c >= 0x2000 and c <= 0x200D:
+	# U+2000-U+200A Leerzeichen, U+200B-U+200D Nullbreite, U+200E/F Richtungsmarken (LRM/RLM)
+	if c >= 0x2000 and c <= 0x200F:
+		return true
+	# Mongolische Variantenselektoren U+180B-U+180D (und U+180E unten)
+	if c >= 0x180B and c <= 0x180D:
 		return true
 	return c in [0x1680, 0x180E, 0x2028, 0x2029, 0x202F, 0x205F, 0x2060, 0x3000, 0xFEFF]
 
