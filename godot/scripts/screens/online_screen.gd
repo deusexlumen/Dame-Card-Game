@@ -308,6 +308,8 @@ func _on_host_connected(link) -> void:
 func _on_host_failed(reason: String) -> void:
 	host_error.text = reason
 	host_status.text = ""
+	# Die Einladung ist verbraucht: nicht mehr zum Kopieren anbieten.
+	invite_edit.text = ""
 
 
 func host_config() -> Dictionary:

@@ -398,13 +398,15 @@ func _check_screen_to_table() -> void:
 		host_table.session.poll()
 		guest_table.session.poll()
 		return int(guest_table.session.rev) == int(host_table.session.rev) and int(guest_table.session.rev) > rev_before, "Sicht nach Bildschirmwechsel")
-	# Eine echte Gast-Eingabe ueber die Verbindung.
-	var host_rev := int(host_table.session.rev)
+	# Rundweg Gast -> Host -> Gast: eine Aktion des Gastes bekommt ein Ergebnis.
+	var results: Array = []
+	guest_table.session.action_result.connect(func(r): results.append(r))
+	guest_table.session.send_action({"type": "end_turn"})
 	_wait(func():
 		host_table.session.poll()
 		guest_table.session.poll()
-		var v: Dictionary = guest_table._view
-		return not v.is_empty() and str(v.get("phase", "")) == "play", "Spielphase beim Gast")
+		return not results.is_empty(), "Ergebnis einer Gast-Aktion")
+	var host_rev := int(host_table.session.rev)
 	# Tische verlassen: Verbindung und Connectoren zu.
 	var hrtc = refs.host_rtc.get_ref()
 	var grtc = refs.guest_rtc.get_ref()
