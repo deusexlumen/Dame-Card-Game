@@ -81,6 +81,9 @@ var pending_config: Dictionary = {}
 # Gesetzt vor add_child: Tisch spielt als Online-Gast ueber diese Session (DameGuest
 # mit erster Sicht). Ohne Regeln, ohne KI, ohne Spielstand.
 var pending_session = null
+# Gesetzt vor add_child: Tisch ist Online-Host. {"config", "link", "host_seat",
+# "guest_seats": {peer_id: seat}}. Gast-Plaetze erst nach gueltigem hello (peer_joined).
+var pending_online_host: Dictionary = {}
 var handoff_pending := false
 var spectating := false
 var selected := -1
@@ -103,6 +106,17 @@ var _recorded_deal := -1
 var _game_recorded := false
 # Gast wartet noch auf seinen Platz (Sicht kam erst nach dem Anhaengen).
 var _guest_seat_pending := false
+# Online-Host: erlaubte Gaeste {peer_id: seat}.
+var _guest_seats := {}
+# Gast: eigene Aktion gesendet, Ergebnis steht noch aus (keine Doppel-Eingabe).
+var _awaiting_result := false
+# Online: Verbindung beendet (selbst getrennt oder Host weg). Nicht mehr pollen.
+var _net_closed := false
+var _pause_menu_button: Button
+var _again_button: Button
+var _host_left_panel: PanelContainer
+var _host_left_label: Label
+var _host_left_button: Button
 var _turn_left := 0.0
 var _turn_owner := -1
 var _accent := Color(0.55, 1.0, 0.55)
@@ -157,6 +171,9 @@ func _ready() -> void:
 	print("TABLE_READY 3d=%s" % str(_use_3d))
 	if session != null:
 		return
+	if not pending_online_host.is_empty():
+		start_online_host(pending_online_host)
+		return
 	if pending_session != null:
 		_attach_guest(pending_session)
 		return
@@ -165,7 +182,14 @@ func _ready() -> void:
 		return
 	var app := _app()
 	var job: Dictionary = app.take_pending() if app != null else {}
-	if str(job.get("mode", "")) == "resume" and _try_resume():
+	var mode := str(job.get("mode", ""))
+	if mode == "online_host":
+		start_online_host(job)
+		return
+	if mode == "online_guest" and job.get("session") != null:
+		_attach_guest(job.session)
+		return
+	if mode == "resume" and _try_resume():
 		return
 	var cfg: Dictionary = job.get("config", {})
 	if cfg.is_empty():
@@ -220,6 +244,12 @@ func _load_cosmetics() -> void:
 # ---------------------------------------------------------------- Spielstart
 
 func start(cfg: Dictionary) -> void:
+	var r = _new_rules(cfg)
+	_attach_host(r, int(config.seed) + 7, REVEAL_DEAL_MS)
+
+
+# Regeln wie offline anlegen (Seed, Match-Kennung); setzt config.
+func _new_rules(cfg: Dictionary):
 	config = cfg.duplicate(true)
 	if not config.has("seed"):
 		config.seed = int(Time.get_unix_time_from_system()) % 1000000 + randi() % 1000
@@ -227,7 +257,23 @@ func start(cfg: Dictionary) -> void:
 	config.match_id = match_id
 	var r = DameRulesScript.new()
 	r.start_match(config)
-	_attach_host(r, int(config.seed) + 7, REVEAL_DEAL_MS)
+	return r
+
+
+# Online-Host: Regeln wie offline, aber mit Verbindung. Nur der eigene Platz ist lokal
+# (kein Hot-Seat), kein Spielstand (_owns_save), KI-Plaetze wie offline ueber ai_step.
+# Gaeste bekommen ihren Platz erst nach gueltigem hello (peer_joined).
+func start_online_host(job: Dictionary) -> void:
+	var host_seat := int(job.get("host_seat", 0))
+	_guest_seats = {}
+	var seats: Dictionary = job.get("guest_seats", {})
+	for peer in seats:
+		_guest_seats[int(peer)] = int(seats[peer])
+	var r = _new_rules(job.get("config", {}))
+	_attach_host(r, int(config.seed) + 7, REVEAL_DEAL_MS, job.get("link"), [host_seat])
+	session.peer_joined.connect(_on_peer_joined)
+	session.peer_left.connect(_on_peer_left)
+	_apply_online_ui()
 
 
 func _try_resume() -> bool:
@@ -251,12 +297,12 @@ func _try_resume() -> bool:
 
 # Lokale Partie: dieses Geraet ist Host ohne Verbindung. Die erste Sicht kommt
 # ueber assign_seat und laeuft durch _on_view wie jede spaetere.
-func _attach_host(r, ai_seed: int, reveal_ms: int = 0) -> void:
-	session = DameHostScript.new(r, null)
+func _attach_host(r, ai_seed: int, reveal_ms: int = 0, link = null, seats: Array = []) -> void:
+	session = DameHostScript.new(r, link)
 	session.view_changed.connect(_on_view)
 	session.action_result.connect(_on_result)
 	ai = DameAIScript.new(ai_seed)
-	session.local_seats = _human_seats_of(r)
+	session.local_seats = seats.duplicate() if not seats.is_empty() else _human_seats_of(r)
 	_after_start()
 	var seat: int = viewer_seat
 	if seat < 0:
@@ -270,7 +316,7 @@ func _attach_host(r, ai_seed: int, reveal_ms: int = 0) -> void:
 
 # Online-Gast: keine Regeln, keine KI. Der eigene Platz steht in der Sicht des Hosts;
 # lokale Plaetze werden vor der ersten Sicht gesetzt.
-# Geltungsbereich: nur Sessions ohne Autoritaet. Der Online-Host-Tisch ist ein spaeterer Schritt.
+# Geltungsbereich: nur Sessions ohne Autoritaet (Online-Host: start_online_host).
 func _attach_guest(s) -> void:
 	if s.is_authority():
 		push_error("Tisch: Authority-Session kann nicht als Gast angehaengt werden")
@@ -279,6 +325,10 @@ func _attach_guest(s) -> void:
 	session.view_changed.connect(_on_view)
 	session.action_result.connect(_on_result)
 	ai = null
+	# Host weg (Review Focus 7): Meldung und Knopf ins Menue.
+	if session.link != null and session.link.has_signal("peer_disconnected"):
+		session.link.peer_disconnected.connect(_on_link_peer_disconnected)
+	_apply_online_ui()
 	var first: Dictionary = session.latest_view
 	local_seats = [int(first.get("viewer_seat", 0))]
 	viewer_seat = int(local_seats[0])
@@ -558,6 +608,7 @@ func _build_over_panel() -> void:
 	again.text = "Neues Spiel"
 	again.pressed.connect(_on_play_again)
 	row.add_child(again)
+	_again_button = again
 	var menu := Button.new()
 	menu.text = "Hauptmenü"
 	menu.pressed.connect(_on_main_menu)
@@ -648,6 +699,7 @@ func _build_pause() -> void:
 	menu.text = "Hauptmenü (Spiel wird gespeichert)"
 	menu.pressed.connect(_on_main_menu)
 	vb.add_child(menu)
+	_pause_menu_button = menu
 	_build_skin_picker(vb)
 
 
@@ -905,9 +957,14 @@ func _ai_due() -> bool:
 
 # Einziger Schreibweg des Menschen: Aktion an die Session. Der Platz kommt vom Host.
 func act(action: Dictionary) -> Dictionary:
-	if session == null or handoff_pending:
+	if session == null or handoff_pending or _net_closed:
 		return {"ok": false, "reason": "Nicht bereit"}
+	# Gast: solange das Ergebnis der letzten Aktion aussteht, nichts doppelt senden.
+	if _awaiting_result:
+		return {"ok": false, "reason": "Warte auf den Host …"}
 	_last_result = {}
+	if not session.is_authority():
+		_awaiting_result = true
 	session.send_action(action)
 	# Host antwortet synchron; ein Gast bekommt das Ergebnis spaeter per Signal.
 	return _last_result if not _last_result.is_empty() else {"ok": true, "pending": true}
@@ -915,6 +972,7 @@ func act(action: Dictionary) -> Dictionary:
 
 # Antwort auf die eigene Aktion. Fehler: Ton und Hinweis, sonst Auswahl zuruecksetzen.
 func _on_result(msg: Dictionary) -> void:
+	_awaiting_result = false
 	_last_result = {"ok": bool(msg.get("ok", false)), "reason": str(msg.get("reason", ""))}
 	if bool(_last_result.ok):
 		selected = -1
@@ -934,6 +992,7 @@ func _on_result(msg: Dictionary) -> void:
 func _on_view(view: Dictionary, action: Dictionary) -> void:
 	var before := _view
 	_view = view
+	_awaiting_result = false
 	# Gast vor Platzzuweisung angehaengt: Platz aus der ersten Sicht, einmal neu aufbauen.
 	if _guest_seat_pending and not view.is_empty() and not session.is_authority():
 		_guest_seat_pending = false
@@ -941,6 +1000,8 @@ func _on_view(view: Dictionary, action: Dictionary) -> void:
 		viewer_seat = int(local_seats[0])
 		if not _seats.is_empty():
 			_layout_seats()
+		# Wie beim direkten Anhaengen: eigene bekannte Karten kurz zeigen.
+		_reveal_own_known(REVEAL_DEAL_MS)
 	_views_seen += 1
 	# Erste Sicht (oder andere Platzzahl): Plaetze aus der Sicht aufbauen.
 	if _seats.size() != int(view.seat_count):
@@ -1022,7 +1083,7 @@ func _feedback_from(before: Dictionary, after: Dictionary, action: Dictionary, o
 # ---------------------------------------------------------------- Eingabe
 
 func _human_turn() -> bool:
-	if _view.is_empty() or handoff_pending:
+	if _view.is_empty() or handoff_pending or _net_closed:
 		return false
 	var phase := str(_view.phase)
 	if phase != "play" and phase != "dame_called":
@@ -1192,12 +1253,22 @@ func toggle_pause() -> void:
 
 func _on_main_menu() -> void:
 	_save()
+	# Online: Verbindung trennen (Pause-Text sagt es an).
+	_close_link()
 	var app := _app()
 	if app != null:
 		app.goto(app.MAIN_MENU)
 
 
 func _on_play_again() -> void:
+	# Online (Gast oder Host mit Link): Verbindung schliessen, zurueck zum
+	# Online-Bildschirm. Nie still ein Offline-Spiel starten.
+	if _is_online():
+		_close_link()
+		var online_app := _app()
+		if online_app != null:
+			online_app.goto(online_app.online_screen())
+		return
 	var cfg := config.duplicate(true)
 	cfg.erase("seed")
 	cfg.erase("match_id")
@@ -1209,11 +1280,87 @@ func _on_play_again() -> void:
 		start(cfg)
 
 
+# ---------------------------------------------------------------- Online
+
+# Partie mit Verbindung (Gast oder Online-Host).
+func _is_online() -> bool:
+	return session != null and session.link != null
+
+
+# Online-Texte, sobald die Session feststeht (_build_ui laeuft vorher).
+func _apply_online_ui() -> void:
+	if _is_online() and _pause_menu_button != null:
+		_pause_menu_button.text = "Hauptmenü (Verbindung wird getrennt)"
+
+
+# Verbindung beenden und danach nicht mehr pollen.
+func _close_link() -> void:
+	if not _is_online() or _net_closed:
+		return
+	_net_closed = true
+	_awaiting_result = false
+	if session.link.has_method("close"):
+		session.link.close()
+
+
+# Host: gueltiges hello eines Gastes. Nur bekannte Peers bekommen ihren Platz.
+func _on_peer_joined(peer_id: int) -> void:
+	if not _guest_seats.has(peer_id) or _net_closed:
+		return
+	session.assign_seat(peer_id, int(_guest_seats[peer_id]))
+
+
+# Host: Gast getrennt. Der Platz bleibt am Tisch (Abwesenheit nach §11 folgt spaeter).
+func _on_peer_left(peer_id: int) -> void:
+	if not _guest_seats.has(peer_id) or _view.is_empty():
+		return
+	var seat := int(_guest_seats[peer_id])
+	if seat >= 0 and seat < (_view.players as Array).size():
+		_toast_text(tr("%s hat die Verbindung verloren.") % str(_view.players[seat].name))
+
+
+# Gast: die Verbindung zum Host ist weg.
+func _on_link_peer_disconnected(peer_id: int) -> void:
+	if peer_id != DameProtocol.HOST_PEER or _net_closed:
+		return
+	_net_closed = true
+	_awaiting_result = false
+	_ai_timer.stop()
+	# Nach dem Spielende ist das normal (Host spielt neu oder geht): keine Meldung.
+	if str(_view.get("phase", "")) == "game_over":
+		return
+	_show_host_left()
+
+
+func _show_host_left() -> void:
+	if _host_left_panel == null:
+		_host_left_panel = _panel(Vector2(340, 250), Vector2(600, 200))
+		_host_left_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+		var vb := VBoxContainer.new()
+		vb.add_theme_constant_override("separation", 16)
+		_host_left_panel.add_child(vb)
+		_host_left_label = Label.new()
+		_host_left_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_host_left_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_host_left_label.custom_minimum_size = Vector2(560, 0)
+		_host_left_label.add_theme_font_size_override("font_size", 20)
+		_host_left_label.text = "Der Host hat die Partie verlassen. Die Partie endet ohne Wertung."
+		vb.add_child(_host_left_label)
+		_host_left_button = Button.new()
+		_host_left_button.text = "Hauptmenü"
+		_host_left_button.pressed.connect(_on_main_menu)
+		vb.add_child(_host_left_button)
+	_pause_panel.visible = false
+	_host_left_panel.visible = true
+	_host_left_button.grab_focus()
+	_refresh()
+
+
 # ---------------------------------------------------------------- Zugtimer
 
 func _process(delta: float) -> void:
 	# Online: Pakete abholen (Gast immer, Host nur mit Verbindung).
-	if session != null and session.link != null:
+	if session != null and session.link != null and not _net_closed:
 		session.poll()
 	if _view.is_empty():
 		return

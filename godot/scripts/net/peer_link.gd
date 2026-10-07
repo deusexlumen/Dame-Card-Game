@@ -25,6 +25,8 @@ func my_id() -> int:
 
 
 func send(to: int, bytes: PackedByteArray) -> void:
+	if not is_open():
+		return
 	peer.transfer_mode = MultiplayerPeer.TRANSFER_MODE_RELIABLE
 	peer.set_target_peer(to)
 	peer.put_packet(bytes)
@@ -32,6 +34,9 @@ func send(to: int, bytes: PackedByteArray) -> void:
 
 # Liefert alle wartenden Pakete als [{from, bytes}].
 func receive() -> Array:
+	# Geschlossener oder verlorener Peer: nichts mehr pollen (sonst Engine-Fehler).
+	if not is_open():
+		return []
 	peer.poll()
 	var out: Array = []
 	while peer.get_available_packet_count() > 0:
@@ -43,6 +48,10 @@ func receive() -> Array:
 			continue
 		out.append({"from": from, "bytes": bytes})
 	return out
+
+
+func is_open() -> bool:
+	return peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED
 
 
 func close() -> void:
