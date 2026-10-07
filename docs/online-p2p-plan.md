@@ -34,7 +34,10 @@ TURN, falls später nötig: Cloudflare Realtime TURN, laut Suchergebnis 1.000 GB
 ## Risiken (ehrlich)
 
 1. **Host weg = Partie weg (entschieden 2026-10-06).** Verlässt der Host oder bricht seine Verbindung ab, endet die Partie für alle ohne Wertung (keine Niederlage, keine Chips). Keine Host-Migration in v1. Regel steht in CONCEPT_DECISIONS §11.
-2. **Kein TURN:** Ein Teil der Verbindungen (strenge NAT, manche Mobilnetze) scheitert. v1 akzeptiert das, Copy-Paste hilft dabei nicht, da es dasselbe Netz braucht. Erst messen, dann TURN ergänzen.
+2. **TURN (seit 2026-10-07 vorbereitet):** Ohne TURN scheitert ein Teil der Verbindungen (strenge NAT, manche Mobilnetze). Lösung: Cloudflare Realtime TURN (1.000 GB/Monat gratis, danach $0.05/GB). Eine Supabase Edge Function (`supabase/functions/turn-credentials`) hält den Schlüssel und gibt 12-h-Zugangsdaten aus; das Spiel holt sie vor jeder Einladung/jedem Beitritt (`IceFetcher`, 4 s Zeitlimit) und fällt sonst auf STUN zurück. Plan: `docs/superpowers/plans/2026-10-07-online-turn-fallback.md`.
+   - **Einrichtung (einmalig, Nutzer):** Cloudflare-Dashboard → Realtime → TURN → Schlüssel anlegen (Key-ID + API-Token). Dann `supabase secrets set CF_TURN_KEY_ID=<id> CF_TURN_API_TOKEN=<token>` und `supabase functions deploy turn-credentials --no-verify-jwt`. Die Funktions-URL in `godot/scripts/net/net_config.gd` (`TURN_URL`) eintragen. Schlüssel nie ins Repo.
+   - **Offen vor Live-Gang:** Die URL ist öffentlich, jeder kann Zugangsdaten holen und Kontingent verbrauchen. Klären, was Cloudflare bei Überschreitung tut (mit hinterlegter Zahlungsart: Kosten möglich).
+   - **Bekannte Grenze:** `webrtc-native` (libdatachannel) kann TURN möglicherweise nur über UDP. Ein weiterleitender Browser-Gast (TLS auf 443) reicht meist.
 3. **Host sieht alle Karten** (Client trägt vollen Zustand). Für Freunde okay, für öffentliche Matchmaking-Partien/Rangliste nicht.
 4. **Rangliste/Matchmaking/Echtgeld** brauchen später doch einen vertrauenswürdigen Server. Dieser Plan deckt nur private Räume mit Freunden ab.
 

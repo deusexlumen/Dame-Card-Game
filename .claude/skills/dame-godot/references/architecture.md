@@ -33,6 +33,7 @@ DameHost/DameGuest (session)
 - `peer_link.gd` (`PeerLink`): macht aus jedem `MultiplayerPeer` (WebRTC, in Tests ENet) diesen Link. Pakete über 64 KB werden vor dem Dekodieren verworfen. Signale `peer_connected`/`peer_disconnected`; der Host hängt `remove_peer` an die Trennung.
 - `rtc_code.gd` (`RtcCode`, pur): Angebot/Antwort + ICE-Kandidaten als ein komprimierter, URL-sicherer Code mit Version und Angebots-ID. Kaputte oder fremde Codes liefern `{ok=false, error}`, nie einen Skriptfehler.
 - `rtc_connector.gd` (`RtcConnector`): baut WebRTC nicht-trickelnd auf (Code erst, wenn alle Kandidaten da sind). Host: `start_host`, `create_invite`, `accept_answer`. Gast: `join`. Am Ende Signal `connected(link)`. `is_available()` ist false ohne WebRTC (Desktop ohne `webrtc-native`).
+- `ice_servers.gd` (`IceServers`, pur): STUN-Standard, TURN-Antwort prüfen (je Art eine URL: UDP, TCP, TLS-443; kein Port 53), Kandidaten kürzen ohne `relay`/`srflx` zu verlieren. `ice_fetcher.gd` (`IceFetcher`): pollbarer HTTP(S)-Abruf, `config` ist immer gültig (sonst nur STUN). URL in `net_config.gd` (`TURN_URL`, leer = aus). Der Online-Bildschirm holt vor jeder Einladung/jedem Beitritt; Tests setzen `ice_config` und überspringen den Abruf.
 - `webrtc-native` 1.2.2 kommt per `scripts/fetch-webrtc.mjs` nach `godot/addons/webrtc/` (nicht im Repo). Im Web ist WebRTC eingebaut.
 - Test-UI: `scenes/online.tscn` (Menü „Online (Test)“), Host + 1 Gast, Rest KI. Browser-Test: `npm run test:godot:online` (nicht im Deploy-Pfad).
 
