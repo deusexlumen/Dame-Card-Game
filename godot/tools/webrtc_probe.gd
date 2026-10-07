@@ -9,10 +9,10 @@ func _init() -> void:
 	var has_impl: bool = OS.has_feature("web") or ClassDB.class_exists("WebRTCLibPeerConnection")
 	if not has_impl:
 		print("WEBRTC_MISSING")
-		quit(1)
+		quit()
 		return
 	var pc: WebRTCPeerConnection = WebRTCPeerConnection.new()
 	var err: int = pc.initialize({})
 	pc.close()
 	print("WEBRTC_OK" if err == OK else "WEBRTC_MISSING")
-	quit(0 if err == OK else 1)
+	quit()

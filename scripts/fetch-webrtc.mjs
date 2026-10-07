@@ -29,8 +29,11 @@ const LIBS = [
   'libwebrtc_native.linux.template_release.x86_64.so',
 ];
 
+let tmp = null;
+
 function fail(msg) {
   console.error(`fetch-webrtc: ${msg}`);
+  if (tmp) rmSync(tmp, { recursive: true, force: true });
   process.exit(1);
 }
 
@@ -46,7 +49,7 @@ if (!force && complete()) {
   process.exit(0);
 }
 
-const tmp = mkdtempSync(join(tmpdir(), 'webrtc-native-'));
+tmp = mkdtempSync(join(tmpdir(), 'webrtc-native-'));
 try {
   const zip = join(tmp, ASSET);
   const out = join(tmp, 'x');
@@ -62,7 +65,17 @@ try {
 
   let ex = spawnSync('unzip', ['-q', zip, '-d', out], { stdio: 'inherit' });
   if (ex.error || ex.status !== 0) {
-    ex = spawnSync('tar', ['-xf', zip, '-C', out], { stdio: 'inherit' });
+    if (process.platform === 'win32') {
+      // GNU tar aus Git Bash liest keine zip-Dateien; Windows-bsdtar schon.
+      const bsdtar = join(process.env.SystemRoot ?? 'C:\Windows', 'System32', 'tar.exe');
+      ex = spawnSync(bsdtar, ['-xf', zip, '-C', out], { stdio: 'inherit' });
+      if (ex.error || ex.status !== 0) {
+        ex = spawnSync('powershell', ['-NoProfile', '-Command',
+          `Expand-Archive -LiteralPath '${zip}' -DestinationPath '${out}' -Force`], { stdio: 'inherit' });
+      }
+    } else {
+      ex = spawnSync('tar', ['-xf', zip, '-C', out], { stdio: 'inherit' });
+    }
   }
   if (ex.error || ex.status !== 0) fail('Entpacken fehlgeschlagen (unzip/tar).');
 
@@ -71,13 +84,19 @@ try {
   const license = join(src, 'LICENSE.webrtc-native');
   if (!/^MIT License/.test(readFileSync(license, 'utf8'))) fail('Lizenz ist nicht MIT, abgebrochen.');
 
+  // Erst pruefen, dann ersetzen: ein defektes Archiv hinterlaesst nie ein halbes Addon.
+  for (const l of LIBS) {
+    if (!existsSync(join(src, 'lib', l))) fail(`Bibliothek fehlt im Archiv: ${l}`);
+  }
+  for (const f of ['webrtc_native.gdextension', 'LICENSE.webrtc-native']) {
+    if (!existsSync(join(src, f))) fail(`Datei fehlt im Archiv: ${f}`);
+  }
   // README.md bleibt (eingecheckt); alles andere wird ersetzt.
   for (const n of existsSync(target) ? readdirSync(target) : []) {
     if (n !== 'README.md') rmSync(join(target, n), { recursive: true, force: true });
   }
   mkdirSync(join(target, 'lib'), { recursive: true });
   for (const l of LIBS) {
-    if (!existsSync(join(src, 'lib', l))) fail(`Bibliothek fehlt im Archiv: ${l}`);
     copyFileSync(join(src, 'lib', l), join(target, 'lib', l));
   }
   for (const f of readdirSync(src).filter((n) => n.startsWith('LICENSE'))) {
