@@ -14,6 +14,8 @@ extends "res://scripts/screens/screen_base.gd"
 # Uebergabe und hello erst danach in poll_net().
 
 const RtcConnector = preload("res://scripts/net/rtc_connector.gd")
+const IceFetcher = preload("res://scripts/net/ice_fetcher.gd")
+const NetConfig = preload("res://scripts/net/net_config.gd")
 const RtcCode = preload("res://scripts/net/rtc_code.gd")
 const DameGuest = preload("res://scripts/net/dame_guest.gd")
 const I18n = preload("res://scripts/i18n.gd")
@@ -44,6 +46,7 @@ const CANCEL_BUTTON := "Abbrechen"
 const MAKING_INVITE_TEXT := "Einladung wird erstellt …"
 const INVITE_READY_TEXT := "Schick den Code an deinen Gast und füge seine Antwort ein."
 const CONNECTING_TEXT := "Verbinde …"
+const PREPARING_TEXT := "Verbindung wird vorbereitet …"
 const MAKING_ANSWER_TEXT := "Antwortcode wird erstellt …"
 const WAIT_HOST_TEXT := "Warte auf den Host …"
 const WAIT_START_TEXT := "Verbunden. Warte auf den Spielbeginn …"
@@ -59,12 +62,15 @@ const GUEST_NAME := "Gast"
 const TEXTS := [TITLE_TEXT, PRIVACY_TEXT, UNAVAILABLE_TEXT, HOST_HEAD, GUEST_HEAD, HOST_INFO,
 	SEATS_LABEL, INVITE_BUTTON, INVITE_LABEL, COPY_BUTTON, ANSWER_IN_LABEL, CONNECT_BUTTON,
 	JOIN_LABEL, JOIN_BUTTON, ANSWER_OUT_LABEL, CANCEL_BUTTON, MAKING_INVITE_TEXT, INVITE_READY_TEXT,
-	CONNECTING_TEXT, MAKING_ANSWER_TEXT, WAIT_HOST_TEXT, WAIT_START_TEXT, COPIED_TEXT, NO_INVITE_TEXT,
+	CONNECTING_TEXT, PREPARING_TEXT, MAKING_ANSWER_TEXT, WAIT_HOST_TEXT, WAIT_START_TEXT, COPIED_TEXT, NO_INVITE_TEXT,
 	EMPTY_CODE_TEXT, NO_START_TEXT, LOST_TEXT, REJECTED_TEXT, GUEST_NAME, "%d Spieler"]
 
 # Vor add_child setzbar (Tests): ICE-Konfiguration fuer neue Connectoren ({} = Standard)
 # und WebRTC-Erkennung erzwingen (-1 = erkennen, 0 = fehlt, 1 = vorhanden).
 var ice_config: Dictionary = {}
+# TURN-Zugangsdaten vor jeder Einladung/jedem Beitritt holen ("" = nur STUN).
+# Wird ignoriert, wenn ice_config gesetzt ist.
+var turn_url: String = NetConfig.TURN_URL
 var webrtc_override := -1
 var first_view_ms := FIRST_VIEW_MS
 
@@ -102,6 +108,12 @@ var _handed_off := false
 var _e2e := false
 # JavaScriptBridge-Callbacks muessen referenziert bleiben, sonst sind sie weg.
 var _js_callbacks: Array = []
+# Laufender TURN-Abruf, die danach auszufuehrende Aktion und wem sie gehoert ("host"/"guest").
+var _ice_fetcher = null
+var _ice_action := Callable()
+var _ice_owner := ""
+# Ergebnis des letzten Abrufs, wird vom naechsten Connector verbraucht.
+var _fresh_ice: Dictionary = {}
 
 
 static func detect_webrtc() -> bool:
@@ -242,9 +254,59 @@ func _copy(edit: LineEdit, status: Label) -> void:
 
 func _new_connector():
 	var c = RtcConnector.new()
-	if not ice_config.is_empty():
-		c.ice_config = ice_config
+	_apply_ice(c)
 	return c
+
+
+# Feste Test-Konfiguration oder frisch geholte Zugangsdaten (einmal verbraucht).
+func _apply_ice(rtc) -> void:
+	if not ice_config.is_empty():
+		rtc.ice_config = ice_config
+	elif not _fresh_ice.is_empty():
+		rtc.ice_config = _fresh_ice
+		_fresh_ice = {}
+
+
+func _wants_ice() -> bool:
+	return ice_config.is_empty() and turn_url != "" and _fresh_ice.is_empty()
+
+
+# Zugangsdaten holen, danach action ausfuehren (aus poll_net).
+func _prepare_ice(action: Callable, owner: String, status: Label) -> void:
+	_ice_fetcher = IceFetcher.new()
+	_ice_fetcher.start(turn_url)
+	_ice_action = action
+	_ice_owner = owner
+	status.text = PREPARING_TEXT
+
+
+func _cancel_ice() -> void:
+	if _ice_fetcher != null:
+		_ice_fetcher.close()
+	_ice_fetcher = null
+	_ice_action = Callable()
+	_ice_owner = ""
+	_fresh_ice = {}
+
+
+func _poll_ice() -> void:
+	if _ice_fetcher == null:
+		return
+	_ice_fetcher.poll()
+	if not _ice_fetcher.is_done():
+		return
+	_fresh_ice = _ice_fetcher.config
+	if _e2e:
+		print("ONLINE_TURN ", "on" if _ice_fetcher.has_turn else "off")
+	var action := _ice_action
+	var owner := _ice_owner
+	_ice_fetcher = null
+	_ice_action = Callable()
+	_ice_owner = ""
+	if owner == "host":
+		invite_button.disabled = false
+	if action.is_valid():
+		action.call()
 
 
 func _beep_error() -> void:
@@ -257,9 +319,13 @@ func _beep_error() -> void:
 
 # Neue Einladung. Ein spaeterer Klick ersetzt die alte (gleicher Gast-Platz).
 func host_invite() -> void:
-	if _handed_off or _host_connecting:
+	if _handed_off or _host_connecting or _ice_fetcher != null:
 		return
 	host_error.text = ""
+	if _wants_ice():
+		invite_button.disabled = true
+		_prepare_ice(host_invite, "host", host_status)
+		return
 	if _host_rtc == null or _host_rtc.is_closed():
 		var rtc = _new_connector()
 		rtc.invite_ready.connect(_on_host_invite)
@@ -267,6 +333,7 @@ func host_invite() -> void:
 		rtc.failed.connect(_on_host_failed)
 		_host_rtc = rtc
 		rtc.start_host()
+	_apply_ice(_host_rtc)
 	invite_edit.text = ""
 	host_status.text = MAKING_INVITE_TEXT
 	var keep = _host_rtc  # failed kann synchron kommen
@@ -371,7 +438,7 @@ func _handoff_host() -> void:
 
 # Jeder Versuch mit neuem Connector (ein gescheiterter Gast-Connector ist geschlossen).
 func guest_join(text: String) -> void:
-	if _handed_off:
+	if _handed_off or _ice_fetcher != null:
 		return
 	_close_guest()
 	_reset_guest_ui()
@@ -379,6 +446,18 @@ func guest_join(text: String) -> void:
 	if code == "":
 		guest_error.text = EMPTY_CODE_TEXT
 		_beep_error()
+		return
+	if _wants_ice():
+		# Kaputte Codes sofort melden, nicht erst nach dem Abruf.
+		var d: Dictionary = RtcCode.decode(code, "offer")
+		if not bool(d.ok):
+			guest_error.text = str(d.error)
+			_beep_error()
+			return
+		join_edit.editable = false
+		join_button.disabled = true
+		cancel_button.visible = true
+		_prepare_ice(guest_join.bind(text), "guest", guest_status)
 		return
 	var rtc = _new_connector()
 	rtc.answer_ready.connect(_on_guest_answer)
@@ -403,6 +482,8 @@ func guest_join(text: String) -> void:
 
 
 func guest_cancel() -> void:
+	if _ice_owner == "guest":
+		_cancel_ice()
 	_close_guest()
 	_reset_guest_ui()
 	join_edit.text = ""
@@ -514,6 +595,9 @@ func _process(_delta: float) -> void:
 func poll_net() -> void:
 	if _handed_off:
 		return
+	_poll_ice()
+	if _handed_off:
+		return
 	# Host: nur den Connector pollen, nie den Link (ein frueher hello bleibt im Peer
 	# liegen, bis der Tisch ihn abholt).
 	var host = _host_rtc
@@ -560,6 +644,7 @@ func _close_host() -> void:
 
 # Idempotent: alles schliessen, was nicht an den Tisch uebergeben wurde.
 func shutdown() -> void:
+	_cancel_ice()
 	_close_host()
 	_close_guest()
 	_unregister_e2e()

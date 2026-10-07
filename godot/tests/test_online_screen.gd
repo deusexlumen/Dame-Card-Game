@@ -16,6 +16,8 @@ const RtcCode = preload("res://scripts/net/rtc_code.gd")
 const PeerLink = preload("res://scripts/net/peer_link.gd")
 const I18n = preload("res://scripts/i18n.gd")
 const NetCodec = preload("res://scripts/net/net_codec.gd")
+const IceServers = preload("res://scripts/net/ice_servers.gd")
+const IceFetcherTest = preload("res://tests/test_ice_fetcher.gd")
 
 const WAIT_CAP_MS := 15000
 const LOCAL_ICE := {"iceServers": []}
@@ -47,7 +49,8 @@ func run(ctx) -> void:
 		return
 	var save_before: Dictionary = app.saves.load_match()
 	var checks: Array[Callable] = [_check_loads, _check_texts, _check_clean, _check_unavailable,
-			_check_broken_codes, _check_main_menu, _check_owner_handoff_enet, _check_abort_closes_owner]
+			_check_broken_codes, _check_main_menu, _check_owner_handoff_enet, _check_abort_closes_owner,
+			_check_guest_turn_cancel]
 	for check in checks:
 		check.call()
 		_cleanup()
@@ -56,7 +59,8 @@ func run(ctx) -> void:
 		t.expect(OS.get_environment("DAME_REQUIRE_WEBRTC") != "1", "WebRTC-Erweiterung fehlt, DAME_REQUIRE_WEBRTC=1 verlangt sie")
 	else:
 		var rtc_checks: Array[Callable] = [_check_dropped_connector_kills_link, _check_guest_retry,
-				_check_screen_to_table, _check_guest_no_start, _check_guest_rejected, _check_guest_lost]
+				_check_screen_to_table, _check_guest_no_start, _check_guest_rejected, _check_guest_lost,
+				_check_host_turn_fetch]
 		for check in rtc_checks:
 			check.call()
 			_cleanup()
@@ -578,3 +582,78 @@ func _check_guest_lost() -> void:
 		gs.poll_net()
 		return gs.guest_error.text != "", "Verbindungsabbruch beim Gast")
 	_expect_guest_failed(gs, c.grtc, OnlineScreen.LOST_TEXT, "Host weg")
+
+
+# ---------- TURN-Zugangsdaten ----------
+
+const TURN_JSON := "{\"iceServers\":[{\"urls\":[\"turn:127.0.0.1:3478?transport=udp\"],\"username\":\"u\",\"credential\":\"c\"}]}"
+
+
+func _turn_screen(server) -> Variant:
+	var s = OnlineScene.instantiate()
+	s.webrtc_override = 1
+	s.turn_url = "http://127.0.0.1:%d/turn" % server.port
+	t.root.add_child(s)
+	_screens.append(s)
+	return s
+
+
+# Pumpt Bildschirm und Mini-Server, bis cond gilt (harte Obergrenze).
+func _pump_turn(s, server, cond: Callable, what: String) -> bool:
+	return _wait(func() -> bool:
+		server.pump()
+		s.poll_net()
+		return cond.call(), what)
+
+
+# Host: erst Zugangsdaten holen, Doppelklick startet keinen zweiten Abruf, danach
+# Einladung mit STUN + TURN.
+func _check_host_turn_fetch() -> void:
+	var server = IceFetcherTest.FakeServer.new()
+	if not server.start(IceFetcherTest._http(200, TURN_JSON)):
+		t.expect(false, "TURN-Host: kein freier Port")
+		return
+	var s = _turn_screen(server)
+	s.host_invite()
+	t.expect(s.host_status.text == OnlineScreen.PREPARING_TEXT, "TURN-Host: Vorbereiten-Text fehlt: " + s.host_status.text)
+	t.expect(s.invite_button.disabled, "TURN-Host: Einladen waehrend des Abrufs bedienbar")
+	var first = s._ice_fetcher
+	s.host_invite()
+	t.expect(first != null and s._ice_fetcher == first, "TURN-Host: Doppelklick startet zweiten Abruf")
+	t.expect(s._host_rtc == null, "TURN-Host: Connector vor dem Abruf angelegt")
+	if _pump_turn(s, server, func() -> bool: return s._ice_fetcher == null, "TURN-Abruf (Host)"):
+		t.expect(s._host_rtc != null, "TURN-Host: keine Einladung nach dem Abruf")
+		if s._host_rtc != null:
+			var servers: Array = s._host_rtc.ice_config.iceServers
+			t.expect(servers.size() == 2 and servers[1].username == "u", "TURN-Host: Connector ohne TURN: " + str(servers))
+		t.expect(s.host_status.text == OnlineScreen.MAKING_INVITE_TEXT, "TURN-Host: Status nach dem Abruf: " + s.host_status.text)
+		t.expect(not s.invite_button.disabled, "TURN-Host: Einladen bleibt gesperrt")
+	server.stop()
+
+
+# Gast: kaputter Code sofort gemeldet (ohne Abruf); Abbrechen waehrend des Abrufs
+# verwirft den Beitritt, auch wenn der Dienst danach noch antwortet.
+func _check_guest_turn_cancel() -> void:
+	var server = IceFetcherTest.FakeServer.new()
+	if not server.start(""):
+		t.expect(false, "TURN-Gast: kein freier Port")
+		return
+	var s = _turn_screen(server)
+	s.guest_join("DAME1-kaputt")
+	t.expect(s.guest_error.text == I18n.t(RtcCode.ERR_BROKEN) and s._ice_fetcher == null, "TURN-Gast: kaputter Code nicht sofort gemeldet")
+	var code := RtcCode.encode("offer", "AbCd1234", 2, "v=0
+", [{"candidate": "candidate:1 1 udp 1 1.2.3.4 5 typ host", "sdpMid": "0", "sdpMLineIndex": 0}])
+	s.guest_join(code)
+	t.expect(s.guest_status.text == OnlineScreen.PREPARING_TEXT, "TURN-Gast: Vorbereiten-Text fehlt: " + s.guest_status.text)
+	t.expect(s.join_button.disabled and s.cancel_button.visible, "TURN-Gast: Knoepfe waehrend des Abrufs falsch")
+	var first = s._ice_fetcher
+	s.guest_join(code)
+	t.expect(first != null and s._ice_fetcher == first, "TURN-Gast: Doppelklick startet zweiten Abruf")
+	s.guest_cancel()
+	t.expect(s._ice_fetcher == null and s.guest_status.text == "" and not s.join_button.disabled, "TURN-Gast: Abbrechen raeumt nicht auf")
+	for i in 20:
+		server.pump()
+		s.poll_net()
+		OS.delay_msec(5)
+	t.expect(s._guest_rtc == null, "TURN-Gast: Beitritt nach Abbrechen trotzdem gestartet")
+	server.stop()

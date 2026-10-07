@@ -295,6 +295,7 @@ const EN := {
 	"Einladung wird erstellt …": "Creating invite …",
 	"Schick den Code an deinen Gast und füge seine Antwort ein.": "Send the code to your guest and paste their answer.",
 	"Verbinde …": "Connecting …",
+	"Verbindung wird vorbereitet …": "Preparing connection …",
 	"Antwortcode wird erstellt …": "Creating answer code …",
 	"Verbunden. Warte auf den Spielbeginn …": "Connected. Waiting for the game to start …",
 	"Kopiert.": "Copied.",
