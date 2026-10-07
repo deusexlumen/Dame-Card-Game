@@ -19,7 +19,6 @@ signal failed(reason: String)
 
 const ICE_CONFIG := {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
 const HOST_PEER := 1
-const TIMEOUT_MS := 30000          # Verbindungsaufbau ab Antwort (Host) bzw. Antwortcode (Gast)
 const GATHER_MAX_MS := 8000        # ICE-Sammlung hoechstens so lange
 const OFFER_ID_LEN := 8
 const ID_CHARS := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
@@ -28,6 +27,8 @@ const TIMEOUT_TEXT := "Verbindung nicht zustande gekommen. Seid ihr beide online
 const USED_TEXT := "Diese Einladung wurde schon benutzt."
 const SETUP_TEXT := "Verbindung konnte nicht vorbereitet werden."
 
+# Zeitlimit Verbindungsaufbau ab Antwort (Host) bzw. Antwortcode (Gast); Tests verkuerzen es.
+var timeout_ms := 30000
 var _mp: WebRTCMultiplayerPeer = null
 var _link = null
 var _is_host := false
@@ -100,7 +101,7 @@ func accept_answer(code: String) -> Dictionary:
 		_fail_slot(slot, I18n.t(TIMEOUT_TEXT))
 		return {"ok": false, "error": I18n.t(RtcCode.ERR_BROKEN)}
 	_add_candidates(conn, d.candidates)
-	slot.deadline_ms = Time.get_ticks_msec() + TIMEOUT_MS
+	slot.deadline_ms = Time.get_ticks_msec() + timeout_ms
 	return {"ok": true, "error": ""}
 
 
@@ -231,7 +232,7 @@ func _check_gathering(slot: Dictionary, now: int) -> void:
 		invite_ready.emit(code)
 	else:
 		# Gast: ab jetzt laeuft das Zeitlimit (der Host muss die Antwort noch einfuegen).
-		slot.deadline_ms = Time.get_ticks_msec() + TIMEOUT_MS
+		slot.deadline_ms = Time.get_ticks_msec() + timeout_ms
 		answer_ready.emit(code)
 
 
@@ -240,8 +241,13 @@ func _add_candidates(conn: WebRTCPeerConnection, cands: Array) -> void:
 		conn.add_ice_candidate(str(c.sdpMid), int(c.sdpMLineIndex), str(c.candidate))
 
 
+# Gescheiterte Verbindung sofort abbauen, damit eine neue Einladung den Platz bekommt.
 func _fail_slot(slot: Dictionary, reason: String) -> void:
-	slot.done = true
+	if _is_host:
+		_drop_slot(slot)
+	else:
+		slot.done = true
+		(slot.conn as WebRTCPeerConnection).close()
 	failed.emit(reason)
 
 

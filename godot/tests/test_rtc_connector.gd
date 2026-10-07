@@ -32,6 +32,8 @@ func run(ctx) -> void:
 	_check_connect()
 	# Auch nach einem Skriptfehler im Testkoerper: alles schliessen.
 	_close_all()
+	_check_timeout_and_retry()
+	_close_all()
 
 
 # ---------- Hilfen ----------
@@ -173,3 +175,34 @@ func _check_connect() -> void:
 	host.close()
 	host.close()  # idempotent
 	t.expect(not hl.is_open(), "Host-Link nach close() zu")
+
+
+# Zeitlimit: Gast ist weg, Host meldet genau einmal den Zeitlimit-Text. Danach
+# bekommt eine neue Einladung fuer denselben Platz sauber einen Code.
+func _check_timeout_and_retry() -> void:
+	var host := _make()
+	var guest := _make()
+	host.timeout_ms = 300
+	var invites: Array = []
+	var answers: Array = []
+	var failures: Array = []
+	host.invite_ready.connect(func(code): invites.append(code))
+	host.failed.connect(func(reason): failures.append(reason))
+	guest.answer_ready.connect(func(code): answers.append(code))
+	host.start_host()
+	host.create_invite(2)
+	if not _wait(func(): return invites.size() >= 1, "Einladung (Zeitlimit)"):
+		return
+	t.expect(bool(guest.join(invites[0]).ok), "Gast tritt bei (Zeitlimit)")
+	if not _wait(func(): return answers.size() >= 1, "Antwort (Zeitlimit)"):
+		return
+	guest.close()
+	t.expect(bool(host.accept_answer(answers[0]).ok), "Antwort angenommen (Zeitlimit)")
+	if not _wait(func(): return failures.size() >= 1, "Zeitlimit-Meldung"):
+		return
+	t.expect(failures == [I18n.t(RtcConnector.TIMEOUT_TEXT)], "Genau eine Zeitlimit-Meldung: " + str(failures))
+	host.create_invite(2)
+	_wait(func(): return invites.size() >= 2, "neue Einladung nach Zeitlimit")
+	t.expect(failures.size() == 1, "Keine weitere Meldung nach neuer Einladung: " + str(failures))
+	var again: Dictionary = host.accept_answer(answers[0])
+	t.expect(not bool(again.ok) and str(again.error) == RtcCode.wrong_offer_text(), "Alte Antwort nach Zeitlimit abgelehnt")
