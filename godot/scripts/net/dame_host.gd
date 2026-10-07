@@ -28,6 +28,9 @@ var local_seats: Array = []
 func _init(match_rules, net_link = null) -> void:
 	rules = match_rules
 	link = net_link
+	# Trennt ein Gast, wird sein Platz freigegeben (peer_left).
+	if link != null and link.has_signal("peer_disconnected"):
+		link.peer_disconnected.connect(remove_peer)
 
 
 func is_authority() -> bool:
