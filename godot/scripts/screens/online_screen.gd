@@ -311,6 +311,8 @@ func _on_host_connected(link) -> void:
 
 
 func _on_host_failed(reason: String) -> void:
+	if _e2e:
+		print("ONLINE_FAILED host ", reason)
 	host_error.text = reason
 	host_status.text = ""
 	# Die Einladung ist verbraucht: nicht mehr zum Kopieren anbieten.
@@ -429,6 +431,8 @@ func _on_guest_failed(reason: String, rtc_id: int) -> void:
 
 
 func _guest_fail(reason: String) -> void:
+	if _e2e:
+		print("ONLINE_FAILED guest ", reason)
 	_close_guest()
 	_reset_guest_ui()
 	guest_error.text = reason

@@ -38,6 +38,8 @@ var test_mode := false
 var last_goto := ""
 # Zwischenspeicher fuer e2e_mode(): -1 unbekannt, 0 aus, 1 an.
 var _e2e := -1
+# Web-Test-Startbildschirm (?e2e=1&screen=online) nur einmal anwenden.
+var _e2e_start_used := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -176,9 +178,30 @@ func e2e_mode() -> bool:
 	if _e2e < 0:
 		_e2e = 0
 		if is_web():
-			var on = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('e2e') === '1'", true)
-			_e2e = 1 if on == true else 0
+			# Als Text zurueckgeben: ein JS-Boolean kommt im Web-Export als int (1) an, und
+			# "on == true" (int gegen bool) brach die Funktion still ab (Ergebnis null).
+			var on = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('e2e') === '1' ? '1' : '0'", true)
+			_e2e = 1 if js_flag(on) else 0
 	return _e2e == 1
+
+
+# Ergebnis von JavaScriptBridge.eval als Schalter lesen, ohne Typfehler bei jedem Typ.
+static func js_flag(value: Variant) -> bool:
+	if typeof(value) == TYPE_BOOL:
+		return bool(value)
+	return str(value) == "1" or str(value) == "true"
+
+
+# Web-Test-Bruecke: Startbildschirm aus der URL (?e2e=1&screen=online), genau einmal.
+# Ohne e2e-Modus immer "" (das Hauptmenue bleibt). Nur bekannte Ziele.
+func take_e2e_start_screen() -> String:
+	if _e2e_start_used or not e2e_mode():
+		return ""
+	_e2e_start_used = true
+	var screen = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('screen') || ''", true)
+	if str(screen) == "online":
+		return ONLINE
+	return ""
 
 
 # Ziel nach einer Online-Partie: Online-Bildschirm, solange es ihn noch nicht gibt das Hauptmenue.

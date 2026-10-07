@@ -220,6 +220,20 @@ func _check_main_menu() -> void:
 		found.pressed.emit()
 		t.expect(app.last_goto == app.ONLINE, "Online (Test) oeffnet nicht online.tscn")
 	t.expect(app.online_screen() == app.ONLINE, "Tisch faellt noch aufs Hauptmenue zurueck")
+	# Web-Test-Startbildschirm: ohne ?e2e=1 (hier: nicht Web) bleibt er aus.
+	t.expect(not app.e2e_mode(), "e2e-Modus ausserhalb des Browsers an")
+	t.expect(app.take_e2e_start_screen() == "", "e2e-Startbildschirm ohne e2e=1 aktiv")
+	# JS-Ergebnisse jeder Form ohne Laufzeitfehler lesen (im Browser kam kein bool an).
+	var AppScript = load("res://scripts/app.gd")
+	for v in [true, "1", "true", 1]:
+		t.expect(AppScript.js_flag(v), "js_flag erkennt an nicht: " + str(v))
+	for v in [false, "0", "", null, 0, 2.5, "false"]:
+		t.expect(not AppScript.js_flag(v), "js_flag erkennt aus nicht: " + str(v))
+	app.last_goto = ""
+	var menu2 = MainMenuScene.instantiate()
+	t.root.add_child(menu2)
+	_screens.append(menu2)
+	t.expect(app.last_goto == "", "Hauptmenue springt ohne e2e=1 weiter: " + app.last_goto)
 
 
 func _enet_pair() -> Array:

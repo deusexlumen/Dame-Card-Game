@@ -25,6 +25,10 @@ func _build_backdrop(app) -> void:
 	# Headless (Tests) ohne 3D: spart Zeit, zeigt ohnehin nichts.
 	if DisplayServer.get_name() == "headless":
 		return
+	# Web-Test-Bruecke (?e2e=1): ohne Kulisse. Unter SwiftShader kostet sie so viel
+	# Hauptthread, dass zwei Seiten keine ICE-Kandidaten mehr rechtzeitig bekommen.
+	if app != null and app.has_method("e2e_mode") and app.e2e_mode():
+		return
 	var box := SubViewportContainer.new()
 	box.set_anchors_preset(Control.PRESET_FULL_RECT)
 	box.stretch = true

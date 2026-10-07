@@ -1040,7 +1040,7 @@ func _on_view(view: Dictionary, action: Dictionary) -> void:
 	if _is_online():
 		var e2e_app := _app()
 		if e2e_app != null and e2e_app.has_method("e2e_mode") and e2e_app.e2e_mode():
-			print("ONLINE_VIEW seat=%d rev=%d" % [viewer_seat, int(session.rev)])
+			print("ONLINE_VIEW seat=%d rev=%d turn=%d" % [viewer_seat, int(session.rev), int(view.get("current_index", -1))])
 	# Erste Sicht (oder andere Platzzahl): Plaetze aus der Sicht aufbauen.
 	if _seats.size() != int(view.seat_count):
 		_layout_seats()

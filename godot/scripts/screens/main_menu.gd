@@ -68,6 +68,11 @@ func build() -> void:
 			break
 	# Marker fuer Smoke-Tests der exportierten Builds.
 	print("DAME_READY")
+	# Web-Test-Bruecke: direkt in einen Bildschirm springen (nur ?e2e=1, einmalig).
+	if app != null and app.has_method("take_e2e_start_screen"):
+		var start: String = app.take_e2e_start_screen()
+		if start != "":
+			app.goto.call_deferred(start)
 
 
 func _menu_button(parent: Control, text: String, cb: Callable) -> Button:
