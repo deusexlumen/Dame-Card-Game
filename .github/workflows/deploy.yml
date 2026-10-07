@@ -54,6 +54,7 @@ jobs:
           $GODOT_BIN --headless --path godot --script res://tools/webrtc_probe.gd | tee probe.log
           grep -q WEBRTC_OK probe.log
       - name: Headless tests
+        timeout-minutes: 10
         run: node scripts/godot-test.mjs
         env:
           DAME_REQUIRE_WEBRTC: "1"

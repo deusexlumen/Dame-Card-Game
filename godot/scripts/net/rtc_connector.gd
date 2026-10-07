@@ -3,7 +3,11 @@ extends RefCounted
 # WebRTC-Verbindungsaufbau per Copy-Paste-Code (ohne Server, nicht-trickelnd).
 # Host: start_host() -> create_invite(gast_peer_id) -> invite_ready(code)
 #       -> accept_answer(antwortcode) -> connected(link).
+#       Der Aufrufer vergibt die Gast-Peer-IDs 2, 3, ... ueber create_invite(guest_peer_id);
+#       die ID steht im Einladungscode.
 # Gast: join(einladungscode) -> answer_ready(code) -> connected(link).
+#       Nach failed ist der Gast-Connector geschlossen; ein neuer Versuch braucht
+#       einen neuen RtcConnector.
 # Der Besitzer ruft poll() jedes Frame. Der ausgegebene PeerLink umhuellt den
 # WebRTCMultiplayerPeer; den Peer nie multiplayer.multiplayer_peer zuweisen.
 # close() immer aufrufen (native WebRTC-Threads halten sonst Godot am Leben).
@@ -27,8 +31,13 @@ const TIMEOUT_TEXT := "Verbindung nicht zustande gekommen. Seid ihr beide online
 const USED_TEXT := "Diese Einladung wurde schon benutzt."
 const SETUP_TEXT := "Verbindung konnte nicht vorbereitet werden."
 
-# Zeitlimit Verbindungsaufbau ab Antwort (Host) bzw. Antwortcode (Gast); Tests verkuerzen es.
-var timeout_ms := 30000
+# Vor start_host()/join() setzbar (Tests: {"iceServers": []}, nur lokale Kandidaten).
+var ice_config: Dictionary = ICE_CONFIG
+# Host: Zeitlimit ab accept_answer (beide Seiten sind dann bereit).
+var host_timeout_ms := 30000
+# Gast: Zeitlimit ab answer_ready. Lang, weil ein Mensch die Antwort erst noch
+# zum Host schicken muss (UI zeigt "Warte auf den Host ..." mit Abbrechen).
+var guest_timeout_ms := 600000
 var _mp: WebRTCMultiplayerPeer = null
 var _link = null
 var _is_host := false
@@ -98,10 +107,11 @@ func accept_answer(code: String) -> Dictionary:
 	var conn: WebRTCPeerConnection = slot.conn
 	slot.answered = true
 	if conn.set_remote_description("answer", str(d.sdp)) != OK:
-		_fail_slot(slot, I18n.t(TIMEOUT_TEXT))
+		# Unbrauchbare Antwort: Platz still freigeben, der Host macht eine neue Einladung.
+		_drop_slot(slot)
 		return {"ok": false, "error": I18n.t(RtcCode.ERR_BROKEN)}
 	_add_candidates(conn, d.candidates)
-	slot.deadline_ms = Time.get_ticks_msec() + timeout_ms
+	slot.deadline_ms = Time.get_ticks_msec() + host_timeout_ms
 	return {"ok": true, "error": ""}
 
 
@@ -149,6 +159,22 @@ func poll() -> void:
 			_fail_slot(slot, I18n.t(TIMEOUT_TEXT))
 
 
+func is_closed() -> bool:
+	return _closed
+
+
+# Sicherheitsnetz, falls der Besitzer close() vergisst.
+func _notification(what: int) -> void:
+	# Hier keine Methoden aufrufen (self ist beim Abbau schon ungueltig), nur Felder.
+	if what != NOTIFICATION_PREDELETE or _closed:
+		return
+	_closed = true
+	for slot in _slots:
+		(slot.conn as WebRTCPeerConnection).close()
+	if _mp != null:
+		_mp.close()
+
+
 # Idempotent: schliesst alle Peer-Verbindungen und den Multiplayer-Peer.
 func close() -> void:
 	if _closed:
@@ -183,7 +209,7 @@ func _on_peer_connected(id: int) -> void:
 # peer_id: Gegenstelle im WebRTCMultiplayerPeer; guest_id: Gast-Peer-ID im Code.
 func _new_slot(peer_id: int, guest_id: int, offer_id: String) -> Dictionary:
 	var conn := WebRTCPeerConnection.new()
-	if conn.initialize(ICE_CONFIG) != OK:
+	if conn.initialize(ice_config) != OK:
 		failed.emit(I18n.t(SETUP_TEXT))
 		return {}
 	var slot := {
@@ -205,6 +231,8 @@ func _on_session(type: String, sdp: String, slot: Dictionary) -> void:
 
 
 func _on_candidate(media: String, index: int, name: String, slot: Dictionary) -> void:
+	if bool(slot.done):
+		return
 	(slot.candidates as Array).append({"candidate": name, "sdpMid": media, "sdpMLineIndex": index})
 
 
@@ -232,7 +260,7 @@ func _check_gathering(slot: Dictionary, now: int) -> void:
 		invite_ready.emit(code)
 	else:
 		# Gast: ab jetzt laeuft das Zeitlimit (der Host muss die Antwort noch einfuegen).
-		slot.deadline_ms = Time.get_ticks_msec() + timeout_ms
+		slot.deadline_ms = Time.get_ticks_msec() + guest_timeout_ms
 		answer_ready.emit(code)
 
 
@@ -241,13 +269,13 @@ func _add_candidates(conn: WebRTCPeerConnection, cands: Array) -> void:
 		conn.add_ice_candidate(str(c.sdpMid), int(c.sdpMLineIndex), str(c.candidate))
 
 
-# Gescheiterte Verbindung sofort abbauen, damit eine neue Einladung den Platz bekommt.
+# Gescheiterte Verbindung sofort abbauen: Host gibt den Platz fuer eine neue
+# Einladung frei, der Gast schliesst den ganzen Connector.
 func _fail_slot(slot: Dictionary, reason: String) -> void:
 	if _is_host:
 		_drop_slot(slot)
 	else:
-		slot.done = true
-		(slot.conn as WebRTCPeerConnection).close()
+		close()
 	failed.emit(reason)
 
 
