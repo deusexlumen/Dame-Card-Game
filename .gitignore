@@ -10,3 +10,7 @@ playwright-report/
 
 # Godot-Exporte
 build/
+
+# webrtc-native: per `npm run fetch:webrtc` geladen, nicht eingecheckt
+godot/addons/webrtc/*
+!godot/addons/webrtc/README.md

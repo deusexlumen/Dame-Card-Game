@@ -46,6 +46,8 @@ jobs:
           mv tpl/templates ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
       - name: Import project
         run: $GODOT_BIN --headless --path godot --import || true
+      - name: WebRTC-Erweiterung laden
+        run: node scripts/fetch-webrtc.mjs
       - name: Headless tests
         run: node scripts/godot-test.mjs
       - name: Export

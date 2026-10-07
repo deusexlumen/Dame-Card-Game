@@ -62,5 +62,6 @@ Werkzeuge für Assets liegen in `godot/tools/assets/` (Kartengrafiken, Raumtextu
 - Kartengeräusche, Klicks, Jingles: [Kenney](https://kenney.nl) (CC0)
 - Musik: „jazz improvisation looped“ von Alex McCulloch / Pro Sensory (CC0)
 - Schriften: Inter und Playfair Display (SIL OFL), DejaVu (frei)
+- WebRTC unter Windows/Linux: [webrtc-native](https://github.com/godotengine/webrtc-native) (MIT, per `npm run fetch:webrtc` geladen, nicht eingecheckt)
 
-Details: `godot/assets/audio/CREDITS.txt`, `godot/assets/characters/LICENSE_*.txt`, `godot/assets/fonts/`.
+Details: `godot/assets/audio/CREDITS.txt`, `godot/assets/characters/LICENSE_*.txt`, `godot/assets/fonts/`, `godot/addons/webrtc/README.md`.
