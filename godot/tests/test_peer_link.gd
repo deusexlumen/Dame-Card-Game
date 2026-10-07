@@ -49,7 +49,8 @@ func _client(port: int) -> ENetMultiplayerPeer:
 func _wait(cond: Callable, what: String) -> bool:
 	for i in MAX_ITER:
 		for p in _peers:
-			p.poll()
+			if p.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED:
+				p.poll()
 		if cond.call():
 			return true
 		OS.delay_msec(5)

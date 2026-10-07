@@ -54,5 +54,7 @@ func is_open() -> bool:
 	return peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED
 
 
+# Idempotent: ein schon getrennter Peer wird nicht noch einmal geschlossen.
 func close() -> void:
-	peer.close()
+	if is_open():
+		peer.close()

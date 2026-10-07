@@ -24,6 +24,7 @@ const PAUSE_ONLINE := "Hauptmenü (Verbindung wird getrennt)"
 var t
 var app
 var _peers: Array = []
+var _last_port := 0
 var _tables: Array = []
 # Aktuelle Verbindung
 var server: ENetMultiplayerPeer
@@ -55,6 +56,9 @@ func run(ctx) -> void:
 	_check_guest_leaves(41)
 	_check_host_leaves(57)
 	_check_app_handoff(61)
+	_check_foreign_hello(71)
+	_check_seat_validation(83)
+	_check_malformed_jobs()
 	_check_offline_pause_label()
 	print("ONLINE_TABLE fallback=%d guest_inputs=%d types=%s" % [fallback_count, guest_inputs, str(input_types)])
 	if app != null:
@@ -76,6 +80,7 @@ func _server() -> Array:
 		var s := ENetMultiplayerPeer.new()
 		if s.create_server(port, 4) == OK:
 			_peers.append(s)
+			_last_port = port
 			return [s, port]
 	t.expect(false, "Kein freier Port in %d..%d" % [PORT_FIRST, PORT_LAST])
 	return []
@@ -377,6 +382,8 @@ func _check_no_leaks(counter: Array) -> void:
 
 # Ganze Partie bis game_over, dann „Neues Spiel“ online an beiden Tischen.
 func _check_full_game(seed: int) -> void:
+	if app == null:
+		return
 	if _open(seed):
 		_play_full(seed)
 	_teardown()
@@ -434,6 +441,8 @@ func _play_full(seed: int) -> void:
 
 # Gast verlaesst die Partie mitten im Spiel (Pause -> Hauptmenue): Host laeuft weiter.
 func _check_guest_leaves(seed: int) -> void:
+	if app == null:
+		return
 	if _open(seed):
 		_guest_leaves(seed)
 	_teardown()
@@ -488,6 +497,8 @@ func _guest_leaves(seed: int) -> void:
 
 # Host verlaesst die Partie: Gast sieht die Meldung und einen Knopf ins Menue.
 func _check_host_leaves(seed: int) -> void:
+	if app == null:
+		return
 	if _open(seed):
 		_host_leaves(seed)
 	_teardown()
@@ -515,6 +526,10 @@ func _host_leaves(seed: int) -> void:
 	if guest_table._host_left_panel == null:
 		return
 	t.expect(guest_table._host_left_label.text == guest_table.tr(HOST_LEFT_TEXT), "Gast: falsche Meldung: " + guest_table._host_left_label.text)
+	# Link wird geschlossen (im Signal verzoegert, hier direkt nachgeholt; idempotent).
+	guest_table._close_link()
+	guest_table._close_link()
+	t.expect(client.get_connection_status() == MultiplayerPeer.CONNECTION_DISCONNECTED, "Gast: Link nach Host-Trennung offen")
 	# Danach keine Eingaben mehr, kein Pollen eines toten Links.
 	var r: Dictionary = guest_table.act({"type": "draw_deck"})
 	t.expect(not bool(r.get("ok", true)), "Gast: Eingabe nach Host-Trennung angenommen")
@@ -560,3 +575,146 @@ func _check_offline_pause_label() -> void:
 	_teardown()
 	if app != null:
 		app.saves.clear()
+
+
+func _free_table(tb) -> void:
+	_tables.erase(tb)
+	if tb.get_parent() != null:
+		tb.get_parent().remove_child(tb)
+	tb.free()
+
+
+# Gueltiges hello von einem Peer, der nicht in guest_seats steht: kein Platz, keine Sicht.
+# Danach: Freigeben eines Online-Tischs schliesst seinen Link (_exit_tree).
+func _check_foreign_hello(seed: int) -> void:
+	if app == null:
+		return
+	if _open(seed):
+		_foreign_hello()
+	_teardown()
+
+
+func _foreign_hello() -> void:
+	var c2 := _client(_last_port)
+	var l2 = PeerLink.new(c2)
+	if not _wait(func():
+		host_table._process(0.0)
+		guest_table._process(0.0)
+		c2.poll()
+		return _connected(c2), "zweiter Client"):
+		return
+	var id2: int = c2.get_unique_id()
+	var g2 = DameGuest.new(l2)
+	var welcomed := [false]
+	var views: Array = []
+	g2.welcomed.connect(func(): welcomed[0] = true)
+	g2.view_changed.connect(func(v, _a): views.append(v))
+	g2.connect_to_host()
+	_wait(func():
+		host_table._process(0.0)
+		g2.poll()
+		return welcomed[0], "welcome fuer fremden Peer")
+	t.expect(host_table.session.seat_of(id2) == -1, "Fremder Peer bekam einen Platz")
+	# Weitere Zuege erzeugen neue Sichten; der fremde Peer darf keine bekommen.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5
+	var lock_checked := [true]
+	var rev_before: int = host_table.session.rev
+	for i in 4:
+		if not _step(rng, lock_checked):
+			break
+	for i in 10:
+		host_table._process(0.0)
+		g2.poll()
+		OS.delay_msec(2)
+	t.expect(host_table.session.rev > rev_before, "Testannahme: keine neue Sicht nach hello")
+	t.expect(views.is_empty() and g2.latest_view.is_empty(), "Fremder Peer bekam %d Sichten" % views.size())
+	t.expect(host_table.session.seat_of(gid) == GUEST_SEAT, "Echter Gast verlor seinen Platz")
+	# Freigeben schliesst den Link: erst Gast-Tisch, dann Host-Tisch.
+	_free_table(guest_table)
+	t.expect(client.get_connection_status() == MultiplayerPeer.CONNECTION_DISCONNECTED, "Gast-Tisch freigegeben, Link offen")
+	_free_table(host_table)
+	t.expect(server.get_connection_status() == MultiplayerPeer.CONNECTION_DISCONNECTED, "Host-Tisch freigegeben, Link offen")
+
+
+# guest_seats wird geprueft: Host-Platz, KI-Platz, ausserhalb und HOST_PEER fallen weg.
+func _check_seat_validation(seed: int) -> void:
+	if app == null:
+		return
+	var sv: Array = _server()
+	if sv.is_empty():
+		return
+	server = sv[0]
+	client = _client(int(sv[1]))
+	server_link = PeerLink.new(server)
+	client_link = PeerLink.new(client)
+	if _wait(func():
+		_raw_poll()
+		return _connected(client), "Verbindung (Platzpruefung)"):
+		gid = client.get_unique_id()
+		host_table = _new_table()
+		host_table.pending_online_host = {"config": _config(seed), "link": server_link, "host_seat": HOST_SEAT,
+			"guest_seats": {gid: HOST_SEAT, 900: AI_SEAT, 901: 7, 902: -1, Protocol.HOST_PEER: GUEST_SEAT, 903: GUEST_SEAT}}
+		t.root.add_child(host_table)
+		t.expect(host_table._guest_seats == {903: GUEST_SEAT}, "guest_seats nicht bereinigt: %s" % str(host_table._guest_seats))
+		guest = DameGuest.new(client_link)
+		var welcomed := [false]
+		guest.welcomed.connect(func(): welcomed[0] = true)
+		guest.connect_to_host()
+		_wait(func():
+			host_table._process(0.0)
+			guest.poll()
+			return welcomed[0], "welcome (Platzpruefung)")
+		t.expect(host_table.session.seat_of(gid) == -1, "Gast bekam den Host-Platz")
+		t.expect(host_table.session.seat_of(Protocol.HOST_PEER) == HOST_SEAT, "HOST_PEER verlor seinen Platz")
+		t.expect(guest.latest_view.is_empty(), "Gast mit ungueltigem Platz bekam eine Sicht")
+		t.expect(int(host_table._view.viewer_seat) == HOST_SEAT, "Host-Tisch: fremde Sicht")
+	_teardown()
+
+
+# Kaputte Online-Auftraege starten nie still ein Offline-Spiel.
+func _check_malformed_jobs() -> void:
+	if app == null:
+		return
+	var expected: String = app.online_screen()
+	var had_save: bool = app.saves.has_save()
+	var cases := [
+		{"label": "Gast ohne Session", "app": {"mode": "online_guest"}},
+		{"label": "Gast mit Host-Session", "app": {"mode": "online_guest", "session": _offline_host_session()}},
+		{"label": "Host ohne Link", "app": {"mode": "online_host", "config": _config(3), "link": null, "host_seat": 0, "guest_seats": {}}},
+		{"label": "Host ohne Konfiguration", "app": {"mode": "online_host", "link": null}},
+		{"label": "pending_online_host ohne Link", "field": {"config": _config(3), "host_seat": 0}},
+	]
+	for c in cases:
+		app.last_goto = ""
+		var tb = _new_table()
+		if c.has("app"):
+			app.pending = c.app
+		else:
+			tb.pending_online_host = c.field
+		t.root.add_child(tb)
+		t.expect(tb.session == null and tb._view.is_empty(), "%s: Tisch startet trotzdem ein Spiel" % c.label)
+		t.expect(app.last_goto == expected, "%s: geht nach '%s' statt '%s'" % [c.label, app.last_goto, expected])
+		t.expect(app.pending.is_empty(), "%s: Auftrag bleibt liegen" % c.label)
+		tb._process(0.0)
+		_free_table(tb)
+	t.expect(app.saves.has_save() == had_save, "Kaputter Auftrag hat den Spielstand veraendert")
+	# Ungueltiger Host-Platz (KI-Platz): ebenfalls abbrechen und den Link schliessen.
+	var sv: Array = _server()
+	if not sv.is_empty():
+		server = sv[0]
+		app.last_goto = ""
+		var tb = _new_table()
+		tb.pending_online_host = {"config": _config(3), "link": PeerLink.new(server), "host_seat": AI_SEAT, "guest_seats": {}}
+		t.root.add_child(tb)
+		t.expect(tb.session == null and app.last_goto == expected, "Host auf KI-Platz startet trotzdem")
+		t.expect(server.get_connection_status() == MultiplayerPeer.CONNECTION_DISCONNECTED, "Abbruch schliesst den Link nicht")
+	_teardown()
+
+
+func _offline_host_session():
+	var host_script = load("res://scripts/net/dame_host.gd")
+	var rules_script = load("res://scripts/dame_rules.gd")
+	var r = rules_script.new()
+	r.start_match(_config(9))
+	return host_script.new(r, null)

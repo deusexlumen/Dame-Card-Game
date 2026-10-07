@@ -186,8 +186,13 @@ func _ready() -> void:
 	if mode == "online_host":
 		start_online_host(job)
 		return
-	if mode == "online_guest" and job.get("session") != null:
-		_attach_guest(job.session)
+	if mode == "online_guest":
+		var guest_session = job.get("session")
+		if guest_session == null or guest_session.is_authority():
+			# Kaputter Auftrag: nie still ein Offline-Spiel starten.
+			_abort_online("Online-Gast-Auftrag ohne Gast-Session")
+			return
+		_attach_guest(guest_session)
 		return
 	if mode == "resume" and _try_resume():
 		return
@@ -264,13 +269,30 @@ func _new_rules(cfg: Dictionary):
 # (kein Hot-Seat), kein Spielstand (_owns_save), KI-Plaetze wie offline ueber ai_step.
 # Gaeste bekommen ihren Platz erst nach gueltigem hello (peer_joined).
 func start_online_host(job: Dictionary) -> void:
+	var link = job.get("link")
 	var host_seat := int(job.get("host_seat", 0))
+	var cfg = job.get("config", {})
+	if link == null or typeof(cfg) != TYPE_DICTIONARY or (cfg as Dictionary).is_empty():
+		# Kaputter Auftrag: nie still ein Offline-Spiel starten.
+		_abort_online("Online-Host-Auftrag ohne Link oder Konfiguration", link)
+		return
+	var r = _new_rules(cfg)
+	var players: Array = r.state.players
+	if host_seat < 0 or host_seat >= players.size() or bool(players[host_seat].is_ai):
+		_abort_online("Online-Host-Auftrag mit ungueltigem Host-Platz", link)
+		return
+	# Nur gueltige Gast-Plaetze: im Tisch, nicht der Host-Platz, kein KI-Platz.
 	_guest_seats = {}
-	var seats: Dictionary = job.get("guest_seats", {})
-	for peer in seats:
-		_guest_seats[int(peer)] = int(seats[peer])
-	var r = _new_rules(job.get("config", {}))
-	_attach_host(r, int(config.seed) + 7, REVEAL_DEAL_MS, job.get("link"), [host_seat])
+	var seats = job.get("guest_seats", {})
+	if typeof(seats) == TYPE_DICTIONARY:
+		for peer in seats:
+			var seat := int(seats[peer])
+			var pid := int(peer)
+			if pid == DameProtocol.HOST_PEER or seat == host_seat or seat < 0 or seat >= players.size() or bool(players[seat].is_ai):
+				push_warning("Tisch: Gast-Platz verworfen (Peer %d -> Platz %d)" % [pid, seat])
+				continue
+			_guest_seats[pid] = seat
+	_attach_host(r, int(config.seed) + 7, REVEAL_DEAL_MS, link, [host_seat])
 	session.peer_joined.connect(_on_peer_joined)
 	session.peer_left.connect(_on_peer_left)
 	_apply_online_ui()
@@ -992,6 +1014,8 @@ func _on_result(msg: Dictionary) -> void:
 func _on_view(view: Dictionary, action: Dictionary) -> void:
 	var before := _view
 	_view = view
+	# Absichtlich: jede neue Sicht loest die Eingabesperre. Der Host schickt das
+	# Ergebnis immer vor der Sicht; eine Sicht heisst also, die Aktion ist erledigt.
 	_awaiting_result = false
 	# Gast vor Platzzuweisung angehaengt: Platz aus der ersten Sicht, einmal neu aufbauen.
 	if _guest_seat_pending and not view.is_empty() and not session.is_authority():
@@ -1294,13 +1318,29 @@ func _apply_online_ui() -> void:
 
 
 # Verbindung beenden und danach nicht mehr pollen.
+# Idempotent: schliesst immer, auch wenn die Gegenseite schon weg ist.
 func _close_link() -> void:
-	if not _is_online() or _net_closed:
+	if not _is_online():
 		return
 	_net_closed = true
 	_awaiting_result = false
 	if session.link.has_method("close"):
 		session.link.close()
+
+
+# Tisch verschwindet auf irgendeinem Weg (Szenenwechsel, free): Verbindung nie offen lassen.
+func _exit_tree() -> void:
+	_close_link()
+
+
+# Kaputter Online-Auftrag: zurueck zum Online-Bildschirm (sonst Hauptmenue), Link schliessen.
+func _abort_online(reason: String, link = null) -> void:
+	push_warning("Tisch: " + reason)
+	if link != null and link.has_method("close"):
+		link.close()
+	var app := _app()
+	if app != null:
+		app.goto(app.online_screen())
 
 
 # Host: gueltiges hello eines Gastes. Nur bekannte Peers bekommen ihren Platz.
@@ -1323,8 +1363,11 @@ func _on_peer_left(peer_id: int) -> void:
 func _on_link_peer_disconnected(peer_id: int) -> void:
 	if peer_id != DameProtocol.HOST_PEER or _net_closed:
 		return
+	# Sofort nicht mehr pollen; schliessen erst nach dem laufenden poll() des Peers
+	# (das Signal kommt mitten aus dessen Schleife). _exit_tree schliesst sonst.
 	_net_closed = true
 	_awaiting_result = false
+	call_deferred("_close_link")
 	_ai_timer.stop()
 	# Nach dem Spielende ist das normal (Host spielt neu oder geht): keine Meldung.
 	if str(_view.get("phase", "")) == "game_over":
