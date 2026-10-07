@@ -42,9 +42,10 @@ TURN, falls später nötig: Cloudflare Realtime TURN, laut Suchergebnis 1.000 GB
 
 1. ✅ Netz-Kern in `godot/scripts/net/` (2026-10-06): `dame_host.gd` (autoritativ, Sitz aus Absender), `dame_guest.gd`, Binär-Codec, Aktions-Whitelist, Loopback-Link für Tests (`tests/test_net.gd`). Gemeinsame Schnittstelle: `send_action`, `poll`, Signale `view_changed`/`action_result`, Presence-Haken `peer_joined`/`peer_left`.
 1b. ✅ 2026-10-06: Tisch (`table_view.gd`) auf diese Schnittstelle umstellen. Er liest nur seine `DameView` und schreibt nur über die Session; Host führt Regeln und AI aus, Gast hat nur Views.
+1c. ✅ 2026-10-07 (Plan `2026-10-07-online-2-webrtc-verbindung.md`): Link-Adapter `PeerLink` über `MultiplayerPeer`, `RtcConnector` mit Copy-Paste-Codes, Online-Host-Tisch, `webrtc-native` 1.2.2 für Windows/Linux per Ladeskript, Test-UI „Online (Test)“. Gemessen im Browser-Test: Einladung 802 Zeichen, Antwort 720 Zeichen (Ziel unter 1500). Zwei Browser-Seiten verbinden sich und spielen einen Zug (`npm run test:godot:online`). Offen: Test zwischen zwei echten Geräten, davon einer im Mobilfunknetz.
 2. Protokoll: Aktion rein, View raus, Reconnect-Token, Abwesenheits-Stufen aus §11 im Host.
 3. Signaling-Modul: Raumcode über Supabase-Channel, danach WebRTC-Handshake.
 4. Lobby-UI: Raum erstellen / per Code beitreten.
 5. Tests: Protokoll headless (ohne echtes Netz, Loopback-Peer), plus ein manueller Test zwischen zwei Browsern und zwischen Web und Windows.
-6. Copy-Paste-Fallback.
+6. ✅ Copy-Paste-Fallback (2026-10-07, siehe 1c).
 7. Messen, wie oft Verbindungen ohne TURN scheitern.

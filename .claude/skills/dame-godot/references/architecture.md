@@ -26,6 +26,16 @@ DameHost/DameGuest (session)
 
 `DameHost` führt die Spielregeln aus, gilt als Autorität und ist der einzige Schreiber von `DameRules`. Sie empfängt Aktionen, führt sie durch, berechnet die neue `DameView` für alle und sendet sie. `DameGuest` sendet Aktionen und empfängt nur Sichten — keine `DameRules`-Instanz, kein Save, kein Zugtimer, kein Auslöser für nächste Runde. Hot-Seat wechselt `HOST_PEER` nur in `confirm_handoff`. Auf dem Tisch ist `rules` bei Gästen `null`. Tests: `test_golden` (bitgenau offline), `test_net` (Online), `test_table_net` (Tisch-Netzwerk-Interaktion).
 
+### Transport (scripts/net/)
+
+`DameHost`/`DameGuest` kennen nur einen Link mit `send(to, bytes)`, `receive()`, `my_id()`. Tests nutzen den Loopback-Link, echtes Netz den `PeerLink`.
+
+- `peer_link.gd` (`PeerLink`): macht aus jedem `MultiplayerPeer` (WebRTC, in Tests ENet) diesen Link. Pakete über 64 KB werden vor dem Dekodieren verworfen. Signale `peer_connected`/`peer_disconnected`; der Host hängt `remove_peer` an die Trennung.
+- `rtc_code.gd` (`RtcCode`, pur): Angebot/Antwort + ICE-Kandidaten als ein komprimierter, URL-sicherer Code mit Version und Angebots-ID. Kaputte oder fremde Codes liefern `{ok=false, error}`, nie einen Skriptfehler.
+- `rtc_connector.gd` (`RtcConnector`): baut WebRTC nicht-trickelnd auf (Code erst, wenn alle Kandidaten da sind). Host: `start_host`, `create_invite`, `accept_answer`. Gast: `join`. Am Ende Signal `connected(link)`. `is_available()` ist false ohne WebRTC (Desktop ohne `webrtc-native`).
+- `webrtc-native` 1.2.2 kommt per `scripts/fetch-webrtc.mjs` nach `godot/addons/webrtc/` (nicht im Repo). Im Web ist WebRTC eingebaut.
+- Test-UI: `scenes/online.tscn` (Menü „Online (Test)“), Host + 1 Gast, Rest KI. Browser-Test: `npm run test:godot:online` (nicht im Deploy-Pfad).
+
 No autoload for match state. The autoload `App` holds only services (settings, stats, profile, saves, audio) and scene switching. Match state in an autoload leaks across tests.
 
 ## Projection
