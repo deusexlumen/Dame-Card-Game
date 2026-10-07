@@ -21,7 +21,7 @@
 - KI und UI lesen nur `DameView`, nie `rules.state`.
 - Texte für Spieler und `last_action`: Deutsch. Bezeichner: Englisch. Kommentare: Deutsch.
 - Speichern nur nach `user://`. Nie nach `res://`.
-- ~~Kein Multiplayer.~~ **Seit 2026-10-06: Online-Multiplayer gewollt (nur live), siehe `CONCEPT_DECISIONS.md` §10/§11 und `.claude/docs/ai/dame/10x/session-3.md`.** Kein Echtgeld-Kauf im Build; nur Schnittstelle `PurchaseProvider` mit Stub.
+- ~~Kein Multiplayer.~~ **Seit 2026-10-06: Online-Multiplayer gewollt (nur live), siehe `CONCEPT_DECISIONS.md` §10/§11 und `docs/online-p2p-plan.md` (ersetzt die Hosting-Idee aus `.claude/docs/ai/dame/10x/session-3.md`).** Kein Echtgeld-Kauf im Build; nur Schnittstelle `PurchaseProvider` mit Stub.
 - Ökonomie rein kosmetisch. Keine Spielvorteile kaufbar.
 - Export: Windows Desktop (x86_64) und Web (ohne Threads, damit kein COOP/COEP-Header nötig ist).
 

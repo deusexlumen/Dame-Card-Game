@@ -10,6 +10,16 @@ const SUITES := [
 	"res://tests/test_ai.gd",
 	"res://tests/test_table_ui.gd",
 	"res://tests/test_meta.gd",
+	"res://tests/test_net.gd",
+	"res://tests/test_table_net.gd",
+	"res://tests/test_peer_link.gd",
+	"res://tests/test_online_table.gd",
+	"res://tests/test_rtc_code.gd",
+	"res://tests/test_rtc_connector.gd",
+	"res://tests/test_ice_servers.gd",
+	"res://tests/test_ice_fetcher.gd",
+	"res://tests/test_online_screen.gd",
+	"res://tests/test_golden.gd",
 ]
 
 func _ready() -> void:

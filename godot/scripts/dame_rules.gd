@@ -308,19 +308,17 @@ const SEAT_ANGLES := {
 	6: [60, 120, 180, 240, 300],
 }
 
-func seat_angle(viewer: int, seat: int) -> float:
+static func seat_angle_for(viewer: int, seat: int, n: int) -> float:
 	if seat == viewer:
 		return 0.0
-	var n := seat_count()
 	var offset := (seat - viewer + n) % n
 	var list: Array = SEAT_ANGLES.get(n, SEAT_ANGLES[4])
 	return -float(list[clampi(offset - 1, 0, list.size() - 1)])
 
 
-func _seat_role(viewer: int, seat: int) -> String:
+static func seat_role_for(viewer: int, seat: int, n: int) -> String:
 	if seat == viewer:
 		return "self"
-	var n := seat_count()
 	var offset := (seat - viewer + n) % n
 	if n == 2:
 		return "opposite"
@@ -329,6 +327,14 @@ func _seat_role(viewer: int, seat: int) -> String:
 	if offset == 2:
 		return "opposite"
 	return "left" if offset == 1 else "right"
+
+
+func seat_angle(viewer: int, seat: int) -> float:
+	return seat_angle_for(viewer, seat, seat_count())
+
+
+func _seat_role(viewer: int, seat: int) -> String:
+	return seat_role_for(viewer, seat, seat_count())
 
 
 func _draw(from_discard: bool) -> Dictionary:

@@ -32,13 +32,14 @@ func build() -> void:
 
 	var col := VBoxContainer.new()
 	col.position = Vector2(440, 220)
-	col.size = Vector2(400, 440)
+	col.size = Vector2(400, 480)
 	col.add_theme_constant_override("separation", 10)
 	add_child(col)
 	resume_button = _menu_button(col, "Spiel fortsetzen", func() -> void: app.resume_match())
 	resume_button.visible = app != null and app.saves.has_save()
 	_menu_button(col, "Gegen die KI spielen", func() -> void: _open_setup("ai"))
 	_menu_button(col, "Hot-Seat (mehrere Menschen)", func() -> void: _open_setup("hotseat"))
+	_menu_button(col, "Online (Test)", func() -> void: app.goto(app.ONLINE))
 	_menu_button(col, "Regeln", func() -> void: app.goto(app.RULES))
 	_menu_button(col, "Shop", func() -> void: app.goto(app.SHOP))
 	_menu_button(col, "Statistik", func() -> void: app.goto(app.STATS))
@@ -67,6 +68,11 @@ func build() -> void:
 			break
 	# Marker fuer Smoke-Tests der exportierten Builds.
 	print("DAME_READY")
+	# Web-Test-Bruecke: direkt in einen Bildschirm springen (nur ?e2e=1, einmalig).
+	if app != null and app.has_method("take_e2e_start_screen"):
+		var start: String = app.take_e2e_start_screen()
+		if start != "":
+			app.goto.call_deferred(start)
 
 
 func _menu_button(parent: Control, text: String, cb: Callable) -> Button:

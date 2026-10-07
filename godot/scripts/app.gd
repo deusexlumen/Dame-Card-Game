@@ -17,18 +17,29 @@ const RULES := "res://scenes/rules.tscn"
 const SETTINGS := "res://scenes/settings.tscn"
 const STATS := "res://scenes/stats.tscn"
 const SHOP := "res://scenes/shop.tscn"
+# Online-Bildschirm (Verbindung per Code). Fehlt die Szene noch, geht es ins Hauptmenue.
+const ONLINE := "res://scenes/online.tscn"
 
 var settings
 var stats
 var saves
 var profile
 var audio
-# Auftrag fuer den Tisch: {"mode": "new", "config": {...}} oder {"mode": "resume"}.
+# Auftrag fuer den Tisch: {"mode": "new", "config": {...}}, {"mode": "resume"},
+# {"mode": "online_host", "config", "link", "host_seat", "guest_seats", "owner"} oder
+# {"mode": "online_guest", "session": DameGuest, "owner"}. Link und Session reisen nur hier mit
+# und werden beim Abholen geloescht; niemand pollt sie bis der Tisch sie uebernimmt.
+# "owner" besitzt die Verbindung (RtcConnector: schliesst beim Freigeben seinen Peer).
+# Der Tisch haelt ihn die ganze Partie und schliesst ihn mit der Verbindung.
 var pending: Dictionary = {}
 var last_config: Dictionary = {}
 # Tests: Szenenwechsel nur merken, nicht ausfuehren.
 var test_mode := false
 var last_goto := ""
+# Zwischenspeicher fuer e2e_mode(): -1 unbekannt, 0 aus, 1 an.
+var _e2e := -1
+# Web-Test-Startbildschirm (?e2e=1&screen=online) nur einmal anwenden.
+var _e2e_start_used := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -141,6 +152,61 @@ func new_match(config: Dictionary) -> void:
 func resume_match() -> void:
 	pending = {"mode": "resume"}
 	goto(TABLE)
+
+
+# Online-Host: der Tisch startet die Regeln und uebernimmt den Link (und das Pollen).
+func online_host_match(job: Dictionary) -> void:
+	pending = {
+		"mode": "online_host",
+		"config": job.get("config", {}),
+		"link": job.get("link"),
+		"host_seat": int(job.get("host_seat", 0)),
+		"guest_seats": job.get("guest_seats", {}),
+		"owner": job.get("owner"),
+	}
+	goto(TABLE)
+
+
+# Online-Gast: der Tisch uebernimmt die verbundene Session (DameGuest).
+func online_guest_match(session, owner = null) -> void:
+	pending = {"mode": "online_guest", "session": session, "owner": owner}
+	goto(TABLE)
+
+
+# Web-Test-Bruecke (Playwright): nur wenn die Seiten-URL ?e2e=1 enthaelt. Nie ausserhalb.
+func e2e_mode() -> bool:
+	if _e2e < 0:
+		_e2e = 0
+		if is_web():
+			# Als Text zurueckgeben: ein JS-Boolean kommt im Web-Export als int (1) an, und
+			# "on == true" (int gegen bool) brach die Funktion still ab (Ergebnis null).
+			var on = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('e2e') === '1' ? '1' : '0'", true)
+			_e2e = 1 if js_flag(on) else 0
+	return _e2e == 1
+
+
+# Ergebnis von JavaScriptBridge.eval als Schalter lesen, ohne Typfehler bei jedem Typ.
+static func js_flag(value: Variant) -> bool:
+	if typeof(value) == TYPE_BOOL:
+		return bool(value)
+	return str(value) == "1" or str(value) == "true"
+
+
+# Web-Test-Bruecke: Startbildschirm aus der URL (?e2e=1&screen=online), genau einmal.
+# Ohne e2e-Modus immer "" (das Hauptmenue bleibt). Nur bekannte Ziele.
+func take_e2e_start_screen() -> String:
+	if _e2e_start_used or not e2e_mode():
+		return ""
+	_e2e_start_used = true
+	var screen = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('screen') || ''", true)
+	if str(screen) == "online":
+		return ONLINE
+	return ""
+
+
+# Ziel nach einer Online-Partie: Online-Bildschirm, solange es ihn noch nicht gibt das Hauptmenue.
+func online_screen() -> String:
+	return ONLINE if ResourceLoader.exists(ONLINE) else MAIN_MENU
 
 
 func take_pending() -> Dictionary:

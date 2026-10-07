@@ -4,6 +4,16 @@ extends RefCounted
 # Rundenende/Spielende, Speichern/Fortsetzen, Zugtimer.
 
 const TableScene = preload("res://scenes/table.tscn")
+const DameProtocol = preload("res://scripts/net/net_protocol.gd")
+const DameHostScript = preload("res://scripts/net/dame_host.gd")
+const DameRulesScript = preload("res://scripts/dame_rules.gd")
+const LoopbackScript = preload("res://scripts/net/loopback_link.gd")
+
+
+# Host ohne Autoritaet nach aussen: der Tisch sieht keine Regeln, nur Sichten (wie ein Gast).
+class ViewOnlyHost extends "res://scripts/net/dame_host.gd":
+	func is_authority() -> bool:
+		return false
 
 var t
 var app
@@ -21,6 +31,12 @@ func run(ctx) -> void:
 	_check_timer_pauses_for_powers()
 	_check_resume()
 	_check_game_over_rewards_once()
+	_check_single_animation_path()
+	_check_handoff_never_shows_previous_memory()
+	_check_round_recorded_once()
+	_check_table_without_rules()
+	_check_linked_host_keeps_save()
+	_check_attach_guest_rejects_authority()
 
 
 func _make_table(cfg: Dictionary, overrides: Dictionary = {}):
@@ -212,10 +228,12 @@ func _check_timer_pauses_for_powers() -> void:
 	var table = _make_table(_cfg({"seed": 107}), {"turn_timer": true, "turn_timer_seconds": 15})
 	table._process(0.1)
 	table.rules.state.turn_step = "jack"
+	table.session.broadcast()
 	var left: float = table._turn_left
 	table._process(20.0)
 	t.expect(is_equal_approx(table._turn_left, left) and int(table.rules.state.current_index) == 0, "Zugtimer laeuft bei Bube-Auswahl weiter")
 	table.rules.state.turn_step = "draw"
+	table.session.broadcast()
 	_free(table)
 
 
@@ -284,6 +302,8 @@ func _check_game_over_rewards_once() -> void:
 	r.state.players[1].total_score = 49
 	r.state.dame_caller_index = 0
 	r._resolve_round()
+	# Direkte Regel-Aenderung im Test: Sicht neu verteilen, der Tisch zeichnet nur aus ihr.
+	table.session.broadcast()
 	table._after_change()
 	table._after_change()
 	t.expect(table._over_panel.visible, "Spielende-Fenster fehlt")
@@ -292,4 +312,189 @@ func _check_game_over_rewards_once() -> void:
 	var expected: int = chips_before + 5 + 20 + 50 * 2
 	t.expect(int(app.profile.chips()) == expected, "Chips falsch: %d statt %d" % [int(app.profile.chips()), expected])
 	t.expect(not app.saves.has_save(), "Spielstand nach Spielende nicht geloescht")
+	_free(table)
+
+
+# Ein Darstellungsweg: jede angenommene Aktion wird genau einmal (aus der Sicht) animiert.
+func _check_single_animation_path() -> void:
+	var table = _make_table(_cfg({"seed": 108}))
+	var calls: Array = []
+	var accepted: Array = []
+	table._table3d_queue_hook = func(a): calls.append(a)
+	table.session.view_changed.connect(func(_v, a):
+		if not a.is_empty():
+			accepted.append(a))
+	table._on_deck()
+	t.expect(calls.size() == 1, "Ziehen wird %d-mal animiert" % calls.size())
+	# Zug zu Ende spielen, dann genau ein KI-Schritt.
+	table._on_drawn()
+	_resolve_powers(table)
+	table.end_turn()
+	t.expect(bool(table.rules.current_player().is_ai), "Testannahme: danach ist die KI dran")
+	calls.clear()
+	accepted.clear()
+	var ai_seat := int(table.rules.state.current_index)
+	table._ai_step()
+	t.expect(calls.size() == 1 and accepted.size() == 1 and int(calls[0].seat) == ai_seat, "KI-Schritt wird %d-mal animiert" % calls.size())
+	_free(table)
+	# Zeitablauf: Strafkarte und jede Ersatzaktion je genau einmal.
+	var timed = _make_table(_cfg({"seed": 110}), {"turn_timer": true, "turn_timer_seconds": 15})
+	var tcalls: Array = []
+	var taccepted: Array = []
+	timed._table3d_queue_hook = func(a): tcalls.append(a)
+	timed.session.view_changed.connect(func(_v, a):
+		if not a.is_empty():
+			taccepted.append(a))
+	timed.timeout_turn()
+	t.expect(not taccepted.is_empty() and str(taccepted[0].type) == "timeout_penalty", "Zeitablauf ohne Strafkarten-Aktion")
+	t.expect(tcalls.size() == taccepted.size() and tcalls.size() >= 2, "Zeitablauf: %d Animationen fuer %d Aktionen" % [tcalls.size(), taccepted.size()])
+	_free(timed)
+
+
+# Ein eigener Zug ueber die Tisch-API: ziehen, ablegen, Sonderkarten, beenden.
+func _finish_turn(table) -> void:
+	if table.rules.must_take_queen():
+		table._on_discard()
+	else:
+		table._on_deck()
+	table._on_drawn()
+	_resolve_powers(table)
+	table.end_turn()
+	table.run_ai_until_human()
+
+
+func _play_to_round_end(table) -> void:
+	var guard := 0
+	while str(table.rules.state.phase) != "round_end" and str(table.rules.state.phase) != "game_over" and guard < 60:
+		guard += 1
+		if table._human_turn():
+			_human_turn(table, 3)
+		else:
+			table.run_ai_until_human()
+
+
+func _check_handoff_never_shows_previous_memory() -> void:
+	var table = _make_table(_cfg({"seed": 109, "seat_count": 3, "ai_seats": [2], "difficulties": {2: "medium"}, "names": ["Anna", "Ben", "KI"]}))
+	table.confirm_handoff()
+	var seen: Array = []
+	table.session.view_changed.connect(func(v, _a): seen.append([int(v.viewer_seat), table.viewer_seat, table.handoff_pending]))
+	_finish_turn(table)  # zieht, legt ab, beendet Zug -> Uebergabe an Sitz 1
+	t.expect(table.handoff_pending, "keine Uebergabe nach Zugende")
+	for s in seen:
+		t.expect(int(s[0]) == 0, "Sicht von Sitz %d kam vor der Bestaetigung" % int(s[0]))
+	table.confirm_handoff()
+	t.expect(int(table._view.viewer_seat) == 1, "nach Bestaetigung nicht die Sicht von Sitz 1")
+	_free(table)
+
+
+func _check_round_recorded_once() -> void:
+	if app == null:
+		return
+	var table = _make_table(_cfg({"seed": 110}))
+	var before: int = int(app.stats.values.rounds_played)
+	_play_to_round_end(table)
+	table.session.broadcast()
+	table.session.broadcast()
+	t.expect(int(app.stats.values.rounds_played) == before + 1, "Ausgabe mehrfach gezaehlt")
+	_free(table)
+
+
+# Tisch ohne Zugriff auf die Regeln (wie ein Gast): zeichnet und spielt allein aus der Sicht,
+# fuehrt aber nichts aus, was nur der Host darf (Zugtimer, naechste Ausgabe, Spielstand).
+func _check_table_without_rules() -> void:
+	var table = _make_table(_cfg({"seed": 111, "seat_count": 2, "ai_seats": [1], "difficulties": {1: "hard"}, "names": ["Spieler", "A"]}), {"turn_timer": true, "turn_timer_seconds": 15})
+	var r = table.rules
+	var host = ViewOnlyHost.new(r, null)
+	host.local_seats = [0]
+	host.view_changed.connect(table._on_view)
+	host.action_result.connect(table._on_result)
+	table.session = host
+	host.assign_seat(DameProtocol.HOST_PEER, 0)
+	var actions: Array = []
+	host.view_changed.connect(func(_v, a):
+		if not a.is_empty():
+			actions.append(a))
+	# Fremder Offline-Spielstand, den ein Gast nie anfassen darf. Profil und Statistik
+	# sichern: der Gast zaehlt seine Partie selbst, das darf spaetere Suites nicht verfaelschen.
+	var profile_before: Dictionary = {}
+	var stats_before: Dictionary = {}
+	if app != null:
+		app.saves.save_match({"sentinel": true}, {"sentinel": true})
+		profile_before = app.profile.data.duplicate(true)
+		stats_before = app.stats.values.duplicate(true)
+	t.expect(table.rules == null, "Testannahme: Tisch sieht keine Regeln")
+	t.expect(table._human_turn(), "ohne Regeln nicht am Zug")
+	t.expect("Ziehe" in table._prompt.text, "ohne Regeln kein Hinweis: " + table._prompt.text)
+	t.expect(table._deck_view.targetable, "ohne Regeln Stapel nicht waehlbar")
+	# Zugtimer: beim Gast aus, kein Zeitablauf.
+	var pens: int = r.state.players[0].penalty_cards.size()
+	table._process(0.1)
+	table._process(999.0)
+	t.expect(not table._timer_bar.visible, "Gast zeigt Zugtimer")
+	table.timeout_turn()
+	t.expect(actions.is_empty(), "Gast loest Zeitablauf aus: %s" % str(actions))
+	t.expect(r.state.players[0].penalty_cards.size() == pens and int(r.state.current_index) == 0, "Gast gibt Strafkarte durch Zeitablauf")
+	table._on_deck()
+	t.expect(table._view.drawn != null and str(table._view.turn_step) == "play", "ohne Regeln kein Ziehen")
+	t.expect(table._drawn_view.shows_face(), "ohne Regeln gezogene Karte nicht sichtbar")
+	# Rundenende: naechste Ausgabe startet nur der Host.
+	r.state.dame_caller_index = 0
+	r._resolve_round()
+	host.broadcast()
+	t.expect(str(table._view.phase) == "round_end", "Testannahme: Rundenende erreicht: " + str(table._view.phase))
+	var deal := int(r.state.deal)
+	table.next_deal()
+	_key(table, KEY_ENTER)
+	t.expect(int(r.state.deal) == deal and str(r.state.phase) == "round_end", "Gast startet die naechste Ausgabe")
+	# Spielende: der fremde Spielstand bleibt erhalten.
+	for i in range(r.state.players[0].hand.size()):
+		r.state.players[0].hand[i].value = 0
+	r.state.players[1].total_score = 49
+	r._resolve_round()
+	host.broadcast()
+	t.expect(str(table._view.phase) == "game_over", "Testannahme: Spielende erreicht: " + str(table._view.phase))
+	if app != null:
+		var data: Dictionary = app.saves.load_match()
+		t.expect(not data.is_empty() and bool(data.meta.get("sentinel", false)), "Gast hat den Offline-Spielstand geloescht oder ueberschrieben")
+		app.saves.clear()
+		app.profile.data = profile_before
+		app.profile._save()
+		app.stats.values = stats_before
+		app.stats._touch()
+	_free(table)
+
+
+# Online-Host (Session mit Link) speichert in 1b nicht und loescht keinen Spielstand.
+func _check_linked_host_keeps_save() -> void:
+	if app == null:
+		return
+	var table = _make_table(_cfg({"seed": 113, "seat_count": 2, "ai_seats": [1], "names": ["Spieler", "A"]}))
+	var hub = LoopbackScript.new_hub()
+	table.session.link = hub.link(DameProtocol.HOST_PEER)
+	app.saves.save_match({"sentinel": true}, {"sentinel": true})
+	table._save()
+	var data: Dictionary = app.saves.load_match()
+	t.expect(not data.is_empty() and bool(data.meta.get("sentinel", false)), "Host mit Link ueberschreibt den Spielstand")
+	table._view = table._view.duplicate(true)
+	table._view.phase = "game_over"
+	table._view.winner_index = 1
+	table._save()
+	t.expect(app.saves.has_save(), "Host mit Link loescht den Spielstand bei Spielende (_save)")
+	table._record_game_once()
+	t.expect(app.saves.has_save(), "Host mit Link loescht den Spielstand bei Spielende (_record_game_once)")
+	app.saves.clear()
+	_free(table)
+
+
+# Ein Authority-Session darf nicht als Gast angehaengt werden (Online-Host-Tisch kommt spaeter).
+func _check_attach_guest_rejects_authority() -> void:
+	var rules = DameRulesScript.new()
+	rules.start_match({"seed": 114, "seat_count": 2, "ai_seats": [1]})
+	var host = DameHostScript.new(rules, null)
+	var table = TableScene.instantiate()
+	table.instant_ai = true
+	table.settings_override = {"memory_aid": true, "turn_timer": false, "animations": false}
+	table.pending_session = host
+	t.root.add_child(table)
+	t.expect(table.session == null, "Authority-Session als Gast angehaengt")
 	_free(table)

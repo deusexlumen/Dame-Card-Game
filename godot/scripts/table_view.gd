@@ -1,13 +1,15 @@
 extends Control
 
-# Spieltisch. Besitzt genau ein DameRules-Objekt und ist der einzige Schreiber.
-# Zeigt nur DameView-Daten. KI-Zuege laufen schrittweise ueber einen Timer.
+# Spieltisch. Schreibt nur ueber die Session (DameHost), nie direkt in die Regeln.
+# Zeigt nur die eigene Sicht der Session; Darstellung, Animation und Toene kommen allein aus
+# _on_view. KI-Zuege laufen schrittweise ueber einen Timer.
 
 signal state_changed
 
 const DameRulesScript = preload("res://scripts/dame_rules.gd")
 const DameAIScript = preload("res://scripts/dame_ai.gd")
-const DameViewScript = preload("res://scripts/dame_view.gd")
+const DameHostScript = preload("res://scripts/net/dame_host.gd")
+const DameProtocol = preload("res://scripts/net/net_protocol.gd")
 const SeatViewScript = preload("res://scripts/ui/seat_view.gd")
 const CardViewScript = preload("res://scripts/ui/card_view.gd")
 const UiThemeScript = preload("res://scripts/ui/ui_theme.gd")
@@ -60,25 +62,66 @@ From round 3, at the start of your turn (D), if you think you have the fewest po
 const REVEAL_PEEK_MS := 3000
 const REVEAL_SWAP_MS := 2200
 
-var rules = null
+# DameHost oder DameGuest. Einziger Weg, das Spiel zu veraendern.
+var session = null
+# Nur lesend: die Regeln des Hosts (Start, Fortsetzen, Speichern, Tests). Gaeste haben keine.
+var rules:
+	get:
+		return session.rules if session != null and session.is_authority() else null
 var ai = null
 var config: Dictionary = {}
 var match_id := ""
 var viewer_seat := 0
-var human_seats: Array = []
+# Plaetze, die an diesem Geraet gespielt werden (Host: session.local_seats, Gast: eigener Platz).
+var local_seats: Array = []
 var instant_ai := false
 var settings_override: Dictionary = {}
 # Gesetzt vor add_child: Tisch startet mit dieser Konfiguration (Tests).
 var pending_config: Dictionary = {}
+# Gesetzt vor add_child: Tisch spielt als Online-Gast ueber diese Session (DameGuest
+# mit erster Sicht). Ohne Regeln, ohne KI, ohne Spielstand.
+var pending_session = null
+# Gesetzt vor add_child: Tisch ist Online-Host. {"config", "link", "host_seat",
+# "guest_seats": {peer_id: seat}}. Gast-Plaetze erst nach gueltigem hello (peer_joined).
+var pending_online_host: Dictionary = {}
+# Gesetzt vor add_child (Gast): Besitzer der Verbindung (RtcConnector), siehe _net_owner.
+var pending_owner = null
 var handoff_pending := false
 var spectating := false
 var selected := -1
 var king_own := -1
 
 var _view: Dictionary = {}
+# Ergebnis der letzten eigenen Aktion (Host antwortet synchron).
+var _last_result: Dictionary = {}
+# Abgelehnte Aktion mit Zustandsaenderung: Sicht davor, Ton kommt mit der neuen Sicht.
+var _failure_before: Dictionary = {}
+var _awaiting_failure_view := false
+# Zaehlt empfangene Sichten (erkennt, ob nach einem KI-Fehlschlag eine kam).
+var _views_seen := 0
+# Waehrend des Zeitablaufs: keine Einzeltoene, kein Aufdecken (wie bisher).
+var _quiet := false
+# Test-Haken: wird bei jeder animierten Aktion zusaetzlich aufgerufen.
+var _table3d_queue_hook: Callable
 var _reveal_until := {}
 var _recorded_deal := -1
 var _game_recorded := false
+# Gast wartet noch auf seinen Platz (Sicht kam erst nach dem Anhaengen).
+var _guest_seat_pending := false
+# Online-Host: erlaubte Gaeste {peer_id: seat}.
+var _guest_seats := {}
+# Gast: eigene Aktion gesendet, Ergebnis steht noch aus (keine Doppel-Eingabe).
+var _awaiting_result := false
+# Online: Verbindung beendet (selbst getrennt oder Host weg). Nicht mehr pollen.
+var _net_closed := false
+# Besitzer der Verbindung (RtcConnector). Er schliesst beim Freigeben seinen Peer,
+# deshalb haelt ihn der Tisch die ganze Partie und schliesst ihn mit dem Link.
+var _net_owner = null
+var _pause_menu_button: Button
+var _again_button: Button
+var _host_left_panel: PanelContainer
+var _host_left_label: Label
+var _host_left_button: Button
 var _turn_left := 0.0
 var _turn_owner := -1
 var _accent := Color(0.55, 1.0, 0.55)
@@ -131,14 +174,35 @@ func _ready() -> void:
 	_build_ui()
 	# Marker fuer den Web-Smoke-Test.
 	print("TABLE_READY 3d=%s" % str(_use_3d))
-	if rules != null:
+	if session != null:
+		return
+	if not pending_online_host.is_empty():
+		start_online_host(pending_online_host)
+		return
+	if pending_session != null:
+		_net_owner = pending_owner
+		pending_owner = null
+		_attach_guest(pending_session)
 		return
 	if not pending_config.is_empty():
 		start(pending_config)
 		return
 	var app := _app()
 	var job: Dictionary = app.take_pending() if app != null else {}
-	if str(job.get("mode", "")) == "resume" and _try_resume():
+	var mode := str(job.get("mode", ""))
+	if mode == "online_host":
+		start_online_host(job)
+		return
+	if mode == "online_guest":
+		_net_owner = job.get("owner")
+		var guest_session = job.get("session")
+		if guest_session == null or guest_session.is_authority():
+			# Kaputter Auftrag: nie still ein Offline-Spiel starten.
+			_abort_online("Online-Gast-Auftrag ohne Gast-Session")
+			return
+		_attach_guest(guest_session)
+		return
+	if mode == "resume" and _try_resume():
 		return
 	var cfg: Dictionary = job.get("config", {})
 	if cfg.is_empty():
@@ -193,18 +257,54 @@ func _load_cosmetics() -> void:
 # ---------------------------------------------------------------- Spielstart
 
 func start(cfg: Dictionary) -> void:
+	var r = _new_rules(cfg)
+	_attach_host(r, int(config.seed) + 7, REVEAL_DEAL_MS)
+
+
+# Regeln wie offline anlegen (Seed, Match-Kennung); setzt config.
+func _new_rules(cfg: Dictionary):
 	config = cfg.duplicate(true)
 	if not config.has("seed"):
 		config.seed = int(Time.get_unix_time_from_system()) % 1000000 + randi() % 1000
 	match_id = str(config.get("match_id", "m%d" % int(config.seed)))
 	config.match_id = match_id
-	rules = DameRulesScript.new()
-	rules.start_match(config)
-	ai = DameAIScript.new(int(config.seed) + 7)
-	_after_start()
-	_reveal_own_known(REVEAL_DEAL_MS)
-	_save()
-	_after_change()
+	var r = DameRulesScript.new()
+	r.start_match(config)
+	return r
+
+
+# Online-Host: Regeln wie offline, aber mit Verbindung. Nur der eigene Platz ist lokal
+# (kein Hot-Seat), kein Spielstand (_owns_save), KI-Plaetze wie offline ueber ai_step.
+# Gaeste bekommen ihren Platz erst nach gueltigem hello (peer_joined).
+func start_online_host(job: Dictionary) -> void:
+	_net_owner = job.get("owner")
+	var link = job.get("link")
+	var host_seat := int(job.get("host_seat", 0))
+	var cfg = job.get("config", {})
+	if link == null or typeof(cfg) != TYPE_DICTIONARY or (cfg as Dictionary).is_empty():
+		# Kaputter Auftrag: nie still ein Offline-Spiel starten.
+		_abort_online("Online-Host-Auftrag ohne Link oder Konfiguration", link)
+		return
+	var r = _new_rules(cfg)
+	var players: Array = r.state.players
+	if host_seat < 0 or host_seat >= players.size() or bool(players[host_seat].is_ai):
+		_abort_online("Online-Host-Auftrag mit ungueltigem Host-Platz", link)
+		return
+	# Nur gueltige Gast-Plaetze: im Tisch, nicht der Host-Platz, kein KI-Platz.
+	_guest_seats = {}
+	var seats = job.get("guest_seats", {})
+	if typeof(seats) == TYPE_DICTIONARY:
+		for peer in seats:
+			var seat := int(seats[peer])
+			var pid := int(peer)
+			if pid == DameProtocol.HOST_PEER or seat == host_seat or seat < 0 or seat >= players.size() or bool(players[seat].is_ai):
+				push_warning("Tisch: Gast-Platz verworfen (Peer %d -> Platz %d)" % [pid, seat])
+				continue
+			_guest_seats[pid] = seat
+	_attach_host(r, int(config.seed) + 7, REVEAL_DEAL_MS, link, [host_seat])
+	session.peer_joined.connect(_on_peer_joined)
+	session.peer_left.connect(_on_peer_left)
+	_apply_online_ui()
 
 
 func _try_resume() -> bool:
@@ -218,31 +318,81 @@ func _try_resume() -> bool:
 	if not r.from_dict(data.rules):
 		app.saves.quarantine()
 		return false
-	rules = r
 	config = data.meta.get("config", {})
 	match_id = str(data.meta.get("match_id", "resume"))
 	_recorded_deal = int(data.meta.get("recorded_deal", -1))
-	ai = DameAIScript.new(int(config.get("seed", 1)) + int(rules.state.deal) * 31)
-	_after_start()
+	_attach_host(r, int(config.get("seed", 1)) + int(r.state.deal) * 31)
 	_toast_text("Spiel fortgesetzt.")
-	_after_change()
 	return true
 
 
-func _after_start() -> void:
-	human_seats.clear()
-	for p in rules.state.players:
+# Lokale Partie: dieses Geraet ist Host ohne Verbindung. Die erste Sicht kommt
+# ueber assign_seat und laeuft durch _on_view wie jede spaetere.
+func _attach_host(r, ai_seed: int, reveal_ms: int = 0, link = null, seats: Array = []) -> void:
+	session = DameHostScript.new(r, link)
+	session.view_changed.connect(_on_view)
+	session.action_result.connect(_on_result)
+	ai = DameAIScript.new(ai_seed)
+	session.local_seats = seats.duplicate() if not seats.is_empty() else _human_seats_of(r)
+	_after_start()
+	var seat: int = viewer_seat
+	if seat < 0:
+		seat = int(local_seats[0]) if not local_seats.is_empty() else 0
+	session.assign_seat(DameProtocol.HOST_PEER, seat)
+	# Aufdecken braucht die eigene Sicht: erst nach der Zuordnung.
+	if reveal_ms > 0:
+		_reveal_own_known(reveal_ms)
+		_refresh()
+
+
+# Online-Gast: keine Regeln, keine KI. Der eigene Platz steht in der Sicht des Hosts;
+# lokale Plaetze werden vor der ersten Sicht gesetzt.
+# Geltungsbereich: nur Sessions ohne Autoritaet (Online-Host: start_online_host).
+func _attach_guest(s) -> void:
+	if s.is_authority():
+		push_error("Tisch: Authority-Session kann nicht als Gast angehaengt werden")
+		return
+	session = s
+	session.view_changed.connect(_on_view)
+	session.action_result.connect(_on_result)
+	ai = null
+	# Host weg (Review Focus 7): Meldung und Knopf ins Menue.
+	if session.link != null and session.link.has_signal("peer_disconnected"):
+		session.link.peer_disconnected.connect(_on_link_peer_disconnected)
+	_apply_online_ui()
+	var first: Dictionary = session.latest_view
+	local_seats = [int(first.get("viewer_seat", 0))]
+	viewer_seat = int(local_seats[0])
+	# Eigene Kennung fuer Chip-Belohnungen (jede Online-Partie zaehlt einzeln).
+	match_id = "net%d-%d" % [int(Time.get_unix_time_from_system()), randi() % 100000]
+	if first.is_empty():
+		# Platz kommt mit der ersten Sicht (siehe _on_view).
+		_guest_seat_pending = true
+		return
+	_on_view(first, {})
+	_reveal_own_known(REVEAL_DEAL_MS)
+	_refresh()
+
+
+static func _human_seats_of(r) -> Array:
+	var out: Array = []
+	for p in r.state.players:
 		if not bool(p.is_ai):
-			human_seats.append(int(p.seat))
-	viewer_seat = int(human_seats[0]) if not human_seats.is_empty() else 0
+			out.append(int(p.seat))
+	return out
+
+
+# Lokale Plaetze aus der Session; die Plaetze am Tisch entstehen mit der ersten Sicht.
+func _after_start() -> void:
+	local_seats = session.local_seats.duplicate()
+	viewer_seat = int(local_seats[0]) if not local_seats.is_empty() else 0
 	if is_hotseat():
 		# Erster Mensch am Zug bekommt das Geraet nach der Uebergabe.
 		viewer_seat = -1
-	_layout_seats()
 
 
 func is_hotseat() -> bool:
-	return human_seats.size() > 1
+	return local_seats.size() > 1
 
 
 # ---------------------------------------------------------------- Aufbau
@@ -395,10 +545,12 @@ func _layout_seats() -> void:
 	for s in _seats.values():
 		s.queue_free()
 	_seats.clear()
-	var n: int = rules.seat_count()
-	var anchor_seat := viewer_seat if viewer_seat >= 0 else (int(human_seats[0]) if not human_seats.is_empty() else 0)
+	# Rollen aus dem eigenen Blickwinkel, nicht aus der Sicht: bei der Uebergabe
+	# ist die Sicht noch die des vorigen Platzes. Namen sind oeffentlich.
+	var n: int = int(_view.seat_count)
+	var anchor_seat := viewer_seat if viewer_seat >= 0 else (int(local_seats[0]) if not local_seats.is_empty() else 0)
 	for seat in range(n):
-		var role: String = rules._seat_role(anchor_seat, seat)
+		var role: String = DameRulesScript.seat_role_for(anchor_seat, seat, n)
 		var sv = SeatViewScript.new()
 		sv.ghost = _use_3d
 		sv.accent = _accent
@@ -415,9 +567,9 @@ func _layout_seats() -> void:
 		var names := {}
 		var angles := {}
 		for seat in range(n):
-			roles[seat] = rules._seat_role(anchor_seat, seat)
-			names[seat] = str(rules.state.players[seat].name)
-			angles[seat] = rules.seat_angle(anchor_seat, seat)
+			roles[seat] = DameRulesScript.seat_role_for(anchor_seat, seat, n)
+			names[seat] = str(_view.players[seat].name)
+			angles[seat] = DameRulesScript.seat_angle_for(anchor_seat, seat, n)
 		_table3d.layout(roles, names, angles)
 
 
@@ -487,6 +639,7 @@ func _build_over_panel() -> void:
 	again.text = "Neues Spiel"
 	again.pressed.connect(_on_play_again)
 	row.add_child(again)
+	_again_button = again
 	var menu := Button.new()
 	menu.text = "Hauptmenü"
 	menu.pressed.connect(_on_main_menu)
@@ -577,6 +730,7 @@ func _build_pause() -> void:
 	menu.text = "Hauptmenü (Spiel wird gespeichert)"
 	menu.pressed.connect(_on_main_menu)
 	vb.add_child(menu)
+	_pause_menu_button = menu
 	_build_skin_picker(vb)
 
 
@@ -697,15 +851,15 @@ static func _ghostify(node: Node) -> void:
 # ---------------------------------------------------------------- Ablauf
 
 func _after_change() -> void:
-	if rules == null:
+	if _view.is_empty():
 		return
-	var phase := str(rules.state.phase)
-	var current := int(rules.state.current_index)
-	var current_is_ai := bool(rules.state.players[current].is_ai)
+	var phase := str(_view.phase)
+	var current := int(_view.current_index)
+	var current_is_ai := bool(_view.players[current].is_ai)
 	if phase == "round_end" or phase == "game_over":
 		spectating = false
 		if is_hotseat() and viewer_seat < 0:
-			viewer_seat = int(human_seats[0])
+			viewer_seat = int(local_seats[0])
 		_record_round_once()
 		if phase == "game_over":
 			_record_game_once()
@@ -718,7 +872,8 @@ func _after_change() -> void:
 		_ai_timer.stop()
 	_events(phase, current)
 	_refresh()
-	if (phase == "play" or phase == "dame_called") and current_is_ai and not handoff_pending:
+	# KI-Zuege plant nur der Host.
+	if (phase == "play" or phase == "dame_called") and current_is_ai and not handoff_pending and session.is_authority():
 		if instant_ai:
 			_ai_timer.stop()
 			call_deferred("_ai_step")
@@ -731,14 +886,14 @@ func _events(phase: String, current: int) -> void:
 	if _fx == null:
 		return
 	_fx.animate = bool(_setting("animations")) and not instant_ai
-	_fx.set_dame_active(phase == "dame_called", int(rules.state.dame_turns_left))
+	_fx.set_dame_active(phase == "dame_called", int(_view.dame_turns_left))
 	if phase == "dame_called" and _last_phase == "play":
-		var caller := int(rules.state.dame_caller_index)
+		var caller := int(_view.dame_caller_index)
 		if caller >= 0:
-			_fx.dame_called(str(rules.state.players[caller].name))
+			_fx.dame_called(str(_view.players[caller].name))
 	elif (phase == "play" or phase == "dame_called") and current != _last_current and not handoff_pending:
-		var mine := current == viewer_seat and not bool(rules.state.players[current].is_ai)
-		_fx.turn_banner(tr("Du bist am Zug") if mine else tr("Zug von %s") % str(rules.state.players[current].name))
+		var mine := current == viewer_seat and not bool(_view.players[current].is_ai)
+		_fx.turn_banner(tr("Du bist am Zug") if mine else tr("Zug von %s") % str(_view.players[current].name))
 	if phase == "round_end" and _last_phase != "round_end":
 		# Punkte zaehlen sichtbar hoch.
 		_sum_t = 0.0 if _fx.animate else 1.0
@@ -750,11 +905,11 @@ func _events(phase: String, current: int) -> void:
 				if _round_panel.visible:
 					_round_text.text = _round_summary(), 0.0, 1.0, 1.2)
 	if phase == "game_over" and _last_phase != "game_over":
-		var w := int(rules.state.winner_index)
-		if w >= 0 and not bool(rules.state.players[w].is_ai):
+		var w := int(_view.winner_index)
+		if w >= 0 and not bool(_view.players[w].is_ai):
 			_fx.confetti()
 		if w >= 0:
-			_fx.winner(tr("Du gewinnst!") if w == _local_seat() else tr("%s gewinnt!") % str(rules.state.players[w].name))
+			_fx.winner(tr("Du gewinnst!") if w == _local_seat() else tr("%s gewinnt!") % str(_view.players[w].name))
 	elif phase != "game_over":
 		_fx.clear_winner()
 	_last_phase = phase
@@ -773,7 +928,7 @@ func _begin_handoff(seat: int) -> void:
 	_drawn_view.set_card({}, false)
 	if _table3d != null:
 		_table3d.clear_faces()
-	var name := str(rules.state.players[seat].name)
+	var name := str(_view.players[seat].name)
 	_handoff_label.text = tr("Gerät an %s weitergeben.\nNiemand sonst schaut hin.") % name
 	_handoff_button.text = tr("Ich bin %s – Karten zeigen [Enter]") % name
 	_handoff.visible = true
@@ -785,68 +940,130 @@ func confirm_handoff() -> void:
 		return
 	handoff_pending = false
 	_handoff.visible = false
-	var seat := int(rules.state.current_index)
-	var relayout: bool = viewer_seat < 0 or rules._seat_role(viewer_seat, seat) != "self"
+	var seat := int(_view.current_index)
+	var relayout: bool = viewer_seat != seat
 	viewer_seat = seat
 	if relayout:
 		_layout_seats()
-	_reveal_own_known(REVEAL_DEAL_MS if int(rules.state.round) == 1 else REVEAL_SWAP_MS)
+	# Hot-Seat: das Geraet spielt jetzt diesen Platz; der Host ordnet ihn zu und
+	# liefert die Sicht des neuen Spielers. Erst danach aufdecken.
+	session.assign_seat(DameProtocol.HOST_PEER, seat)
+	_reveal_own_known(REVEAL_DEAL_MS if int(_view.round) == 1 else REVEAL_SWAP_MS)
 	_sound("click")
 	_after_change()
 
 
 func _ai_step() -> void:
-	if rules == null:
+	if not _ai_due():
 		return
-	var phase := str(rules.state.phase)
-	if phase != "play" and phase != "dame_called":
-		return
-	if not bool(rules.current_player().is_ai):
-		return
-	var before := _snapshot()
-	var result: Dictionary = ai.step(rules)
-	if _table3d != null and bool(result.get("ok", false)):
-		_table3d.queue_action(ai.last_action)
-	_feedback(before, result, int(before.current))
-	_save()
-	_after_change()
+	# Erfolg kommt als Sicht ueber _on_view; nur ein Fehlschlag braucht Nacharbeit.
+	var before := _view
+	var seen := _views_seen
+	var result: Dictionary = session.ai_step(ai)
+	if not bool(result.get("ok", false)):
+		_feedback_from(before, _view, {}, false)
+		if seen == _views_seen:
+			# Keine neue Sicht: trotzdem weiterplanen wie bisher.
+			_after_change()
 
 
 # Fuer Tests: alle anstehenden KI-Schritte sofort ausfuehren.
 func run_ai_until_human(max_steps: int = 400) -> void:
 	var guard := 0
-	while guard < max_steps and rules != null:
+	while guard < max_steps and _ai_due():
 		guard += 1
-		var phase := str(rules.state.phase)
-		if phase != "play" and phase != "dame_called":
-			return
-		if not bool(rules.current_player().is_ai):
-			return
 		_ai_timer.stop()
 		_ai_step()
 
 
+# KI ist laut Sicht am Zug und dieses Geraet ist der Host.
+func _ai_due() -> bool:
+	if session == null or not session.is_authority() or _view.is_empty():
+		return false
+	var phase := str(_view.phase)
+	if phase != "play" and phase != "dame_called":
+		return false
+	return bool(_view.players[int(_view.current_index)].is_ai)
+
+
+# Einziger Schreibweg des Menschen: Aktion an die Session. Der Platz kommt vom Host.
 func act(action: Dictionary) -> Dictionary:
-	if rules == null or handoff_pending:
+	if session == null or handoff_pending or _net_closed:
 		return {"ok": false, "reason": "Nicht bereit"}
-	action.seat = int(rules.state.current_index)
-	var before := _snapshot()
-	var result: Dictionary = rules.apply_action(action)
-	_feedback(before, result, int(before.current))
-	if bool(result.ok):
-		if _table3d != null:
-			_table3d.queue_action(action)
+	# Gast: solange das Ergebnis der letzten Aktion aussteht, nichts doppelt senden.
+	if _awaiting_result:
+		return {"ok": false, "reason": "Warte auf den Host …"}
+	_last_result = {}
+	if not session.is_authority():
+		_awaiting_result = true
+	session.send_action(action)
+	# Host antwortet synchron; ein Gast bekommt das Ergebnis spaeter per Signal.
+	return _last_result if not _last_result.is_empty() else {"ok": true, "pending": true}
+
+
+# Antwort auf die eigene Aktion. Fehler: Ton und Hinweis, sonst Auswahl zuruecksetzen.
+func _on_result(msg: Dictionary) -> void:
+	_awaiting_result = false
+	_last_result = {"ok": bool(msg.get("ok", false)), "reason": str(msg.get("reason", ""))}
+	if bool(_last_result.ok):
 		selected = -1
 		king_own = -1
-		_after_human_action(action)
+		return
+	_toast_text(str(_last_result.reason))
+	if bool(msg.get("changed", false)):
+		# Abgelehnt, aber veraendert (falsches Extra-Ablegen = Strafkarte): der Host
+		# schickt gleich eine neue Sicht; der Ton entsteht beim Vergleich in _on_view.
+		_failure_before = _view
+		_awaiting_failure_view = true
 	else:
-		_toast_text(str(result.reason))
-	_save()
+		_feedback_from(_view, _view, {}, false)
+
+
+# Einziger Ort fuer Darstellung: Sicht merken, Aktion animieren, Toene, Aufdecken.
+func _on_view(view: Dictionary, action: Dictionary) -> void:
+	var before := _view
+	_view = view
+	# Absichtlich: jede neue Sicht loest die Eingabesperre. Der Host schickt das
+	# Ergebnis immer vor der Sicht; eine Sicht heisst also, die Aktion ist erledigt.
+	_awaiting_result = false
+	# Gast vor Platzzuweisung angehaengt: Platz aus der ersten Sicht, einmal neu aufbauen.
+	if _guest_seat_pending and not view.is_empty() and not session.is_authority():
+		_guest_seat_pending = false
+		local_seats = [int(view.get("viewer_seat", 0))]
+		viewer_seat = int(local_seats[0])
+		if not _seats.is_empty():
+			_layout_seats()
+		# Wie beim direkten Anhaengen: eigene bekannte Karten kurz zeigen.
+		_reveal_own_known(REVEAL_DEAL_MS)
+	_views_seen += 1
+	# Web-Test-Bruecke (nur ?e2e=1): jede empfangene Sicht melden.
+	if _is_online():
+		var e2e_app := _app()
+		if e2e_app != null and e2e_app.has_method("e2e_mode") and e2e_app.e2e_mode():
+			print("ONLINE_VIEW seat=%d rev=%d turn=%d" % [viewer_seat, int(session.rev), int(view.get("current_index", -1))])
+	# Erste Sicht (oder andere Platzzahl): Plaetze aus der Sicht aufbauen.
+	if _seats.size() != int(view.seat_count):
+		_layout_seats()
+	if action.is_empty() and _awaiting_failure_view:
+		_awaiting_failure_view = false
+		_feedback_from(_failure_before, view, {}, false)
+		_failure_before = {}
+	if not action.is_empty():
+		if _table3d != null:
+			_table3d.queue_action(action)
+		if _table3d_queue_hook.is_valid():
+			_table3d_queue_hook.call(action)
+		if not _quiet:
+			_feedback_from(before, view, action)
+			var seat := int(action.get("seat", -1))
+			if seat >= 0 and seat == viewer_seat:
+				_after_own_action(action)
+	if session.is_authority():
+		_save()
 	_after_change()
-	return result
 
 
-func _after_human_action(action: Dictionary) -> void:
+func _after_own_action(action: Dictionary) -> void:
 	var seat := int(action.seat)
 	match str(action.type):
 		"swap":
@@ -854,43 +1071,48 @@ func _after_human_action(action: Dictionary) -> void:
 		"look_card":
 			_reveal(int(action.target_seat), int(action.hand_index), REVEAL_PEEK_MS)
 		"king_swap":
-			var look = rules.state.last_look
+			var look = _view.get("private_look")
 			if look != null:
 				_toast_text(tr("König: angesehen %s, dann blind getauscht.") % _card_name(look))
 
 
-func _snapshot() -> Dictionary:
-	return {
-		"current": int(rules.state.current_index),
-		"penalties": _penalty_total(),
-		"phase": str(rules.state.phase),
-		"discard": rules.state.discard.size(),
-	}
-
-
-func _penalty_total() -> int:
+static func _penalties_in(view: Dictionary) -> int:
 	var n := 0
-	for p in rules.state.players:
-		n += p.penalty_cards.size()
+	for p in view.get("players", []):
+		n += int(p.penalty_count)
 	return n
 
 
-func _feedback(before: Dictionary, result: Dictionary, _seat: int) -> void:
-	var phase := str(rules.state.phase)
-	if _penalty_total() > int(before.penalties) and phase != "round_end":
+# Toene aus dem Vergleich zweier Sichten, Reihenfolge wie bisher.
+func _feedback_from(before: Dictionary, after: Dictionary, action: Dictionary, ok: bool = true) -> void:
+	if str(action.get("type", "")) == "start_next_round":
+		_reveal_until.clear()
+		if is_hotseat():
+			viewer_seat = -1
+			spectating = true
+		else:
+			_reveal_own_known(REVEAL_DEAL_MS)
+		_sound("shuffle")
+		return
+	if before.is_empty() or after.is_empty():
+		if not ok:
+			_sound("error")
+		return
+	var phase := str(after.phase)
+	if _penalties_in(after) > _penalties_in(before) and phase != "round_end":
 		_sound("penalty")
-	elif not bool(result.get("ok", false)):
+	elif not ok:
 		_sound("error")
 		return
 	if phase == "dame_called" and str(before.phase) == "play":
 		_sound("dame")
 	elif phase == "game_over":
 		# Sieg-Jingle nur, wenn ein Mensch gewinnt; sonst der absteigende.
-		var w := int(rules.state.winner_index)
-		_sound("win" if w >= 0 and not bool(rules.state.players[w].is_ai) else "lose")
+		var w := int(after.winner_index)
+		_sound("win" if w >= 0 and not bool(after.players[w].is_ai) else "lose")
 	elif phase == "round_end":
 		_sound("flip")
-	elif rules.state.discard.size() != int(before.discard):
+	elif int(after.discard_count) != int(before.discard_count):
 		_sound("place")
 	else:
 		_sound("draw")
@@ -899,24 +1121,24 @@ func _feedback(before: Dictionary, result: Dictionary, _seat: int) -> void:
 # ---------------------------------------------------------------- Eingabe
 
 func _human_turn() -> bool:
-	if rules == null or handoff_pending:
+	if _view.is_empty() or handoff_pending or _net_closed:
 		return false
-	var phase := str(rules.state.phase)
+	var phase := str(_view.phase)
 	if phase != "play" and phase != "dame_called":
 		return false
-	var current := int(rules.state.current_index)
-	return not bool(rules.state.players[current].is_ai) and current == viewer_seat
+	var current := int(_view.current_index)
+	return not bool(_view.players[current].is_ai) and current == viewer_seat
 
 
 func _on_deck() -> void:
-	if _human_turn() and str(rules.state.turn_step) == "draw":
+	if _human_turn() and str(_view.turn_step) == "draw":
 		act({"type": "draw_deck"})
 
 
 func _on_discard() -> void:
 	if not _human_turn():
 		return
-	var step := str(rules.state.turn_step)
+	var step := str(_view.turn_step)
 	if step == "draw":
 		act({"type": "draw_discard"})
 	elif step == "play":
@@ -924,14 +1146,14 @@ func _on_discard() -> void:
 
 
 func _on_drawn() -> void:
-	if _human_turn() and str(rules.state.turn_step) == "play":
+	if _human_turn() and str(_view.turn_step) == "play":
 		act({"type": "discard_drawn"})
 
 
 func _on_card(seat: int, index: int) -> void:
 	if not _human_turn():
 		return
-	match str(rules.state.turn_step):
+	match str(_view.turn_step):
 		"draw":
 			if seat == viewer_seat:
 				select(index)
@@ -959,7 +1181,7 @@ func select(index: int) -> void:
 	if sv == null or index < 0 or index >= sv.cards().size():
 		return
 	selected = index
-	if str(rules.state.turn_step) == "king":
+	if str(_view.get("turn_step", "")) == "king":
 		king_own = index
 	_refresh()
 
@@ -975,17 +1197,14 @@ func end_turn() -> void:
 
 
 func next_deal() -> void:
-	if rules != null and str(rules.state.phase) == "round_end":
-		rules.apply_action({"type": "start_next_round"})
-		_reveal_until.clear()
-		if is_hotseat():
-			viewer_seat = -1
-			spectating = true
-		else:
-			_reveal_own_known(REVEAL_DEAL_MS)
-		_sound("shuffle")
-		_save()
-		_after_change()
+	# Nur der Host startet die naechste Ausgabe; Ton und Aufdecken kommen aus _on_view.
+	if session == null or str(_view.get("phase", "")) != "round_end":
+		return
+	if session.is_authority():
+		session.next_round()
+	else:
+		# Gast: nur der Hinweis, er bleibt auch nach jedem Neuzeichnen (_prompt_text).
+		_prompt.text = _prompt_text()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1014,7 +1233,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			toggle_pause()
 			accept_event()
 		return
-	var phase := str(rules.state.phase) if rules != null else ""
+	var phase := str(_view.get("phase", ""))
 	if phase == "round_end" and (key == KEY_ENTER or key == KEY_KP_ENTER):
 		next_deal()
 		accept_event()
@@ -1023,7 +1242,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		select(key - KEY_1)
 		accept_event()
 		return
-	var step := str(rules.state.turn_step) if rules != null else ""
+	var step := str(_view.get("turn_step", ""))
 	match key:
 		KEY_SPACE:
 			_on_deck()
@@ -1072,12 +1291,22 @@ func toggle_pause() -> void:
 
 func _on_main_menu() -> void:
 	_save()
+	# Online: Verbindung trennen (Pause-Text sagt es an).
+	_close_link()
 	var app := _app()
 	if app != null:
 		app.goto(app.MAIN_MENU)
 
 
 func _on_play_again() -> void:
+	# Online (Gast oder Host mit Link): Verbindung schliessen, zurueck zum
+	# Online-Bildschirm. Nie still ein Offline-Spiel starten.
+	if _is_online():
+		_close_link()
+		var online_app := _app()
+		if online_app != null:
+			online_app.goto(online_app.online_screen())
+		return
 	var cfg := config.duplicate(true)
 	cfg.erase("seed")
 	cfg.erase("match_id")
@@ -1089,12 +1318,128 @@ func _on_play_again() -> void:
 		start(cfg)
 
 
+# ---------------------------------------------------------------- Online
+
+# Partie mit Verbindung (Gast oder Online-Host).
+func _is_online() -> bool:
+	return session != null and session.link != null
+
+
+# Online-Texte, sobald die Session feststeht (_build_ui laeuft vorher).
+func _apply_online_ui() -> void:
+	if _is_online() and _pause_menu_button != null:
+		_pause_menu_button.text = "Hauptmenü (Verbindung wird getrennt)"
+
+
+# Verbindung beenden und danach nicht mehr pollen.
+# Idempotent: schliesst immer, auch wenn die Gegenseite schon weg ist.
+func _close_link() -> void:
+	# Besitzer zuerst: schliesst Peer-Verbindungen und Multiplayer-Peer (WebRTC-Threads).
+	_close_owner()
+	if not _is_online():
+		return
+	_net_closed = true
+	_awaiting_result = false
+	if session.link.has_method("close"):
+		session.link.close()
+
+
+# Idempotent: Besitzer genau einmal schliessen und loslassen.
+func _close_owner() -> void:
+	if _net_owner == null:
+		return
+	var net_owner = _net_owner
+	_net_owner = null
+	if net_owner.has_method("close"):
+		net_owner.close()
+
+
+# Tisch verschwindet auf irgendeinem Weg (Szenenwechsel, free): Verbindung nie offen lassen.
+func _exit_tree() -> void:
+	_close_link()
+
+
+# Kaputter Online-Auftrag: zurueck zum Online-Bildschirm (sonst Hauptmenue), Link schliessen.
+func _abort_online(reason: String, link = null) -> void:
+	push_warning("Tisch: " + reason)
+	_close_owner()
+	if link != null and link.has_method("close"):
+		link.close()
+	var app := _app()
+	if app != null:
+		app.goto(app.online_screen())
+
+
+# Host: gueltiges hello eines Gastes. Nur bekannte Peers bekommen ihren Platz.
+func _on_peer_joined(peer_id: int) -> void:
+	if not _guest_seats.has(peer_id) or _net_closed:
+		return
+	session.assign_seat(peer_id, int(_guest_seats[peer_id]))
+
+
+# Host: Gast getrennt. Der Platz bleibt am Tisch (Abwesenheit nach §11 folgt spaeter).
+func _on_peer_left(peer_id: int) -> void:
+	if not _guest_seats.has(peer_id) or _view.is_empty():
+		return
+	var seat := int(_guest_seats[peer_id])
+	if seat >= 0 and seat < (_view.players as Array).size():
+		_toast_text(tr("%s hat die Verbindung verloren.") % str(_view.players[seat].name))
+
+
+# Gast: die Verbindung zum Host ist weg.
+func _on_link_peer_disconnected(peer_id: int) -> void:
+	if peer_id != DameProtocol.HOST_PEER or _net_closed:
+		return
+	# Sofort nicht mehr pollen; schliessen erst nach dem laufenden poll() des Peers
+	# (das Signal kommt mitten aus dessen Schleife). _exit_tree schliesst sonst.
+	_net_closed = true
+	_awaiting_result = false
+	call_deferred("_close_link")
+	_ai_timer.stop()
+	# Nach dem Spielende ist das normal (Host spielt neu oder geht): keine Meldung.
+	if str(_view.get("phase", "")) == "game_over":
+		return
+	_show_host_left()
+
+
+func _show_host_left() -> void:
+	if _host_left_panel == null:
+		_host_left_panel = _panel(Vector2(340, 250), Vector2(600, 200))
+		_host_left_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+		var vb := VBoxContainer.new()
+		vb.add_theme_constant_override("separation", 16)
+		_host_left_panel.add_child(vb)
+		_host_left_label = Label.new()
+		_host_left_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_host_left_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_host_left_label.custom_minimum_size = Vector2(560, 0)
+		_host_left_label.add_theme_font_size_override("font_size", 20)
+		_host_left_label.text = "Der Host hat die Partie verlassen. Die Partie endet ohne Wertung."
+		vb.add_child(_host_left_label)
+		_host_left_button = Button.new()
+		_host_left_button.text = "Hauptmenü"
+		_host_left_button.pressed.connect(_on_main_menu)
+		vb.add_child(_host_left_button)
+	_pause_panel.visible = false
+	_host_left_panel.visible = true
+	_host_left_button.grab_focus()
+	_refresh()
+
+
 # ---------------------------------------------------------------- Zugtimer
 
 func _process(delta: float) -> void:
-	if rules == null:
+	# Online: Pakete abholen (Gast immer, Host nur mit Verbindung).
+	if session != null and session.link != null and not _net_closed:
+		session.poll()
+	if _view.is_empty():
 		return
-	var step := str(rules.state.turn_step)
+	# Zugtimer laeuft nur beim Host; ein Gast hat (vorerst) keinen.
+	if session == null or not session.is_authority():
+		_timer_bar.visible = false
+		_turn_owner = -1
+		return
+	var step := str(_view.turn_step)
 	# Pause bei Bube/Koenig-Auswahl (Spec Blitz-Modus).
 	var paused := step == "jack" or step == "king"
 	var running := bool(_setting("turn_timer")) and _human_turn() and not _pause_panel.visible
@@ -1102,7 +1447,7 @@ func _process(delta: float) -> void:
 	if not running:
 		_turn_owner = -1
 		return
-	var owner := int(rules.state.current_index) * 1000 + int(rules.state.round)
+	var owner := int(_view.current_index) * 1000 + int(_view.round)
 	var total := float(_setting("turn_timer_seconds"))
 	if owner != _turn_owner:
 		_turn_owner = owner
@@ -1118,26 +1463,18 @@ func _process(delta: float) -> void:
 
 # Zeit abgelaufen: Zug mit sicheren Standardaktionen beenden.
 func timeout_turn() -> void:
-	if not _human_turn():
+	# Zeitablauf entscheidet nur der Host.
+	if not _human_turn() or not session.is_authority():
 		return
-	var seat := int(rules.state.current_index)
-	# Zeit abgelaufen: erst genau eine Strafkarte, dann den Zug sicher beenden.
-	var pen: Dictionary = rules.apply_action({"type": "timeout_penalty", "seat": seat})
-	if bool(pen.get("ok", false)):
+	# Zeit abgelaufen: der Host gibt genau eine Strafkarte und beendet den Zug sicher.
+	# Die Einzelschritte bleiben stumm; Toene und Hinweis wie bisher einmal am Ende.
+	_quiet = true
+	var res: Dictionary = session.timeout_turn(ai)
+	_quiet = false
+	if bool(res.get("ok", false)):
 		_sound("penalty")
-	var guard := 0
-	while guard < 8 and int(rules.state.current_index) == seat and _human_turn():
-		guard += 1
-		var fallback: Dictionary = ai.fallback_action(rules, seat)
-		var r: Dictionary = rules.apply_action(fallback)
-		if not bool(r.ok):
-			break
-		if _table3d != null:
-			_table3d.queue_action(fallback)
 	_toast_text("Zeit abgelaufen – Strafkarte, Zug beendet.")
 	_sound("error")
-	_save()
-	_after_change()
 
 
 # ---------------------------------------------------------------- Darstellung
@@ -1147,11 +1484,13 @@ func _reveal(seat: int, index: int, ms: int) -> void:
 	get_tree().create_timer(ms / 1000.0 + 0.05).timeout.connect(_refresh)
 
 
+# Eigene bekannte Karten kurz zeigen, nur aus der eigenen Sicht (nie aus einer fremden).
 func _reveal_own_known(ms: int) -> void:
-	if viewer_seat < 0 or rules == null:
+	if viewer_seat < 0 or _view.is_empty() or int(_view.get("viewer_seat", -1)) != viewer_seat:
 		return
-	for i in rules.state.players[viewer_seat].known:
-		_reveal(viewer_seat, int(i), ms)
+	for card in _view.players[viewer_seat].cards:
+		if bool(card.known):
+			_reveal(viewer_seat, int(card.index), ms)
 
 
 func _face_for(seat: int, index: int, card: Dictionary) -> bool:
@@ -1171,7 +1510,7 @@ func _targets_for(seat: int, data: Dictionary) -> Array:
 	var out: Array = []
 	if not _human_turn() or bool(data.eliminated):
 		return out
-	var step := str(rules.state.turn_step)
+	var step := str(_view.turn_step)
 	var own := seat == viewer_seat
 	var all: Array = range(data.cards.size())
 	match step:
@@ -1188,10 +1527,9 @@ func _targets_for(seat: int, data: Dictionary) -> Array:
 
 
 func _refresh() -> void:
-	if rules == null:
+	# Zeichnet nur aus der zuletzt empfangenen Sicht plus lokalem UI-Zustand.
+	if _view.is_empty():
 		return
-	var vs := viewer_seat if viewer_seat >= 0 else (int(human_seats[0]) if not human_seats.is_empty() else 0)
-	_view = DameViewScript.for_viewer(rules, vs)
 	var phase := str(_view.phase)
 	for seat in _seats:
 		var data: Dictionary = _view.players[seat]
@@ -1203,14 +1541,14 @@ func _refresh() -> void:
 	_place_seats()
 	# Stapel, Ablage, gezogene Karte.
 	_deck_view.set_card({"known": false} if int(_view.deck_count) > 0 else {}, false)
-	_deck_view.targetable = _human_turn() and str(rules.state.turn_step) == "draw" and not bool(_view.must_take_queen)
+	_deck_view.targetable = _human_turn() and str(_view.turn_step) == "draw" and not bool(_view.must_take_queen)
 	_deck_label.text = tr("Stapel (%d)") % int(_view.deck_count)
 	var top = _view.discard_top
 	var top_changed := var_to_str(top) != var_to_str(_discard_view.card if not _discard_view.card.is_empty() else null)
 	_discard_view.set_card(top if top != null else {}, top != null)
 	if top_changed and top != null and bool(_setting("animations")):
 		_discard_view.pop()
-	var step := str(rules.state.turn_step)
+	var step := str(_view.turn_step)
 	_discard_view.targetable = _human_turn() and ((step == "draw" and top != null) or step == "play")
 	_discard_label.text = tr("Ablage (%d)") % int(_view.discard_count)
 	var drawn = _view.drawn
@@ -1232,7 +1570,11 @@ func _refresh() -> void:
 	_over_panel.visible = phase == "game_over"
 	if phase == "round_end":
 		_round_text.text = _round_summary()
-		if not _round_button.has_focus():
+		# Die naechste Ausgabe startet nur der Host; der Gast wartet.
+		var host: bool = session.is_authority()
+		_round_button.disabled = not host
+		_round_button.text = "Nächste Ausgabe [Enter]" if host else "Warte auf den Host …"
+		if host and not _round_button.has_focus():
 			_round_button.grab_focus()
 	if phase == "game_over":
 		_over_text.text = _game_summary()
@@ -1255,6 +1597,8 @@ func _info_text() -> String:
 func _prompt_text() -> String:
 	var phase := str(_view.phase)
 	if phase == "round_end":
+		if session != null and not session.is_authority():
+			return tr("Warte auf den Host …")
 		return "Ausgabe vorbei. Alle Karten liegen offen."
 	if phase == "game_over":
 		return "Spiel vorbei."
@@ -1262,11 +1606,11 @@ func _prompt_text() -> String:
 		return ""
 	var current := int(_view.current_index)
 	var name := str(_view.current_name)
-	if bool(rules.state.players[current].is_ai):
+	if bool(_view.players[current].is_ai):
 		return tr("%s ist am Zug …") % name
 	if current != viewer_seat:
 		return tr("%s ist am Zug.") % name
-	match str(rules.state.turn_step):
+	match str(_view.turn_step):
 		"draw":
 			if bool(_view.must_take_queen):
 				return "Offene Dame! Du musst sie von der Ablage nehmen."
@@ -1293,7 +1637,7 @@ func _update_actions() -> void:
 		c.queue_free()
 	if not _human_turn():
 		return
-	var step := str(rules.state.turn_step)
+	var step := str(_view.turn_step)
 	match step:
 		"draw":
 			_action_button("Vom Stapel ziehen", _on_deck, not bool(_view.must_take_queen) and int(_view.deck_count) + int(_view.discard_count) > 1)
@@ -1427,28 +1771,34 @@ func _card_name(card: Dictionary) -> String:
 
 func _save() -> void:
 	var app := _app()
-	if app == null or rules == null:
+	# Speichern nur als Authority ohne Link (ein Online-Host speichert in 1b nicht).
+	if app == null or not _owns_save() or _view.is_empty():
 		return
-	if str(rules.state.phase) == "game_over":
+	if str(_view.phase) == "game_over":
 		app.saves.clear()
 		return
 	app.saves.save_match(rules.to_dict(), {"config": config, "match_id": match_id, "recorded_deal": _recorded_deal})
 
 
+# Spielstand gehoert nur der lokalen Partie: Authority und kein Link.
+func _owns_save() -> bool:
+	return session != null and session.is_authority() and session.link == null
+
+
 func _local_seat() -> int:
 	# Statistik und Chips nur fuer Partien mit genau einem Menschen.
-	return int(human_seats[0]) if human_seats.size() == 1 else -1
+	return int(local_seats[0]) if local_seats.size() == 1 else -1
 
 
 func _has_hard_ai() -> bool:
-	for p in rules.state.players:
+	for p in _view.players:
 		if bool(p.is_ai) and str(p.difficulty) == "hard":
 			return true
 	return false
 
 
 func _record_round_once() -> void:
-	var deal := int(rules.state.deal)
+	var deal := int(_view.deal)
 	if _recorded_deal == deal:
 		return
 	_recorded_deal = deal
@@ -1457,9 +1807,9 @@ func _record_round_once() -> void:
 	if app == null or me < 0:
 		_save()
 		return
-	var p: Dictionary = rules.state.players[me]
-	var called := int(rules.state.dame_caller_index) == me
-	var correct := called and not bool(rules.state.last_round_false_call)
+	var p: Dictionary = _view.players[me]
+	var called := int(_view.dame_caller_index) == me
+	var correct := called and not bool(_view.last_round_false_call)
 	app.stats.record_round(int(p.score), called, correct, int(p.get("deal_penalties", 0)))
 	var earned := 0
 	if app.profile.award("%s-deal-%d" % [match_id, deal], CatalogScript.REWARD_ROUND):
@@ -1481,10 +1831,12 @@ func _record_game_once() -> void:
 	var me := _local_seat()
 	if app == null or me < 0:
 		return
-	var won := int(rules.state.winner_index) == me
+	var won := int(_view.winner_index) == me
 	app.stats.record_game(won)
 	if won:
 		var amount := CatalogScript.REWARD_WIN * (CatalogScript.HARD_MULTIPLIER if _has_hard_ai() else 1)
 		if app.profile.award("%s-win" % match_id, amount):
 			config["_chips_earned"] = int(config.get("_chips_earned", 0)) + amount
-	app.saves.clear()
+	# Nur die lokale Partie besitzt den Spielstand; Gast und Online-Host loeschen nie eine fremde.
+	if _owns_save():
+		app.saves.clear()

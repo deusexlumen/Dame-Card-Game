@@ -46,8 +46,18 @@ jobs:
           mv tpl/templates ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
       - name: Import project
         run: $GODOT_BIN --headless --path godot --import || true
+      - name: WebRTC-Erweiterung laden
+        run: node scripts/fetch-webrtc.mjs
+      - name: WebRTC-Erweiterung pruefen
+        run: |
+          $GODOT_BIN --headless --path godot --import || true
+          $GODOT_BIN --headless --path godot --script res://tools/webrtc_probe.gd | tee probe.log
+          grep -q WEBRTC_OK probe.log
       - name: Headless tests
+        timeout-minutes: 10
         run: node scripts/godot-test.mjs
+        env:
+          DAME_REQUIRE_WEBRTC: "1"
       - name: Export
         run: node scripts/godot-export.mjs --skip-smoke
       - name: Web smoke test
