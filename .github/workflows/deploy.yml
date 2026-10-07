@@ -55,6 +55,8 @@ jobs:
           grep -q WEBRTC_OK probe.log
       - name: Headless tests
         run: node scripts/godot-test.mjs
+        env:
+          DAME_REQUIRE_WEBRTC: "1"
       - name: Export
         run: node scripts/godot-export.mjs --skip-smoke
       - name: Web smoke test

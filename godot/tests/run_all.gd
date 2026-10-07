@@ -15,6 +15,7 @@ const SUITES := [
 	"res://tests/test_peer_link.gd",
 	"res://tests/test_online_table.gd",
 	"res://tests/test_rtc_code.gd",
+	"res://tests/test_rtc_connector.gd",
 	"res://tests/test_golden.gd",
 ]
 
