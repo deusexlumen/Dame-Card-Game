@@ -17,7 +17,8 @@
     "test:godot": "node scripts/godot-test.mjs",
     "fetch:webrtc": "node scripts/fetch-webrtc.mjs",
     "export:godot": "node scripts/godot-export.mjs",
-    "test:godot:web": "playwright test -c playwright.godot.config.ts"
+    "test:godot:web": "playwright test -c playwright.godot.config.ts",
+    "test:godot:online": "playwright test -c playwright.online.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
