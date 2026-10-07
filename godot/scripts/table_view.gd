@@ -84,6 +84,8 @@ var pending_session = null
 # Gesetzt vor add_child: Tisch ist Online-Host. {"config", "link", "host_seat",
 # "guest_seats": {peer_id: seat}}. Gast-Plaetze erst nach gueltigem hello (peer_joined).
 var pending_online_host: Dictionary = {}
+# Gesetzt vor add_child (Gast): Besitzer der Verbindung (RtcConnector), siehe _net_owner.
+var pending_owner = null
 var handoff_pending := false
 var spectating := false
 var selected := -1
@@ -112,6 +114,9 @@ var _guest_seats := {}
 var _awaiting_result := false
 # Online: Verbindung beendet (selbst getrennt oder Host weg). Nicht mehr pollen.
 var _net_closed := false
+# Besitzer der Verbindung (RtcConnector). Er schliesst beim Freigeben seinen Peer,
+# deshalb haelt ihn der Tisch die ganze Partie und schliesst ihn mit dem Link.
+var _net_owner = null
 var _pause_menu_button: Button
 var _again_button: Button
 var _host_left_panel: PanelContainer
@@ -175,6 +180,8 @@ func _ready() -> void:
 		start_online_host(pending_online_host)
 		return
 	if pending_session != null:
+		_net_owner = pending_owner
+		pending_owner = null
 		_attach_guest(pending_session)
 		return
 	if not pending_config.is_empty():
@@ -187,6 +194,7 @@ func _ready() -> void:
 		start_online_host(job)
 		return
 	if mode == "online_guest":
+		_net_owner = job.get("owner")
 		var guest_session = job.get("session")
 		if guest_session == null or guest_session.is_authority():
 			# Kaputter Auftrag: nie still ein Offline-Spiel starten.
@@ -269,6 +277,7 @@ func _new_rules(cfg: Dictionary):
 # (kein Hot-Seat), kein Spielstand (_owns_save), KI-Plaetze wie offline ueber ai_step.
 # Gaeste bekommen ihren Platz erst nach gueltigem hello (peer_joined).
 func start_online_host(job: Dictionary) -> void:
+	_net_owner = job.get("owner")
 	var link = job.get("link")
 	var host_seat := int(job.get("host_seat", 0))
 	var cfg = job.get("config", {})
@@ -1027,6 +1036,11 @@ func _on_view(view: Dictionary, action: Dictionary) -> void:
 		# Wie beim direkten Anhaengen: eigene bekannte Karten kurz zeigen.
 		_reveal_own_known(REVEAL_DEAL_MS)
 	_views_seen += 1
+	# Web-Test-Bruecke (nur ?e2e=1): jede empfangene Sicht melden.
+	if _is_online():
+		var e2e_app := _app()
+		if e2e_app != null and e2e_app.has_method("e2e_mode") and e2e_app.e2e_mode():
+			print("ONLINE_VIEW rev=%d" % int(session.rev))
 	# Erste Sicht (oder andere Platzzahl): Plaetze aus der Sicht aufbauen.
 	if _seats.size() != int(view.seat_count):
 		_layout_seats()
@@ -1320,12 +1334,24 @@ func _apply_online_ui() -> void:
 # Verbindung beenden und danach nicht mehr pollen.
 # Idempotent: schliesst immer, auch wenn die Gegenseite schon weg ist.
 func _close_link() -> void:
+	# Besitzer zuerst: schliesst Peer-Verbindungen und Multiplayer-Peer (WebRTC-Threads).
+	_close_owner()
 	if not _is_online():
 		return
 	_net_closed = true
 	_awaiting_result = false
 	if session.link.has_method("close"):
 		session.link.close()
+
+
+# Idempotent: Besitzer genau einmal schliessen und loslassen.
+func _close_owner() -> void:
+	if _net_owner == null:
+		return
+	var net_owner = _net_owner
+	_net_owner = null
+	if net_owner.has_method("close"):
+		net_owner.close()
 
 
 # Tisch verschwindet auf irgendeinem Weg (Szenenwechsel, free): Verbindung nie offen lassen.
@@ -1336,6 +1362,7 @@ func _exit_tree() -> void:
 # Kaputter Online-Auftrag: zurueck zum Online-Bildschirm (sonst Hauptmenue), Link schliessen.
 func _abort_online(reason: String, link = null) -> void:
 	push_warning("Tisch: " + reason)
+	_close_owner()
 	if link != null and link.has_method("close"):
 		link.close()
 	var app := _app()

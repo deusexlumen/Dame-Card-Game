@@ -26,14 +26,18 @@ var saves
 var profile
 var audio
 # Auftrag fuer den Tisch: {"mode": "new", "config": {...}}, {"mode": "resume"},
-# {"mode": "online_host", "config", "link", "host_seat", "guest_seats"} oder
-# {"mode": "online_guest", "session": DameGuest}. Link und Session reisen nur hier mit
+# {"mode": "online_host", "config", "link", "host_seat", "guest_seats", "owner"} oder
+# {"mode": "online_guest", "session": DameGuest, "owner"}. Link und Session reisen nur hier mit
 # und werden beim Abholen geloescht; niemand pollt sie bis der Tisch sie uebernimmt.
+# "owner" besitzt die Verbindung (RtcConnector: schliesst beim Freigeben seinen Peer).
+# Der Tisch haelt ihn die ganze Partie und schliesst ihn mit der Verbindung.
 var pending: Dictionary = {}
 var last_config: Dictionary = {}
 # Tests: Szenenwechsel nur merken, nicht ausfuehren.
 var test_mode := false
 var last_goto := ""
+# Zwischenspeicher fuer e2e_mode(): -1 unbekannt, 0 aus, 1 an.
+var _e2e := -1
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -156,14 +160,25 @@ func online_host_match(job: Dictionary) -> void:
 		"link": job.get("link"),
 		"host_seat": int(job.get("host_seat", 0)),
 		"guest_seats": job.get("guest_seats", {}),
+		"owner": job.get("owner"),
 	}
 	goto(TABLE)
 
 
 # Online-Gast: der Tisch uebernimmt die verbundene Session (DameGuest).
-func online_guest_match(session) -> void:
-	pending = {"mode": "online_guest", "session": session}
+func online_guest_match(session, owner = null) -> void:
+	pending = {"mode": "online_guest", "session": session, "owner": owner}
 	goto(TABLE)
+
+
+# Web-Test-Bruecke (Playwright): nur wenn die Seiten-URL ?e2e=1 enthaelt. Nie ausserhalb.
+func e2e_mode() -> bool:
+	if _e2e < 0:
+		_e2e = 0
+		if is_web():
+			var on = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('e2e') === '1'", true)
+			_e2e = 1 if on == true else 0
+	return _e2e == 1
 
 
 # Ziel nach einer Online-Partie: Online-Bildschirm, solange es ihn noch nicht gibt das Hauptmenue.

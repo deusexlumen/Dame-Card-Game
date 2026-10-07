@@ -43,10 +43,30 @@ static func encode(kind: String, offer_id: String, peer_id: int, sdp: String, ca
 	return PREFIX + b64.replace("+", "-").replace("/", "_").replace("=", "")
 
 
+# Entfernt Leerraum, den Chat-Apps und Editoren beim Kopieren einstreuen: ASCII-
+# Leerraum, geschuetzte Leerzeichen (U+00A0, U+202F), Nullbreitenzeichen
+# (U+200B-U+200D, U+2060, U+FEFF) und sonstigen Unicode-Leerraum. Codezeichen bleiben.
+static func clean(code: String) -> String:
+	var out := ""
+	for i in code.length():
+		if not _is_space(code.unicode_at(i)):
+			out += code[i]
+	return out
+
+
+static func _is_space(c: int) -> bool:
+	if c <= 0x20 or c == 0x7F or c == 0x85 or c == 0xA0:
+		return true
+	if c >= 0x2000 and c <= 0x200D:
+		return true
+	return c in [0x1680, 0x180E, 0x2028, 0x2029, 0x202F, 0x205F, 0x2060, 0x3000, 0xFEFF]
+
+
 static func decode(code: String, expect_kind: String = "") -> Dictionary:
-	var text := code
-	for ws in [" ", "\n", "\r", "\t"]:
-		text = text.replace(ws, "")
+	# Grobe Obergrenze vor dem zeichenweisen Reinigen (eingefuegter Text kann riesig sein).
+	if code.length() > MAX_CODE_CHARS * 2:
+		return _fail(ERR_BROKEN)
+	var text := clean(code)
 	if text.length() > MAX_CODE_CHARS:
 		return _fail(ERR_BROKEN)
 	if not text.begins_with(PREFIX):
