@@ -318,6 +318,11 @@ const SUFFIXES := {
 }
 
 
+## Ersetzte Begriffe für Deutsch, gesetzt von einer einbettenden App (latte-app: "Chips" -> "Gefälligkeiten").
+## Schlüssel und Wert sind deutsche Texte. Leer = DAME wie gewohnt.
+static var de_overrides: Dictionary = {}
+
+
 # Sprache setzen und Tabelle anmelden. Deutsch braucht keine Tabelle (Schluessel = Text).
 static func install(p_lang: String) -> void:
 	lang = p_lang if p_lang in ["de", "en"] else "de"
@@ -329,12 +334,18 @@ static func install(p_lang: String) -> void:
 	# Nur bei Englisch anmelden: Godots Rueckfallsprache ist "en" und wuerde Deutsch sonst ueberschreiben.
 	if lang == "en":
 		TranslationServer.add_translation(tr_en)
+	elif not de_overrides.is_empty():
+		var tr_de := Translation.new()
+		tr_de.locale = "de"
+		for k in de_overrides:
+			tr_de.add_message(k, de_overrides[k])
+		TranslationServer.add_translation(tr_de)
 	TranslationServer.set_locale(lang)
 
 
 static func t(text: String) -> String:
 	if lang != "en":
-		return text
+		return str(de_overrides.get(text, text))
 	return str(EN.get(text, text))
 
 

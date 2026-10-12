@@ -8,6 +8,7 @@ const CATEGORIES := {
 	"card_back": "Kartenrücken",
 	"card_face": "Kartenvorderseite",
 	"table": "Tischfilz",
+	"room": "Raum",
 }
 
 const ITEMS := [
@@ -16,6 +17,7 @@ const ITEMS := [
 	{"id": "back_smaragd", "category": "card_back", "name": "Smaragd", "price": 150, "data": {"skin": "smaragd"}},
 	{"id": "back_karo", "category": "card_back", "name": "Karo", "price": 200, "data": {"skin": "karo"}},
 	{"id": "back_deco", "category": "card_back", "name": "Art déco", "price": 350, "data": {"skin": "deco"}},
+	{"id": "back_akte", "category": "card_back", "name": "Akte", "price": 200, "data": {"skin": "akte"}},
 	{"id": "face_klassisch", "category": "card_face", "name": "Klassisch", "price": 0, "data": {"skin": "klassisch"}},
 	{"id": "face_vierfarben", "category": "card_face", "name": "Vierfarben", "price": 150, "data": {"skin": "vierfarben"}},
 	{"id": "face_jumbo", "category": "card_face", "name": "Jumbo", "price": 150, "data": {"skin": "jumbo"}},
@@ -24,6 +26,10 @@ const ITEMS := [
 	{"id": "table_blau", "category": "table", "name": "Mitternachtsblau", "price": 150, "data": {"color": "1d3358"}},
 	{"id": "table_bordeaux", "category": "table", "name": "Bordeaux", "price": 150, "data": {"color": "5a1a24"}},
 	{"id": "table_schwarz", "category": "table", "name": "Anthrazit", "price": 250, "data": {"color": "26262b"}},
+	{"id": "table_amtsgruen", "category": "table", "name": "Amtsgrün", "price": 150, "data": {"color": "3d4a3a"}},
+	# Raum: "color" nur für die Vorschau im Shop.
+	{"id": "room_casino", "category": "room", "name": "Casino", "price": 0, "data": {"style": "casino", "color": "3a1a12"}},
+	{"id": "room_amt", "category": "room", "name": "Amtsstube", "price": 300, "data": {"style": "amt", "color": "8a8f86"}},
 ]
 
 # Verdienst in Chips je Ereignis.

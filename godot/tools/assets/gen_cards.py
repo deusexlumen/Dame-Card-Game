@@ -5,9 +5,11 @@ godot/assets/cards/backs/<skin>.png. Bube und Dame gibt es je Sprache
 (de: B/D, en: J/Q), alle anderen Karten sind sprachneutral.
 
 Aufruf: python gen_cards.py  (aus beliebigem Ordner)
+        python gen_cards.py akte   (nur diese Rückseite(n), Vorderseiten bleiben unberührt)
 """
 import math
 import os
+import sys
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -37,6 +39,8 @@ BACKS = {
     "deco": {"base": (16, 16, 18), "line": (120, 96, 46), "gold": (218, 180, 96), "style": "deco"},
     "smaragd": {"base": (10, 72, 50), "line": (40, 120, 88), "gold": (214, 176, 92), "style": "lattice"},
     "karo": {"base": (26, 10, 14), "line": (120, 20, 34), "gold": (214, 176, 92), "style": "checker"},
+    # Amts-Look (latte-app, Hinterzimmer): Aktendeckel aus Pappe mit Aktenzeichen und Eingangsstempel.
+    "akte": {"base": (196, 168, 118), "line": (172, 144, 96), "gold": (70, 52, 30), "style": "akte"},
 }
 
 # Symbolpositionen je Zahlenwert im Innenfeld (x, y in 0..1), unten liegende werden gedreht.
@@ -158,8 +162,43 @@ def face(skin, rank, suit, lang):
     return img.resize((W, H), Image.LANCZOS)
 
 
+def akte_back(st):
+    """Aktendeckel: Pappe mit Faserstruktur, Beschriftungsfeld, Aktenzeichen, schräger Eingangsstempel."""
+    img = Image.new("RGBA", (W * SS, H * SS), st["base"] + (255,))
+    d = ImageDraw.Draw(img)
+    # Faserstruktur der Pappe: feine waagerechte Linien.
+    for yy in range(0, H * SS, 5 * SS):
+        d.line([(0, yy), (W * SS, yy)], fill=st["line"] + (90,), width=1)
+    # Lochung für den Aktenordner.
+    for yy in (H * SS * 0.30, H * SS * 0.70):
+        d.ellipse([16 * SS, yy - 7 * SS, 30 * SS, yy + 7 * SS], fill=(150, 124, 82, 255))
+    # Beschriftungsfeld.
+    lx, ly, lw, lh = 52 * SS, 62 * SS, W * SS - 86 * SS, 120 * SS
+    d.rectangle([lx, ly, lx + lw, ly + lh], fill=(238, 230, 206, 255), outline=st["gold"] + (255,), width=2 * SS)
+    for k in range(1, 4):
+        d.line([(lx + 10 * SS, ly + (k * 28 + 10) * SS), (lx + lw - 10 * SS, ly + (k * 28 + 10) * SS)], fill=(150, 140, 120, 255), width=SS)
+    text(img, "AKTE", W * SS / 2 + 17 * SS, ly + 22 * SS, font("PlayfairDisplay.ttf", 26, 800), st["gold"] + (255,))
+    text(img, "Az. 0815 / 26-IV", W * SS / 2 + 17 * SS, ly + 52 * SS, font("Inter.ttf", 13, 600), (60, 50, 40, 255))
+    text(img, "Hinterzimmer", W * SS / 2 + 17 * SS, ly + 80 * SS, font("Inter.ttf", 12, 500), (90, 80, 66, 255))
+    # Eingangsstempel, rot und schräg.
+    stamp = Image.new("RGBA", (150 * SS, 90 * SS), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(stamp)
+    red = (168, 34, 40, 210)
+    sd.rounded_rectangle([4 * SS, 4 * SS, 146 * SS, 86 * SS], 6 * SS, outline=red, width=3 * SS)
+    text(stamp, "EINGANG", 75 * SS, 30 * SS, font("Inter.ttf", 18, 800), red)
+    text(stamp, "nicht bearbeitet", 75 * SS, 60 * SS, font("Inter.ttf", 11, 600), red)
+    stamp = stamp.rotate(14, resample=Image.BICUBIC, expand=True)
+    img.alpha_composite(stamp, (int(W * SS * 0.30), int(H * SS * 0.56)))
+    # Kantenschatten.
+    d.rectangle([0, 0, W * SS - 1, H * SS - 1], outline=(120, 96, 60, 255), width=3 * SS)
+    img.putalpha(Image.composite(img.getchannel("A"), Image.new("L", img.size, 0), rounded_mask()))
+    return img.resize((W, H), Image.LANCZOS)
+
+
 def back(name):
     st = BACKS[name]
+    if st["style"] == "akte":
+        return akte_back(st)
     img = Image.new("RGBA", (W * SS, H * SS), (246, 244, 236, 255))
     d = ImageDraw.Draw(img)
     b = 14 * SS
@@ -201,7 +240,8 @@ def back(name):
 
 
 def main():
-    for skin in SKINS:
+    only_backs = len(sys.argv) > 1
+    for skin in ([] if only_backs else SKINS):
         out = os.path.join(OUT, "faces", skin)
         os.makedirs(out, exist_ok=True)
         for suit in SUITS:
@@ -212,7 +252,8 @@ def main():
                 else:
                     face(skin, rank, suit, "de").save(os.path.join(out, "%s%s.png" % (rank, suit)), optimize=True)
     os.makedirs(os.path.join(OUT, "backs"), exist_ok=True)
-    for name in BACKS:
+    names = [a for a in sys.argv[1:] if a in BACKS] or list(BACKS)
+    for name in names:
         back(name).save(os.path.join(OUT, "backs", name + ".png"), optimize=True)
     print("CARDS_OK")
 
