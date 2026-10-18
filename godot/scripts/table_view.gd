@@ -9,6 +9,7 @@ signal state_changed
 const DameRulesScript = preload("res://scripts/dame_rules.gd")
 const DameAIScript = preload("res://scripts/dame_ai.gd")
 const DameHostScript = preload("res://scripts/net/dame_host.gd")
+const PresenceScript = preload("res://scripts/net/presence.gd")
 const DameProtocol = preload("res://scripts/net/net_protocol.gd")
 const SeatViewScript = preload("res://scripts/ui/seat_view.gd")
 const CardViewScript = preload("res://scripts/ui/card_view.gd")
@@ -19,6 +20,8 @@ const I18nScript = preload("res://scripts/i18n.gd")
 const FxLayerScript = preload("res://scripts/ui/fx_layer.gd")
 
 const REVEAL_DEAL_MS := 5000
+# Online: so lange wartet der Tisch zwischen zwei Ausgaben hoechstens (§10).
+const NEXT_DEAL_SECONDS := 10.0
 const HELP_DE := """[b]Dein Zug[/b]
 1. Ziehe vom [b]Stapel[/b] (Leertaste) oder nimm die oberste Karte der [b]Ablage[/b].
 2. Tausche sie gegen eine eigene Karte (Karte anklicken) oder lege sie direkt ab (A).
@@ -110,6 +113,11 @@ var _game_recorded := false
 var _guest_seat_pending := false
 # Online-Host: erlaubte Gaeste {peer_id: seat}.
 var _guest_seats := {}
+# Online-Host: Abwesenheit der Gaeste (§11) und Wartezeiten, siehe _tick_presence.
+var _presence = null
+var _absent_wait := 0.0
+var _absent_key := -1
+var _deal_wait := 0.0
 # Gast: eigene Aktion gesendet, Ergebnis steht noch aus (keine Doppel-Eingabe).
 var _awaiting_result := false
 # Online: Verbindung beendet (selbst getrennt oder Host weg). Nicht mehr pollen.
@@ -304,6 +312,9 @@ func start_online_host(job: Dictionary) -> void:
 	_attach_host(r, int(config.seed) + 7, REVEAL_DEAL_MS, link, [host_seat])
 	session.peer_joined.connect(_on_peer_joined)
 	session.peer_left.connect(_on_peer_left)
+	_presence = PresenceScript.new()
+	for peer in _guest_seats:
+		_presence.track(int(_guest_seats[peer]))
 	_apply_online_ui()
 
 
@@ -1202,6 +1213,10 @@ func next_deal() -> void:
 		return
 	if session.is_authority():
 		session.next_round()
+		# §11 Stufe 2: Strafkarte fuer Wiedereinsteiger in der neuen Ausgabe.
+		if _presence != null:
+			for seat in _presence.take_pending_penalties():
+				session.penalize_absence(int(seat))
 	else:
 		# Gast: nur der Hinweis, er bleibt auch nach jedem Neuzeichnen (_prompt_text).
 		_prompt.text = _prompt_text()
@@ -1374,6 +1389,11 @@ func _abort_online(reason: String, link = null) -> void:
 func _on_peer_joined(peer_id: int) -> void:
 	if not _guest_seats.has(peer_id) or _net_closed:
 		return
+	if _presence != null:
+		var seat := int(_guest_seats[peer_id])
+		if not _presence.rejoin_allowed(seat):
+			return
+		_presence.set_present(seat, true)
 	session.assign_seat(peer_id, int(_guest_seats[peer_id]))
 
 
@@ -1382,6 +1402,8 @@ func _on_peer_left(peer_id: int) -> void:
 	if not _guest_seats.has(peer_id) or _view.is_empty():
 		return
 	var seat := int(_guest_seats[peer_id])
+	if _presence != null:
+		_presence.set_present(seat, false)
 	if seat >= 0 and seat < (_view.players as Array).size():
 		_toast_text(tr("%s hat die Verbindung verloren.") % str(_view.players[seat].name))
 
@@ -1439,10 +1461,11 @@ func _process(delta: float) -> void:
 		_timer_bar.visible = false
 		_turn_owner = -1
 		return
+	_tick_presence(delta)
 	var step := str(_view.turn_step)
 	# Pause bei Bube/Koenig-Auswahl (Spec Blitz-Modus).
-	var paused := step == "jack" or step == "king"
-	var running := bool(_setting("turn_timer")) and _human_turn() and not _pause_panel.visible
+	var paused := (step == "jack" or step == "king") and _presence == null
+	var running := (bool(_setting("turn_timer")) or _presence != null) and _human_turn() and not _pause_panel.visible
 	_timer_bar.visible = running
 	if not running:
 		_turn_owner = -1
@@ -1459,6 +1482,52 @@ func _process(delta: float) -> void:
 	if _turn_left <= 0.0:
 		_turn_owner = -1
 		timeout_turn()
+
+
+# Online-Host: Abwesenheit der Gaeste (§11) und automatische naechste Ausgabe (§10).
+func _tick_presence(delta: float) -> void:
+	if _presence == null or _net_closed:
+		return
+	var phase := str(_view.phase)
+	if phase == "round_end":
+		_deal_wait += delta
+		if _deal_wait >= NEXT_DEAL_SECONDS:
+			_deal_wait = 0.0
+			next_deal()
+		return
+	_deal_wait = 0.0
+	_presence.tick(delta)
+	if phase != "play" and phase != "dame_called":
+		return
+	var seat := int(_view.current_index)
+	if not _presence.is_tracked(seat):
+		_absent_wait = 0.0
+		_absent_key = -1
+		return
+	var key := seat * 1000 + int(_view.round) + int(_view.get("deal", 0)) * 100000
+	if key != _absent_key:
+		_absent_key = key
+		_absent_wait = 0.0
+	_absent_wait += delta
+	if _presence.is_present(seat) and not _presence.is_machine_controlled(seat):
+		# §10: anwesender Gast, Zeit um = genau eine Strafkarte. Der Timer pausiert online nie.
+		if _absent_wait >= float(_setting("turn_timer_seconds")):
+			_absent_wait = 0.0
+			_quiet = true
+			session.timeout_turn(ai)
+			_quiet = false
+		return
+	if _presence.is_machine_controlled(seat):
+		# Stufe 2/3: vorsichtige Vertretung im KI-Tempo.
+		if _absent_wait >= maxf(_ai_delay(), 0.05):
+			_absent_wait = 0.0
+			session.machine_step(ai, seat)
+	elif _absent_wait >= float(_setting("turn_timer_seconds")) + PresenceScript.RESERVE_WAIT:
+		# Stufe 1: Zeit plus Verbindungsreserve um, aussetzen ohne Strafkarte.
+		_absent_wait = 0.0
+		_quiet = true
+		session.absent_turn(ai, seat)
+		_quiet = false
 
 
 # Zeit abgelaufen: Zug mit sicheren Standardaktionen beenden.

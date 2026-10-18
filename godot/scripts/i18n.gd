@@ -267,6 +267,8 @@ const EN := {
 	"König: eigene Karte angesehen und blind getauscht. Beide bleiben verdeckt.": "King: looked at own card and swapped blind. Both stay face down.",
 	"%s: Zeit abgelaufen. Genau eine Strafkarte.": "%s: time is up. Exactly one penalty card.",
 	"Zeit abgelaufen – Strafkarte für %s.": "Time is up – penalty card for %s.",
+	"%s ist nicht da und setzt aus.": "%s is away and passes.",
+	"%s war zu lange weg. Genau eine Strafkarte.": "%s was away too long. Exactly one penalty card.",
 	"Dame offen. Genau eine Strafkarte.": "Open queen. Exactly one penalty card.",
 	"Keine Strafkarte mehr verfügbar (%s).": "No penalty card left (%s).",
 	"Extra-Karte abgelegt, Hand leer. Dame automatisch gerufen.": "Extra card discarded, hand empty. Dame called automatically.",
