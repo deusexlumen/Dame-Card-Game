@@ -45,3 +45,8 @@ Plan: `docs/superpowers/plans/2026-10-06-godot-pages-release.md`. Ziel: Godot-We
 - Plan (2026-10-06, ersetzt VPS-Idee aus session-3.md): kein eigener Server, ein Spieler hostet per WebRTC, Signaling über Supabase-Raumcode (`docs/online-p2p-plan.md`). Schritt 1 (Netz-Kern `godot/scripts/net/`) und 1b (Tisch nur aus der Sicht, auch als Online-Gast) fertig; nächste Schritte: WebRTC-Link-Adapter, Signaling, Lobby (siehe `docs/online-p2p-plan.md`, Abschnitt Schritte).
 - PWA bleibt (Nutzer 2026-10-06): Wo und wie gespielt wird, ist egal; das Spiel muss überall gleich sein.
 - Web-Download halbiert (PR #9), Actions auf Node 24 (PR #7).
+
+## 2026-10-18 – Online Schritte 2–4
+- Branch `ccr-ee360b9b-4sc6j1`. Linux-Godot 4.7.2 lässt sich in der Cloud-Sandbox laden (GODOT_BIN setzen, vorher `--import`). WebRTC-Verbindungstests (`test_rtc_connector`) sind in der Sandbox instabil (keine Netzwerkschnittstellen, Host-Kandidaten fehlen); der Rest der Suite ist grün.
+- Neu: `net/presence.gd` (§11 Stufen), Host-Methoden für abwesende Plätze, Gast-Zugtimer + Auto-Weiter (§10), `net/signaling.gd` + Raumcode im Online-Bildschirm.
+- Offen: Signaling gegen echtes Supabase testen (Realtime „public access“ prüfen), Wiedereintritt nach Verbindungsverlust (neuer Handshake), mehrere Gäste, Anzeige der Abwesenheit am Tisch, Test mit zwei echten Geräten (Mobilfunk).

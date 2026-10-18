@@ -19,6 +19,7 @@ const NetConfig = preload("res://scripts/net/net_config.gd")
 const RtcCode = preload("res://scripts/net/rtc_code.gd")
 const DameGuest = preload("res://scripts/net/dame_guest.gd")
 const I18n = preload("res://scripts/i18n.gd")
+const Signaling = preload("res://scripts/net/signaling.gd")
 
 const GUEST_PEER := 2        # einziger Gast in dieser Ausbaustufe
 const HOST_SEAT := 0
@@ -57,13 +58,21 @@ const NO_START_TEXT := "Der Host hat das Spiel nicht gestartet."
 const LOST_TEXT := "Die Verbindung zum Host ist abgebrochen."
 const REJECTED_TEXT := "Der Host hat die Verbindung abgelehnt."
 const GUEST_NAME := "Gast"
+const ROOM_BUTTON := "Raum öffnen"
+const ROOM_CODE_TEXT := "Raumcode: %s – gib ihn deinem Gast."
+const ROOM_OPENING_TEXT := "Raum wird geöffnet …"
+const ROOM_JOIN_BUTTON := "Raum beitreten"
+const ROOM_LABEL := "Raumcode (vom Host)"
+const ROOM_WAIT_TEXT := "Im Raum. Warte auf die Einladung des Hosts …"
+const ROOM_BAD_TEXT := "Der Raumcode hat sechs Zeichen."
 
 # Alle Spielertexte dieses Bildschirms (Test: Englisch vorhanden).
 const TEXTS := [TITLE_TEXT, PRIVACY_TEXT, UNAVAILABLE_TEXT, HOST_HEAD, GUEST_HEAD, HOST_INFO,
 	SEATS_LABEL, INVITE_BUTTON, INVITE_LABEL, COPY_BUTTON, ANSWER_IN_LABEL, CONNECT_BUTTON,
 	JOIN_LABEL, JOIN_BUTTON, ANSWER_OUT_LABEL, CANCEL_BUTTON, MAKING_INVITE_TEXT, INVITE_READY_TEXT,
 	CONNECTING_TEXT, PREPARING_TEXT, MAKING_ANSWER_TEXT, WAIT_HOST_TEXT, WAIT_START_TEXT, COPIED_TEXT, NO_INVITE_TEXT,
-	EMPTY_CODE_TEXT, NO_START_TEXT, LOST_TEXT, REJECTED_TEXT, GUEST_NAME, "%d Spieler"]
+	EMPTY_CODE_TEXT, NO_START_TEXT, LOST_TEXT, REJECTED_TEXT, GUEST_NAME, "%d Spieler", ROOM_BUTTON, ROOM_CODE_TEXT,
+	ROOM_OPENING_TEXT, ROOM_JOIN_BUTTON, ROOM_LABEL, ROOM_WAIT_TEXT, ROOM_BAD_TEXT]
 
 # Vor add_child setzbar (Tests): ICE-Konfiguration fuer neue Connectoren ({} = Standard)
 # und WebRTC-Erkennung erzwingen (-1 = erkennen, 0 = fehlt, 1 = vorhanden).
@@ -72,6 +81,8 @@ var ice_config: Dictionary = {}
 # Wird ignoriert, wenn ice_config gesetzt ist.
 var turn_url: String = NetConfig.TURN_URL
 var webrtc_override := -1
+# Tests: eigener Signaling-Dienst ("" = Standard aus NetConfig).
+var signaling_url := ""
 var first_view_ms := FIRST_VIEW_MS
 
 var unavailable_label: Label
@@ -93,6 +104,12 @@ var answer_copy_button: Button
 var guest_status: Label
 var guest_error: Label
 var cancel_button: Button
+var room_button: Button
+var room_label: Label
+var room_edit: LineEdit
+var room_join_button: Button
+var _sig_host = null
+var _sig_guest = null
 
 var _host_rtc = null
 var _host_link = null
@@ -185,6 +202,11 @@ func _build_host(parent: Control) -> Control:
 	invite_edit.editable = false
 	invite_copy_button = _big_button(COPY_BUTTON, func() -> void: _copy(invite_edit, host_status))
 	vb.add_child(_field_row(invite_edit, invite_copy_button))
+	room_button = _big_button(ROOM_BUTTON, host_room)
+	vb.add_child(room_button)
+	room_label = label("", 18)
+	room_label.add_theme_color_override("font_color", UiTheme.GOLD)
+	vb.add_child(room_label)
 	answer_in_edit = _field(ANSWER_IN_LABEL)
 	connect_button = _big_button(CONNECT_BUTTON, func() -> void: host_accept(answer_in_edit.text))
 	vb.add_child(_field_row(answer_in_edit, connect_button))
@@ -200,6 +222,10 @@ func _build_guest(parent: Control) -> Control:
 	join_edit = _field(JOIN_LABEL)
 	join_button = _big_button(JOIN_BUTTON, func() -> void: guest_join(join_edit.text))
 	vb.add_child(_field_row(join_edit, join_button))
+	room_edit = _field(ROOM_LABEL)
+	room_edit.max_length = Signaling.ROOM_LEN + 2
+	room_join_button = _big_button(ROOM_JOIN_BUTTON, func() -> void: guest_room(room_edit.text))
+	vb.add_child(_field_row(room_edit, room_join_button))
 	vb.add_child(label(ANSWER_OUT_LABEL, 15))
 	answer_out_edit = _field("")
 	answer_out_edit.editable = false
@@ -365,6 +391,7 @@ func host_accept(text: String) -> void:
 func _on_host_invite(code: String) -> void:
 	invite_edit.text = code
 	host_status.text = INVITE_READY_TEXT
+	_publish_invite()
 	if _e2e:
 		print("ONLINE_INVITE ", code)
 
@@ -386,6 +413,8 @@ func _on_host_failed(reason: String) -> void:
 	invite_edit.text = ""
 	_host_connecting = false
 	invite_button.disabled = false
+	_close_sig_host()
+	room_label.text = ""
 
 
 func host_config() -> Dictionary:
@@ -427,6 +456,7 @@ func _handoff_host() -> void:
 	_handed_off = true
 	_host_rtc = null
 	_host_link = null
+	_close_sig_host()
 	_close_guest()
 	if _e2e:
 		print("ONLINE_TABLE seat=%d" % HOST_SEAT)
@@ -493,6 +523,8 @@ func guest_cancel() -> void:
 func _on_guest_answer(code: String) -> void:
 	answer_out_edit.text = code
 	guest_status.text = WAIT_HOST_TEXT
+	if _sig_guest != null:
+		_sig_guest.send_event("answer", {"code": code})
 	if _e2e:
 		print("ONLINE_ANSWER ", code)
 
@@ -500,6 +532,7 @@ func _on_guest_answer(code: String) -> void:
 func _on_guest_connected(link) -> void:
 	if _guest_link == null:
 		_guest_link = link
+		_close_sig_guest()
 		if _e2e:
 			print("ONLINE_CONNECTED")
 
@@ -526,10 +559,14 @@ func _reset_guest_ui() -> void:
 	answer_out_edit.text = ""
 	join_edit.editable = true
 	join_button.disabled = false
+	if room_edit != null:
+		room_edit.editable = true
+		room_join_button.disabled = false
 	cancel_button.visible = false
 
 
 func _close_guest() -> void:
+	_close_sig_guest()
 	_unhook_guest_session()
 	var rtc = _guest_rtc
 	_guest_rtc = null
@@ -588,6 +625,126 @@ func _handoff_guest() -> void:
 
 # ---------- Netz ----------
 
+# ---------------------------------------------------------------- Raumcode
+
+func _new_signaling():
+	var sig = Signaling.new()
+	if signaling_url != "":
+		sig.url = signaling_url
+		sig.api_key = ""
+	return sig
+
+
+# Host: Raum auf dem Signaling-Dienst oeffnen und die Einladung dort anbieten.
+func host_room() -> void:
+	if _handed_off or _host_connecting or _ice_fetcher != null or _sig_host != null:
+		return
+	host_error.text = ""
+	var sig = _new_signaling()
+	var code: String = Signaling.new_room_code()
+	sig.joined.connect(_publish_invite)
+	sig.event.connect(_on_host_signal)
+	sig.failed.connect(_on_host_room_failed)
+	_sig_host = sig
+	room_button.disabled = true
+	room_label.text = tr(ROOM_CODE_TEXT) % code
+	host_status.text = ROOM_OPENING_TEXT
+	if not sig.open(code):
+		return
+	if _e2e:
+		print("ONLINE_ROOM ", code)
+	host_invite()
+
+
+func _publish_invite() -> void:
+	if _sig_host != null and _sig_host.is_joined() and invite_edit.text != "" and not _host_connecting:
+		_sig_host.send_event("invite", {"code": invite_edit.text})
+
+
+func _on_host_signal(name: String, payload: Dictionary) -> void:
+	if name == "hello":
+		_publish_invite()
+	elif name == "answer" and not _host_connecting and typeof(payload.get("code")) == TYPE_STRING:
+		host_accept(str(payload.code))
+
+
+func _on_host_room_failed(reason: String) -> void:
+	_close_sig_host()
+	host_error.text = reason
+	room_label.text = ""
+	_beep_error()
+
+
+func _close_sig_host() -> void:
+	var sig = _sig_host
+	_sig_host = null
+	if sig != null:
+		sig.close()
+	if room_button != null:
+		room_button.disabled = false
+
+
+# Gast: Raum betreten, die Einladung des Hosts kommt von selbst.
+func guest_room(text: String) -> void:
+	if _handed_off or _ice_fetcher != null:
+		return
+	var code := Signaling.normalize_room(text)
+	if code == "":
+		guest_error.text = ROOM_BAD_TEXT
+		_beep_error()
+		return
+	_close_guest()
+	_reset_guest_ui()
+	var sig = _new_signaling()
+	sig.joined.connect(_on_guest_room_joined)
+	sig.event.connect(_on_guest_signal)
+	sig.failed.connect(_on_guest_room_failed)
+	_sig_guest = sig
+	join_edit.editable = false
+	join_button.disabled = true
+	room_edit.editable = false
+	room_join_button.disabled = true
+	cancel_button.visible = true
+	guest_status.text = ROOM_OPENING_TEXT
+	sig.open(code)
+
+
+func _on_guest_room_joined() -> void:
+	guest_status.text = ROOM_WAIT_TEXT
+	if _sig_guest != null:
+		_sig_guest.send_event("hello", {})
+
+
+func _on_guest_signal(name: String, payload: Dictionary) -> void:
+	if name == "invite" and _guest_rtc == null and typeof(payload.get("code")) == TYPE_STRING:
+		# guest_join setzt die Oberflaeche zurueck, die Raumverbindung bleibt fuer die Antwort.
+		var keep = _sig_guest
+		_sig_guest = null
+		guest_join(str(payload.code))
+		if _guest_rtc != null:
+			_sig_guest = keep
+			room_edit.editable = false
+			room_join_button.disabled = true
+		elif keep != null:
+			keep.close()
+			room_edit.editable = true
+			room_join_button.disabled = false
+
+
+func _on_guest_room_failed(reason: String) -> void:
+	_sig_guest = null
+	_reset_guest_ui()
+	guest_error.text = reason
+	_beep_error()
+
+
+func _close_sig_guest() -> void:
+	var sig = _sig_guest
+	_sig_guest = null
+	if sig != null:
+		sig.close()
+
+
 func _process(_delta: float) -> void:
 	poll_net()
 
@@ -598,6 +755,10 @@ func poll_net() -> void:
 	_poll_ice()
 	if _handed_off:
 		return
+	if _sig_host != null:
+		_sig_host.poll()
+	if _sig_guest != null:
+		_sig_guest.poll()
 	# Host: nur den Connector pollen, nie den Link (ein frueher hello bleibt im Peer
 	# liegen, bis der Tisch ihn abholt).
 	var host = _host_rtc
@@ -636,6 +797,9 @@ func _close_host() -> void:
 	_host_rtc = null
 	_host_link = null
 	_host_connecting = false
+	_close_sig_host()
+	if room_label != null:
+		room_label.text = ""
 	if invite_button != null:
 		invite_button.disabled = false
 	if rtc != null:
