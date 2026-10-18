@@ -13,8 +13,6 @@ func _initialize() -> void:
 	var app := root.get_node("App")
 	app.use_test_storage()
 	app.test_mode = false
-	# DAMEs eigener Ablauf, auch in einer einbettenden App (Latte lenkt home_scene ins Hinterzimmer).
-	app.home_scene = app.MAIN_MENU
 	change_scene_to_file("res://scenes/main_menu.tscn")
 
 
@@ -29,6 +27,9 @@ func _process(_delta: float) -> bool:
 		0:
 			if scene == null or scene.name != "MainMenu":
 				return _abort("Menue nicht geladen")
+			# DAMEs eigener Ablauf, auch in einer einbettenden App: deren Autoloads lenken
+			# home_scene erst nach _initialize um (Latte ins Hinterzimmer), darum erst hier.
+			app.home_scene = app.MAIN_MENU
 			if scene.resume_button.visible:
 				return _abort("Fortsetzen ohne Spielstand sichtbar")
 			scene.buttons[1].pressed.emit()
