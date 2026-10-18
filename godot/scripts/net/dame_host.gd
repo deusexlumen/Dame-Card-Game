@@ -18,6 +18,8 @@ signal peer_left(peer_id: int)
 var rules
 var link
 var seat_of_peer := {}
+# Wiedereintritts-Schluessel je Gast-Peer (geht nur ueber den verschluesselten Datenkanal).
+var token_of_peer := {}
 var rev := 0
 var latest_view: Dictionary = {}
 # Plaetze, die an diesem Geraet gespielt werden.
@@ -49,6 +51,29 @@ func assign_seat(peer_id: int, seat: int) -> void:
 func remove_peer(peer_id: int) -> void:
 	if seat_of_peer.erase(peer_id):
 		peer_left.emit(peer_id)
+
+
+# Peer zu einem Wiedereintritts-Schluessel, sonst -1.
+func peer_of_token(token: String) -> int:
+	if token.is_empty():
+		return -1
+	for peer in token_of_peer:
+		if str(token_of_peer[peer]) == token:
+			return int(peer)
+	return -1
+
+
+static func new_token() -> String:
+	return Marshalls.raw_to_base64(Crypto.new().generate_random_bytes(18))
+
+
+# Host geht absichtlich: allen Gaesten Bescheid geben (best effort, vor dem Schliessen).
+func say_bye() -> void:
+	if link == null:
+		return
+	for peer in seat_of_peer:
+		if int(peer) != Protocol.HOST_PEER:
+			link.send(int(peer), Codec.encode(Protocol.bye()))
 
 
 # Aktion des Host-Spielers selbst. Gleiche Schnittstelle wie beim Gast.
@@ -234,8 +259,11 @@ func handle_packet(from: int, bytes: PackedByteArray) -> Array:
 			var v = msg.get("v")
 			if typeof(v) != TYPE_INT or int(v) != Protocol.VERSION:
 				return [{"to": from, "msg": {"t": "reject", "reason": "Falsche Spielversion"}}]
+			# Bei einem Wiedereintritt behaelt der Peer seinen Schluessel.
+			if not token_of_peer.has(from):
+				token_of_peer[from] = new_token()
 			peer_joined.emit(from)
-			return [{"to": from, "msg": {"t": "welcome", "peer": from}}]
+			return [{"to": from, "msg": {"t": "welcome", "peer": from, "token": token_of_peer[from]}}]
 		"action":
 			return submit(from, msg.get("action"))
 	return []

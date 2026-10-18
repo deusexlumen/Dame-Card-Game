@@ -59,7 +59,7 @@ func run(ctx) -> void:
 		t.expect(OS.get_environment("DAME_REQUIRE_WEBRTC") != "1", "WebRTC-Erweiterung fehlt, DAME_REQUIRE_WEBRTC=1 verlangt sie")
 	else:
 		var rtc_checks: Array[Callable] = [_check_dropped_connector_kills_link, _check_guest_retry,
-				_check_screen_to_table, _check_room_flow, _check_room_errors, _check_guest_no_start, _check_guest_rejected, _check_guest_lost,
+				_check_screen_to_table, _check_room_flow, _check_room_rejoin, _check_room_errors, _check_guest_no_start, _check_guest_rejected, _check_guest_lost,
 				_check_host_turn_fetch]
 		for check in rtc_checks:
 			check.call()
@@ -585,6 +585,98 @@ func _check_room_flow() -> void:
 	t.expect(str(app.pending.get("mode", "")) == "online_guest", "Raumcode: Gast landet nicht am Tisch")
 	t.expect(gs._sig_guest == null, "Raumcode: Gast-Raum nach Verbindung offen")
 	_sig_stop()
+
+
+# Wiedereintritt (§11): Gast verliert mitten in der Partie die Verbindung und kommt
+# ueber den Raum der Partie mit neuer WebRTC-Verbindung auf seinen Platz zurueck.
+func _check_room_rejoin() -> void:
+	app.pending = {}
+	var port := _sig_start()
+	if port == 0:
+		t.expect(false, "Wiedereintritt: kein freier Port")
+		return
+	var url := "ws://127.0.0.1:%d/websocket" % port
+	var hs = _screen()
+	var gs = _screen()
+	hs.signaling_url = url
+	gs.signaling_url = url
+	hs.seat_option.select(1)
+	hs.host_room()
+	gs.room_edit.text = hs._sig_host.room
+	gs.room_join_button.pressed.emit()
+	if not _wait(func():
+		_sig_pump()
+		hs.poll_net()
+		gs.poll_net()
+		return str(app.pending.get("mode", "")) == "online_host", "Wiedereintritt: Host-Uebergabe"):
+		_sig_stop()
+		return
+	t.expect(str(app.pending.get("room", "")) != "", "Wiedereintritt: Raumcode reist nicht zum Host-Tisch")
+	var host_table = _rejoin_table(url)
+	t.root.add_child(host_table)
+	_free(hs)
+	if not _wait(func():
+		_sig_pump()
+		host_table._process(0.0)
+		gs.poll_net()
+		return str(app.pending.get("mode", "")) == "online_guest", "Wiedereintritt: Gast-Uebergabe"):
+		_sig_stop()
+		return
+	var guest_table = _rejoin_table(url)
+	t.root.add_child(guest_table)
+	_free(gs)
+	_screens.clear()
+	var gsession = guest_table.session
+	t.expect(gsession.room != "" and gsession.token != "", "Wiedereintritt: Gast ohne Raum oder Schluessel")
+	t.expect(host_table._rejoin_host != null, "Wiedereintritt: Host haelt keinen Raum offen")
+	var pump := func() -> void:
+		_sig_pump()
+		host_table._process(0.0)
+		guest_table._process(0.0)
+	# Host-Raum muss offen sein, bevor der Gast ihn braucht.
+	_wait(func():
+		pump.call()
+		return host_table._rejoin_host.is_open(), "Wiedereintritt: Host-Raum offen")
+	# Funkloch: die WebRTC-Verbindung des Gastes bricht ab.
+	var old_owner = guest_table._net_owner
+	for slot in old_owner._slots:
+		(slot.conn as WebRTCPeerConnection).close()
+	if not _wait(func():
+		pump.call()
+		return guest_table._rejoin_guest != null, "Wiedereintritt: Gast bemerkt den Abbruch"):
+		_sig_stop()
+		return
+	t.expect(guest_table._host_left_panel.visible and guest_table._host_left_label.text == guest_table.RECONNECTING_TEXT, "Wiedereintritt: keine Meldung 'Verbinde neu'")
+	var rev_before := int(gsession.rev)
+	_wait(func():
+		pump.call()
+		return guest_table._rejoin_guest == null and not guest_table._net_closed and int(gsession.rev) > rev_before, "Wiedereintritt: Gast wieder am Tisch")
+	t.expect(guest_table._net_owner != null and guest_table._net_owner != old_owner, "Wiedereintritt: kein neuer Connector")
+	t.expect(not guest_table._host_left_panel.visible, "Wiedereintritt: Meldung bleibt sichtbar")
+	t.expect(host_table.session.seat_of(2) == 1 and host_table._presence.is_present(1), "Wiedereintritt: Host gibt den Platz nicht zurueck")
+	t.expect(int(guest_table.viewer_seat) == 1, "Wiedereintritt: Gast sitzt woanders")
+	# Rundweg ueber die neue Verbindung.
+	var results: Array = []
+	gsession.action_result.connect(func(r): results.append(r))
+	gsession.send_action({"type": "end_turn"})
+	_wait(func():
+		pump.call()
+		return not results.is_empty(), "Wiedereintritt: Ergebnis ueber die neue Verbindung")
+	_free(host_table)
+	_free(guest_table)
+	_tables.clear()
+	_sig_stop()
+
+
+func _rejoin_table(url: String):
+	var tb = _new_table()
+	tb.signaling_url = url
+	tb.rejoin_turn_url = ""
+	tb.rejoin_connector_factory = func():
+		var c = RtcConnector.new()
+		c.ice_config = LOCAL_ICE
+		return c
+	return tb
 
 
 func _check_room_errors() -> void:

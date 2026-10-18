@@ -74,7 +74,9 @@ func create_invite(guest_peer_id: int) -> void:
 		return
 	var old: Dictionary = _slot_by_peer(guest_peer_id)
 	if not old.is_empty():
-		if bool(old.connected):
+		# Ein noch verbundener Gast behaelt seinen Platz; ein getrennter (Wiedereintritt)
+		# bekommt eine neue Verbindung.
+		if bool(old.connected) and _mp.has_peer(guest_peer_id):
 			failed.emit(I18n.t(USED_TEXT))
 			return
 		_drop_slot(old)
@@ -161,6 +163,18 @@ func poll() -> void:
 
 func is_closed() -> bool:
 	return _closed
+
+
+# Host: Verbindung eines Gastes sofort abbauen (er meldet sich neu, die alte ist tot,
+# auch wenn WebRTC das noch nicht bemerkt hat). Loest peer_disconnected aus.
+func drop_peer(guest_peer_id: int) -> void:
+	if not _is_host or _closed:
+		return
+	var slot := _slot_by_peer(guest_peer_id)
+	if not slot.is_empty():
+		_drop_slot(slot)
+	elif _mp.has_peer(guest_peer_id):
+		_mp.remove_peer(guest_peer_id)
 
 
 # Sicherheitsnetz, falls der Besitzer close() vergisst.
