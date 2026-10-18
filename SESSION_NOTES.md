@@ -56,4 +56,5 @@ Plan: `docs/superpowers/plans/2026-10-06-godot-pages-release.md`. Ziel: Godot-We
 - Korrektur: Supabase ist aus der Sandbox per HTTPS erreichbar (Projekt aktiv, öffentlicher Broadcast per REST angenommen, HTTP 202). Nicht testbar ist nur der WebSocket-Weg, weil der Sandbox-Proxy keine WebSockets durchlässt.
 - Neu: `godot/tools/live_signaling.gd` + Workflow `online-live.yml` testen Host↔Gast über das echte Supabase in GitHub Actions (bei Netz-Änderungen und täglich; hält das Gratis-Projekt aktiv).
 - Neu: SessionStart-Hook `.claude/hooks/session-start.sh` (Linux-Godot, `GODOT_BIN`, Import).
-- Offen: Wiedereintritt nach Verbindungsverlust (neuer WebRTC-Handshake), mehrere Gäste, Abwesenheitsanzeige am Tisch, Test mit zwei echten Geräten.
+- Wiedereintritt nach Verbindungsverlust gebaut (Raum bleibt offen, Schlüssel aus `welcome`, siehe `docs/online-p2p-plan.md` 4b). Echter WebRTC-Test mit zwei Tischen in der Sandbox grün.
+- Offen: mehrere Gäste, Abwesenheitsanzeige am Tisch, Test mit zwei echten Geräten (Mobilfunk), Wiedereintritt bei Copy-Paste-Partien.

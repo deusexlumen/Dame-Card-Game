@@ -10,10 +10,16 @@ signal view_changed(view: Dictionary, action: Dictionary)
 signal action_result(result: Dictionary)
 signal welcomed
 signal rejected(reason: String)
+signal host_left
 
 var link
 var rev := 0
 var latest_view: Dictionary = {}
+# Fuer den Wiedereintritt nach Verbindungsverlust: Raumcode (leer = Copy-Paste,
+# dann kein Wiedereintritt) und Schluessel aus dem welcome des Hosts.
+var room := ""
+var token := ""
+var peer_id := -1
 
 
 func _init(net_link) -> void:
@@ -39,7 +45,15 @@ func poll() -> void:
 		var msg := Codec.decode(pkt.bytes)
 		match str(msg.get("t", "")):
 			"welcome":
+				var tok = msg.get("token", "")
+				if typeof(tok) == TYPE_STRING and (tok as String).length() <= 64:
+					token = tok
+				var pid = msg.get("peer", -1)
+				if typeof(pid) == TYPE_INT:
+					peer_id = int(pid)
 				welcomed.emit()
+			"bye":
+				host_left.emit()
 			"reject":
 				rejected.emit(str(msg.get("reason", "")))
 			"view":

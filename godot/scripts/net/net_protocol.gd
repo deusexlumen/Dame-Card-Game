@@ -56,3 +56,8 @@ static func hello() -> Dictionary:
 
 static func action(a: Dictionary) -> Dictionary:
 	return {"t": "action", "action": a}
+
+
+# Host verlaesst die Partie absichtlich: Gaeste versuchen dann keinen Wiedereintritt.
+static func bye() -> Dictionary:
+	return {"t": "bye"}

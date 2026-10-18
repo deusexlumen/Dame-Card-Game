@@ -119,6 +119,8 @@ var _guest_session = null
 var _guest_deadline := 0
 var _guest_rejected := false
 var _guest_lost := false
+# Raumcode des Gastes (leer bei Copy-Paste), reist mit der Session zum Tisch.
+var _guest_room := ""
 # Host: Antwort angenommen, Verbindung laeuft. Keine neue Einladung (wuerde den Platz still abbauen).
 var _host_connecting := false
 var _handed_off := false
@@ -449,9 +451,11 @@ func host_config() -> Dictionary:
 
 func _handoff_host() -> void:
 	var app := app_node()
+	# Raumcode reist mit: der Tisch haelt den Raum fuer Wiedereintritte offen (leer = Copy-Paste).
 	var job := {
 		"config": host_config(), "link": _host_link, "host_seat": HOST_SEAT,
 		"guest_seats": {GUEST_PEER: GUEST_SEAT}, "owner": _host_rtc,
+		"room": str(_sig_host.room) if _sig_host != null else "",
 	}
 	_handed_off = true
 	_host_rtc = null
@@ -532,6 +536,9 @@ func _on_guest_answer(code: String) -> void:
 func _on_guest_connected(link) -> void:
 	if _guest_link == null:
 		_guest_link = link
+		# Raumcode merken: darueber kommt der Gast nach einem Verbindungsverlust zurueck.
+		if _sig_guest != null:
+			_guest_room = str(_sig_guest.room)
 		_close_sig_guest()
 		if _e2e:
 			print("ONLINE_CONNECTED")
@@ -574,6 +581,7 @@ func _close_guest() -> void:
 	_guest_session = null
 	_guest_rejected = false
 	_guest_lost = false
+	_guest_room = ""
 	if rtc != null:
 		rtc.close()
 
@@ -611,6 +619,7 @@ func _handoff_guest() -> void:
 	var session = _guest_session
 	var owner_rtc = _guest_rtc
 	var seat := int(session.latest_view.get("viewer_seat", -1))
+	session.room = _guest_room
 	_unhook_guest_session()
 	_handed_off = true
 	_guest_rtc = null

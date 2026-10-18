@@ -171,6 +171,7 @@ func online_host_match(job: Dictionary) -> void:
 		"host_seat": int(job.get("host_seat", 0)),
 		"guest_seats": job.get("guest_seats", {}),
 		"owner": job.get("owner"),
+		"room": str(job.get("room", "")),
 	}
 	goto(TABLE)
 
