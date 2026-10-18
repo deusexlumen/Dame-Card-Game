@@ -32,6 +32,9 @@ var audio
 # "owner" besitzt die Verbindung (RtcConnector: schliesst beim Freigeben seinen Peer).
 # Der Tisch haelt ihn die ganze Partie und schliesst ihn mit der Verbindung.
 var pending: Dictionary = {}
+## Wohin „Zurück“ und „Hauptmenü“ führen. Einbettende Apps (latte-app) setzen hier ihren eigenen Ort,
+## damit es nur einen Einstieg gibt; DAME selbst nutzt sein Hauptmenü.
+var home_scene := MAIN_MENU
 var last_config: Dictionary = {}
 # Tests: Szenenwechsel nur merken, nicht ausfuehren.
 ## Eine Partie ist zu Ende: {"won", "score", "online", "mode", "match_id"}.
@@ -215,7 +218,7 @@ func take_e2e_start_screen() -> String:
 
 # Ziel nach einer Online-Partie: Online-Bildschirm, solange es ihn noch nicht gibt das Hauptmenue.
 func online_screen() -> String:
-	return ONLINE if ResourceLoader.exists(ONLINE) else MAIN_MENU
+	return ONLINE if ResourceLoader.exists(ONLINE) else home_scene
 
 
 func take_pending() -> Dictionary:

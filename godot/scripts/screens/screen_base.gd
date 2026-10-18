@@ -91,7 +91,7 @@ func go_back() -> void:
 	var app := app_node()
 	if app != null:
 		app.click()
-		app.goto(app.MAIN_MENU)
+		app.goto(app.home_scene)
 
 
 func _unhandled_input(event: InputEvent) -> void:

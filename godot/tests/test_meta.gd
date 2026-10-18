@@ -220,6 +220,14 @@ func _check_screens() -> void:
 	t.expect(menu.resume_button.visible, "Fortsetzen trotz Spielstand unsichtbar")
 	_drop(menu)
 	app.saves.clear()
+	# Einbettende App: „Zurück“ führt an ihren Ort statt ins DAME-Menü.
+	var home_before: String = app.home_scene
+	app.home_scene = "res://scenes/rules.tscn"
+	var back_screen = _scene(app.STATS)
+	back_screen.go_back()
+	t.expect(app.last_goto == "res://scenes/rules.tscn", "home_scene: Zurück geht nach '%s'" % app.last_goto)
+	_drop(back_screen)
+	app.home_scene = home_before
 
 	app.pending = {"setup_mode": "hotseat"}
 	var setup = _scene(app.SETUP)

@@ -1367,7 +1367,7 @@ func _on_main_menu() -> void:
 	_close_link()
 	var app := _app()
 	if app != null:
-		app.goto(app.MAIN_MENU)
+		app.goto(app.home_scene)
 
 
 func _on_play_again() -> void:
