@@ -514,6 +514,10 @@ func _check_guest_absence(seed: int) -> void:
 	# Funkloch: Zug wird nach Zeit + 15 s Reserve ohne Strafkarte uebersprungen (§11 Stufe 1).
 	host_table._on_peer_left(gid)
 	t.expect(not host_table._presence.is_present(GUEST_SEAT), "Presence: Gast nach Trennung noch anwesend")
+	# Anzeige (§11): Funkloch steht in der Sicht und am Platz des Gastes, andere Plaetze unberuehrt.
+	var shown: Array = host_table.session.latest_view.players
+	t.expect(int(shown[GUEST_SEAT].absence) == 1 and int(shown[HOST_SEAT].absence) == 0 and int(shown[AI_SEAT].absence) == 0, "Anzeige: Funkloch nicht nur beim Gast")
+	t.expect(host_table._seats[GUEST_SEAT]._title.text.contains("Verbindung weg"), "Anzeige: Platz zeigt 'Verbindung weg' nicht: " + host_table._seats[GUEST_SEAT]._title.text)
 	_give_turn(GUEST_SEAT)
 	var hand_before := var_to_str(rules.state.players[GUEST_SEAT].hand)
 	pen_before = rules.state.players[GUEST_SEAT].penalty_cards.size()
@@ -526,12 +530,14 @@ func _check_guest_absence(seed: int) -> void:
 	# Laenger weg: KI-Vertretung spielt, kein Aussetzen mehr (Stufe 2).
 	host_table._presence.tick(70.0)
 	t.expect(host_table._presence.is_machine_controlled(GUEST_SEAT), "Presence: Stufe 2 nicht erreicht")
+	t.expect(int(host_table.session.latest_view.players[GUEST_SEAT].absence) == 2 and host_table._seats[GUEST_SEAT]._title.text.contains("KI-Vertretung"), "Anzeige: Stufe 2 nicht sichtbar")
 	_give_turn(GUEST_SEAT)
 	host_table._tick_presence(5.0)
 	t.expect(int(rules.state.current_index) != GUEST_SEAT or str(rules.state.turn_step) != "draw", "Stufe 2: Vertretung zieht nicht")
 	t.expect(rules.assert_zones(), "Vertretung: Zonen kaputt: %s" % rules.zone_error)
 	# Wiedereinstieg in Stufe 2: eine Strafkarte in der naechsten Ausgabe.
 	host_table._presence.set_present(GUEST_SEAT, true)
+	t.expect(int(host_table.session.latest_view.players[GUEST_SEAT].absence) == 0 and not host_table._seats[GUEST_SEAT]._title.text.contains("KI-Vertretung"), "Anzeige: Wiedereinstieg raeumt die Anzeige nicht")
 	rules.state.phase = "round_end"
 	host_table._view = host_table.session.latest_view.duplicate(true)
 	host_table._view.phase = "round_end"

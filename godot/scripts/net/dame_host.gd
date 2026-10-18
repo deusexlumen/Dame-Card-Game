@@ -20,6 +20,8 @@ var link
 var seat_of_peer := {}
 # Wiedereintritts-Schluessel je Gast-Peer (geht nur ueber den verschluesselten Datenkanal).
 var token_of_peer := {}
+# Abwesenheitsstufe je Platz (siehe DameView.absence_text); geht in jede Sicht.
+var absence := {}
 var rev := 0
 var latest_view: Dictionary = {}
 # Plaetze, die an diesem Geraet gespielt werden.
@@ -45,6 +47,17 @@ func seat_of(peer_id: int) -> int:
 
 func assign_seat(peer_id: int, seat: int) -> void:
 	seat_of_peer[peer_id] = seat
+	_dispatch(_broadcast())
+
+
+# Stufe eines Platzes setzen; bei Aenderung bekommen alle eine neue Sicht.
+func set_absence(seat: int, stage: int) -> void:
+	if int(absence.get(seat, 0)) == stage:
+		return
+	if stage == 0:
+		absence.erase(seat)
+	else:
+		absence[seat] = stage
 	_dispatch(_broadcast())
 
 
@@ -299,7 +312,7 @@ func _broadcast(action: Dictionary = {}) -> Array:
 	rev += 1
 	var out: Array = []
 	for peer in seat_of_peer:
-		var view: Dictionary = DameViewScript.for_viewer(rules, int(seat_of_peer[peer]))
+		var view: Dictionary = DameViewScript.for_viewer(rules, int(seat_of_peer[peer]), absence)
 		out.append({"to": int(peer), "msg": {"t": "view", "rev": rev, "view": view, "action": action}})
 	return out
 

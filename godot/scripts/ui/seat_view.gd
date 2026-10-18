@@ -6,6 +6,7 @@ class_name SeatView
 signal card_pressed(seat: int, index: int)
 
 const CardViewScript = preload("res://scripts/ui/card_view.gd")
+const DameViewScript = preload("res://scripts/dame_view.gd")
 
 var seat := -1
 var small := true
@@ -59,12 +60,15 @@ func update(data: Dictionary, face_for: Callable, targets: Array, selected_index
 		tags.append("DAME!")
 	if bool(data.eliminated):
 		tags.append("ausgeschieden")
+	var away := int(data.get("absence", 0))
+	if away > 0:
+		tags.append(tr(DameViewScript.absence_text(away)))
 	_title.text = marker + str(data.name) + ("  [" + ", ".join(PackedStringArray(tags)) + "]" if not tags.is_empty() else "")
 	var info := tr("Gesamt %d") % int(data.total_score)
 	if int(data.penalty_count) > 0:
 		info += tr("  ·  Strafe +%d") % int(data.penalty_count)
 	_info.text = info
-	modulate = Color(1, 1, 1, 0.45) if bool(data.eliminated) else Color.WHITE
+	modulate = Color(1, 1, 1, 0.45) if bool(data.eliminated) or away > 0 else Color.WHITE
 	if ghost:
 		modulate = Color(1, 1, 1, 0)
 	var list: Array = data.cards
