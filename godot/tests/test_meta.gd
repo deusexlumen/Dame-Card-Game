@@ -24,8 +24,10 @@ func run(ctx) -> void:
 	_check_audio()
 	_check_english()
 	_check_touch_targets()
+	_check_amt_look()
 	if app != null:
 		_check_screens()
+		_check_match_finished()
 
 
 func _write(path: String, text: String) -> void:
@@ -280,3 +282,53 @@ func _check_screens() -> void:
 	var rules_screen = _scene(app.RULES)
 	t.expect("König" in rules_screen.text_label.text and "Strafkarte" in rules_screen.text_label.text, "Regeltext unvollstaendig")
 	_drop(rules_screen)
+
+
+# Amts-Look (latte-app, Hinterzimmer): Raum als Kosmetik, Kartenrücken Akte, Begriffe ersetzbar.
+func _check_amt_look() -> void:
+	var path := "user://t_meta_amt.json"
+	_clean(path)
+	var p = ProfileServiceScript.new(path)
+	t.expect(p.equipped("room") == "room_casino", "Standardraum ist nicht Casino")
+	t.expect(str(p.equipped_data("room").get("style")) == "casino", "Casino-Stil fehlt")
+	p.award("amt", 1000)
+	var chip = PurchaseProviderScript.ChipProvider.new()
+	t.expect(bool(chip.buy(CatalogScript.item("room_amt"), p).ok) and p.equip("room_amt"), "Amtsstube nicht kauf-/ausrüstbar")
+	t.expect(str(p.equipped_data("room").get("style")) == "amt", "Amtsstube nicht ausgerüstet")
+	t.expect(p.equip("room_casino"), "Casino bleibt wählbar")
+	t.expect(ResourceLoader.exists("res://assets/cards/backs/akte.png"), "Kartenrücken Akte fehlt")
+	t.expect(not CatalogScript.item("back_akte").is_empty() and not CatalogScript.item("table_amtsgruen").is_empty(), "Amts-Artikel fehlen")
+	_clean(path)
+	var table = load("res://scripts/table3d/table_3d.gd").new()
+	t.root.add_child(table)
+	table.build({"room": "amt"})
+	t.expect(table.room == "amt", "3D-Tisch übernimmt den Raum nicht")
+	table.queue_free()
+	var I18n = load("res://scripts/i18n.gd")
+	I18n.de_overrides = {"%d Chips": "%d Gefälligkeiten"}
+	I18n.install("de")
+	t.expect(TranslationServer.translate("%d Chips") == "%d Gefälligkeiten" and I18n.t("%d Chips") == "%d Gefälligkeiten", "Begriffsersetzung wirkt nicht")
+	I18n.de_overrides = {}
+	I18n.install("de")
+	t.expect(TranslationServer.translate("%d Chips") == "%d Chips", "Begriffsersetzung bleibt nach dem Zurücksetzen")
+
+
+# Partieende meldet sich über App.match_finished (für einbettende Apps).
+func _check_match_finished() -> void:
+	var got := []
+	var cb := func(r: Dictionary) -> void: got.append(r)
+	app.match_finished.connect(cb)
+	var table = load("res://scenes/table.tscn").instantiate()
+	table.instant_ai = true
+	table.settings_override = {"memory_aid": true, "animations": false, "turn_timer": false}
+	table.pending_config = {"seed": 77, "seat_count": 3, "ai_seats": [1, 2]}
+	t.root.add_child(table)
+	table._view["phase"] = "game_over"
+	table._view["winner_index"] = 0
+	table._record_game_once()
+	table._record_game_once()
+	app.match_finished.disconnect(cb)
+	t.expect(got.size() == 1, "match_finished nicht genau einmal: %d" % got.size())
+	if got.size() == 1:
+		t.expect(bool(got[0].won) and not bool(got[0].online) and got[0].has("score"), "match_finished-Inhalt falsch: %s" % str(got[0]))
+	table.queue_free()

@@ -42,7 +42,7 @@ func _build_backdrop(app) -> void:
 	vp.add_child(table)
 	var cos := {"showcase": true}
 	if app != null:
-		cos.merge({"accent": app.accent(), "back": app.back_skin(), "face": app.face_skin(), "felt": app.table_color(), "lang": app.language()}, true)
+		cos.merge({"accent": app.accent(), "back": app.back_skin(), "face": app.face_skin(), "felt": app.table_color(), "lang": app.language(), "room": app.room_style()}, true)
 	table.build(cos)
 	var shade := ColorRect.new()
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)

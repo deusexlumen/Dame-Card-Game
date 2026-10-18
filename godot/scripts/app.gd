@@ -34,6 +34,10 @@ var audio
 var pending: Dictionary = {}
 var last_config: Dictionary = {}
 # Tests: Szenenwechsel nur merken, nicht ausfuehren.
+## Eine Partie ist zu Ende: {"won", "score", "online", "mode", "match_id"}.
+## Für einbettende Apps (latte-app wertet damit Karriere-Partien aus); DAME selbst braucht es nicht.
+signal match_finished(result: Dictionary)
+
 var test_mode := false
 var last_goto := ""
 # Zwischenspeicher fuer e2e_mode(): -1 unbekannt, 0 aus, 1 an.
@@ -89,6 +93,10 @@ func accent() -> Color:
 
 func table_color() -> Color:
 	return Color(str(profile.equipped_data("table").get("color", "1f5a3a")))
+
+
+func room_style() -> String:
+	return str(profile.equipped_data("room").get("style", "casino"))
 
 
 func back_skin() -> String:

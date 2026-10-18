@@ -223,6 +223,11 @@ func _app() -> Node:
 	return get_node_or_null("/root/App")
 
 
+func _room_style() -> String:
+	var app := _app()
+	return app.room_style() if app != null else "casino"
+
+
 func _setting(key: String):
 	if settings_override.has(key):
 		return settings_override[key]
@@ -795,7 +800,7 @@ func _build_3d(bg: Color) -> void:
 	_view3d.add_child(vp)
 	_table3d = Table3DScript.new()
 	vp.add_child(_table3d)
-	_table3d.build({"accent": _accent, "back": _back_style, "face": _face_skin, "felt": bg, "lang": _lang})
+	_table3d.build({"accent": _accent, "back": _back_style, "face": _face_skin, "felt": bg, "lang": _lang, "room": _room_style()})
 	_view3d.gui_input.connect(_on_view3d_input)
 
 
@@ -1833,6 +1838,13 @@ func _record_game_once() -> void:
 		return
 	var won := int(_view.winner_index) == me
 	app.stats.record_game(won)
+	app.match_finished.emit({
+		"won": won,
+		"score": int(_view.players[me].get("total_score", 0)),
+		"online": _is_online(),
+		"mode": str(config.get("mode", "")),
+		"match_id": str(match_id),
+	})
 	if won:
 		var amount := CatalogScript.REWARD_WIN * (CatalogScript.HARD_MULTIPLIER if _has_hard_ai() else 1)
 		if app.profile.award("%s-win" % match_id, amount):

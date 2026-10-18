@@ -58,15 +58,18 @@ var _built := false
 var _card_r := CARD_R
 var _phase := ""
 var _felt_mat: StandardMaterial3D
+## Raum-Kosmetik: "casino" (Standard) oder "amt" (latte-app, Hinterzimmer).
+var room := "casino"
 var _orbit := -1.0
 
-# cos: {"accent", "back", "face", "felt", "lang"} aus Profil und Einstellungen.
+# cos: {"accent", "back", "face", "felt", "lang", "room"} aus Profil und Einstellungen.
 func build(cos: Dictionary) -> void:
 	accent = cos.get("accent", accent)
 	back_skin = str(cos.get("back", back_skin))
 	face_skin = str(cos.get("face", face_skin))
 	lang = str(cos.get("lang", lang))
 	felt = _felt_from(cos.get("felt", Color(0.12, 0.35, 0.23)))
+	room = str(cos.get("room", room))
 	_build_room()
 	_build_table()
 	_build_piles()
@@ -135,6 +138,52 @@ func _build_room() -> void:
 	we.environment = env
 	add_child(we)
 
+	if room == "amt":
+		env.ambient_light_color = Color(0.7, 0.72, 0.68)
+		env.ambient_light_energy = 0.2
+		_build_amt_decor()
+	else:
+		_build_casino_decor()
+
+	# Haengelampe ueber dem Tisch (Messing, gruener Schirm).
+	var cord := _mesh(_cyl(0.006, 0.006, 1.2, 8), _mat(Color(0.05, 0.05, 0.05)), Vector3(0, 2.75, 0))
+	cord.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var shade_m := _mat(Color(0.06, 0.22, 0.12), 0.3, 0.2)
+	shade_m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var shade := _mesh(_cyl(0.07, 0.32, 0.2, 32), shade_m, Vector3(0, 2.08, 0))
+	shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var brass := _mesh(_cyl(0.33, 0.33, 0.015, 32), _mat(Color(0.7, 0.55, 0.25), 0.25, 0.8), Vector3(0, 1.98, 0))
+	brass.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var bulb_m := StandardMaterial3D.new()
+	bulb_m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bulb_m.albedo_color = Color(1.0, 0.92, 0.75)
+	var bulb_mesh := SphereMesh.new()
+	bulb_mesh.radius = 0.045
+	bulb_mesh.height = 0.09
+	var lamp_bulb := _mesh(bulb_mesh, bulb_m, Vector3(0, 2.0, 0))
+	lamp_bulb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+	var spot := SpotLight3D.new()
+	spot.position = Vector3(0, 1.98, 0)
+	spot.rotation.x = -PI / 2.0
+	spot.spot_angle = 55.0
+	spot.spot_attenuation = 0.9
+	spot.spot_range = 4.0
+	spot.light_energy = 2.1
+	spot.light_color = Color(1.0, 0.86, 0.68)
+	spot.shadow_enabled = true
+	add_child(spot)
+	# Weiches Licht vom Spieler aus, damit die Karte in der Hand lesbar bleibt.
+	var fill := OmniLight3D.new()
+	fill.position = Vector3(0.15, 1.35, 1.15)
+	fill.omni_range = 1.4
+	fill.light_energy = 0.6
+	fill.light_color = Color(1.0, 0.93, 0.85)
+	add_child(fill)
+
+
+# Casino (Standard): Holzboden, Teppich, Tapete, Bilder mit Goldrahmen, Barschrank.
+func _build_casino_decor() -> void:
 	# Holzboden und runder Teppich unter dem Tisch.
 	var floor_mesh := PlaneMesh.new()
 	floor_mesh.size = Vector2(10, 10)
@@ -208,41 +257,51 @@ func _build_room() -> void:
 		_mesh(_cyl(0.035, 0.04, rng.randf_range(0.24, 0.32), 12), glass, Vector3(x, 1.2, -3.05))
 		_mesh(_cyl(0.034, 0.038, 0.26, 12), glass, Vector3(x + 0.05, 1.75, -3.2))
 
-	# Haengelampe ueber dem Tisch (Messing, gruener Schirm).
-	var cord := _mesh(_cyl(0.006, 0.006, 1.2, 8), _mat(Color(0.05, 0.05, 0.05)), Vector3(0, 2.75, 0))
-	cord.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var shade_m := _mat(Color(0.06, 0.22, 0.12), 0.3, 0.2)
-	shade_m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var shade := _mesh(_cyl(0.07, 0.32, 0.2, 32), shade_m, Vector3(0, 2.08, 0))
-	shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var brass := _mesh(_cyl(0.33, 0.33, 0.015, 32), _mat(Color(0.7, 0.55, 0.25), 0.25, 0.8), Vector3(0, 1.98, 0))
-	brass.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var bulb_m := StandardMaterial3D.new()
-	bulb_m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	bulb_m.albedo_color = Color(1.0, 0.92, 0.75)
-	var bulb_mesh := SphereMesh.new()
-	bulb_mesh.radius = 0.045
-	bulb_mesh.height = 0.09
-	var lamp_bulb := _mesh(bulb_mesh, bulb_m, Vector3(0, 2.0, 0))
-	lamp_bulb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
-	var spot := SpotLight3D.new()
-	spot.position = Vector3(0, 1.98, 0)
-	spot.rotation.x = -PI / 2.0
-	spot.spot_angle = 55.0
-	spot.spot_attenuation = 0.9
-	spot.spot_range = 4.0
-	spot.light_energy = 2.1
-	spot.light_color = Color(1.0, 0.86, 0.68)
-	spot.shadow_enabled = true
-	add_child(spot)
-	# Weiches Licht vom Spieler aus, damit die Karte in der Hand lesbar bleibt.
-	var fill := OmniLight3D.new()
-	fill.position = Vector3(0.15, 1.35, 1.15)
-	fill.omni_range = 1.4
-	fill.light_energy = 0.6
-	fill.light_color = Color(1.0, 0.93, 0.85)
-	add_child(fill)
+# Amt (latte-app, Hinterzimmer): Linoleum, graue Wände, Aktenschränke mit Ordnern statt Bar.
+func _build_amt_decor() -> void:
+	var floor_mesh := PlaneMesh.new()
+	floor_mesh.size = Vector2(10, 10)
+	_mesh(floor_mesh, _mat(Color(0.36, 0.34, 0.27), 0.7), Vector3.ZERO)
+	var wall_m := _mat(Color(0.62, 0.61, 0.55), 0.95)
+	var skirting_m := _mat(Color(0.32, 0.33, 0.31), 0.6)
+	var cabinet_m := _mat(Color(0.46, 0.49, 0.47), 0.45, 0.35)
+	var handle_m := _mat(Color(0.75, 0.75, 0.72), 0.3, 0.8)
+	var folder_colors := [Color(0.55, 0.12, 0.12), Color(0.12, 0.25, 0.5), Color(0.75, 0.62, 0.2), Color(0.2, 0.4, 0.22), Color(0.62, 0.52, 0.36)]
+	for i in range(4):
+		var holder := Node3D.new()
+		holder.rotation.y = i * PI / 2.0
+		add_child(holder)
+		var wm := PlaneMesh.new()
+		wm.size = Vector2(8, 3.2)
+		wm.orientation = PlaneMesh.FACE_Z
+		_mesh(wm, wall_m, Vector3(0, 2.0, -3.4), holder)
+		var skirting := BoxMesh.new()
+		skirting.size = Vector3(8, 0.12, 0.04)
+		_mesh(skirting, skirting_m, Vector3(0, 0.06, -3.38), holder)
+		# Drei Aktenschränke je Wand, darauf Ordner.
+		for k in [-1.6, 0.0, 1.6]:
+			var cab := BoxMesh.new()
+			cab.size = Vector3(0.95, 1.9, 0.5)
+			_mesh(cab, cabinet_m, Vector3(k, 0.95, -3.12), holder)
+			for row in range(4):
+				var y := 0.3 + row * 0.44
+				var line := BoxMesh.new()
+				line.size = Vector3(0.88, 0.012, 0.01)
+				_mesh(line, skirting_m, Vector3(k, y + 0.2, -2.865), holder)
+				var handle := BoxMesh.new()
+				handle.size = Vector3(0.16, 0.025, 0.03)
+				_mesh(handle, handle_m, Vector3(k, y, -2.855), holder)
+			for f in range(5):
+				var folder := BoxMesh.new()
+				folder.size = Vector3(0.08, 0.32, 0.28)
+				_mesh(folder, _mat(folder_colors[(f + i + int(k * 2)) % folder_colors.size()], 0.8), Vector3(k - 0.3 + f * 0.11, 2.06, -3.12), holder)
+		var tube := OmniLight3D.new()
+		tube.position = Vector3(0, 2.9, -2.6)
+		tube.omni_range = 3.0
+		tube.light_energy = 0.35
+		tube.light_color = Color(0.9, 0.97, 1.0)
+		holder.add_child(tube)
 
 
 func _tex(path: String, rough: float, uv := Vector3.ONE) -> StandardMaterial3D:
