@@ -59,7 +59,7 @@ func run(ctx) -> void:
 		t.expect(OS.get_environment("DAME_REQUIRE_WEBRTC") != "1", "WebRTC-Erweiterung fehlt, DAME_REQUIRE_WEBRTC=1 verlangt sie")
 	else:
 		var rtc_checks: Array[Callable] = [_check_dropped_connector_kills_link, _check_guest_retry,
-				_check_screen_to_table, _check_guest_no_start, _check_guest_rejected, _check_guest_lost,
+				_check_screen_to_table, _check_room_flow, _check_room_errors, _check_guest_no_start, _check_guest_rejected, _check_guest_lost,
 				_check_host_turn_fetch]
 		for check in rtc_checks:
 			check.call()
@@ -498,6 +498,122 @@ func _connect_screens() -> Dictionary:
 		t.expect(false, "Gast-Tisch ohne Session oder Sicht")
 		return {}
 	return {"host_rtc": host_rtc, "guest_rtc": guest_rtc, "host_table": host_table, "guest_table": guest_table}
+
+
+# ---------- Raumcode ----------
+
+var _sig_server: TCPServer
+var _sig_conns: Array = []
+
+
+func _sig_start() -> int:
+	_sig_server = TCPServer.new()
+	for port in range(24900, 24960):
+		if _sig_server.listen(port, "127.0.0.1") == OK:
+			return port
+	return 0
+
+
+func _sig_pump() -> void:
+	while _sig_server != null and _sig_server.is_connection_available():
+		var ws := WebSocketPeer.new()
+		ws.accept_stream(_sig_server.take_connection())
+		_sig_conns.append({"ws": ws, "topic": ""})
+	for c in _sig_conns:
+		var ws: WebSocketPeer = c.ws
+		ws.poll()
+		if ws.get_ready_state() != WebSocketPeer.STATE_OPEN:
+			continue
+		while ws.get_available_packet_count() > 0:
+			var j = JSON.parse_string(ws.get_packet().get_string_from_utf8())
+			if typeof(j) != TYPE_DICTIONARY:
+				continue
+			if str(j.event) == "phx_join":
+				c.topic = str(j.topic)
+				ws.send_text(JSON.stringify({"topic": j.topic, "event": "phx_reply", "ref": j.ref, "payload": {"status": "ok", "response": {}}}))
+			elif str(j.event) == "broadcast":
+				for o in _sig_conns:
+					if o != c and o.topic == c.topic and o.ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
+						o.ws.send_text(JSON.stringify({"topic": j.topic, "event": "broadcast", "payload": j.payload}))
+
+
+func _sig_stop() -> void:
+	for c in _sig_conns:
+		c.ws.close()
+	_sig_conns.clear()
+	if _sig_server != null:
+		_sig_server.stop()
+	_sig_server = null
+
+
+# Raumcode statt Copy-Paste: Host oeffnet einen Raum, Gast tritt per Code bei, beide landen am Tisch.
+func _check_room_flow() -> void:
+	app.pending = {}
+	var port := _sig_start()
+	if port == 0:
+		t.expect(false, "Raumcode: kein freier Port")
+		return
+	var hs = _screen()
+	var gs = _screen()
+	hs.signaling_url = "ws://127.0.0.1:%d/websocket" % port
+	gs.signaling_url = hs.signaling_url
+	hs.seat_option.select(1)
+	hs.host_room()
+	t.expect(hs.room_button.disabled and hs.room_label.text.contains(hs._sig_host.room), "Raumcode: Host zeigt den Code nicht")
+	var room: String = hs._sig_host.room
+	gs.room_edit.text = room.to_lower()
+	gs.room_join_button.pressed.emit()
+	t.expect(gs.guest_error.text == "", "Raumcode: Gast-Fehler: " + gs.guest_error.text)
+	var pump := func() -> void:
+		_sig_pump()
+		if is_instance_valid(hs):
+			hs.poll_net()
+		if is_instance_valid(gs):
+			gs.poll_net()
+	_wait(func():
+		pump.call()
+		return str(app.pending.get("mode", "")) == "online_host", "Raumcode: Host-Uebergabe")
+	t.expect(str(app.pending.get("mode", "")) == "online_host", "Raumcode: Host landet nicht am Tisch")
+	t.expect(hs._sig_host == null, "Raumcode: Host-Raum nach Uebergabe offen")
+	var host_table = _new_table()
+	t.root.add_child(host_table)
+	_wait(func():
+		_sig_pump()
+		host_table.session.poll()
+		gs.poll_net()
+		return str(app.pending.get("mode", "")) == "online_guest", "Raumcode: Gast-Uebergabe")
+	t.expect(str(app.pending.get("mode", "")) == "online_guest", "Raumcode: Gast landet nicht am Tisch")
+	t.expect(gs._sig_guest == null, "Raumcode: Gast-Raum nach Verbindung offen")
+	_sig_stop()
+
+
+func _check_room_errors() -> void:
+	var gs = _screen()
+	for bad in ["", "ABC", "ABC2345", "ABC0O1"]:
+		gs.guest_error.text = ""
+		gs.guest_room(bad)
+		t.expect(gs.guest_error.text == OnlineScreen.ROOM_BAD_TEXT and gs._sig_guest == null, "Raumcode '%s' nicht abgelehnt" % bad)
+	# Dienst nicht erreichbar: Fehlermeldung, Bedienelemente wieder frei.
+	var probe := TCPServer.new()
+	var port := 0
+	for p in range(24960, 25000):
+		if probe.listen(p, "127.0.0.1") == OK:
+			port = p
+			probe.stop()
+			break
+	gs.signaling_url = "ws://127.0.0.1:%d/websocket" % port
+	gs.guest_room("ABC234")
+	_wait(func():
+		gs.poll_net()
+		return gs.guest_error.text != "", "Raumcode: Dienst nicht erreichbar")
+	t.expect(gs._sig_guest == null and not gs.room_join_button.disabled and gs.room_edit.editable, "Raumcode: Bedienelemente nach Fehler gesperrt")
+	var hs = _screen()
+	hs.signaling_url = gs.signaling_url
+	hs.host_room()
+	_wait(func():
+		hs.poll_net()
+		return hs.host_error.text != "", "Raumcode: Host, Dienst nicht erreichbar")
+	t.expect(hs._sig_host == null and not hs.room_button.disabled, "Raumcode: Host-Knopf nach Fehler gesperrt")
 
 
 # ---------- Gast wartet nach der Verbindung: Zeitlimit, Ablehnung, Abbruch ----------

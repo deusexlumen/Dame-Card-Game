@@ -55,6 +55,7 @@ func run(ctx) -> void:
 	_check_full_game(23)
 	_check_guest_leaves(41)
 	_check_host_leaves(57)
+	_check_guest_absence(91)
 	_check_app_handoff(61)
 	_check_foreign_hello(71)
 	_check_seat_validation(83)
@@ -496,6 +497,61 @@ func _guest_leaves(seed: int) -> void:
 
 
 # Host verlaesst die Partie: Gast sieht die Meldung und einen Knopf ins Menue.
+# §10/§11 auf dem Host-Tisch: Zeit per _tick_presence, kein echtes Warten.
+func _check_guest_absence(seed: int) -> void:
+	if not _open(seed):
+		_teardown()
+		return
+	host_table.settings_override["turn_timer_seconds"] = 30
+	var rules = host_table.rules
+	# Anwesender Gast, Zeit um: genau eine Strafkarte (§10).
+	_give_turn(GUEST_SEAT)
+	var pen_before: int = rules.state.players[GUEST_SEAT].penalty_cards.size()
+	host_table._tick_presence(29.0)
+	t.expect(int(rules.state.current_index) == GUEST_SEAT, "Gast-Timer: Zug schon nach 29 s beendet")
+	host_table._tick_presence(2.0)
+	t.expect(rules.state.players[GUEST_SEAT].penalty_cards.size() == pen_before + 1, "Gast-Timer: genau eine Strafkarte")
+	# Funkloch: Zug wird nach Zeit + 15 s Reserve ohne Strafkarte uebersprungen (§11 Stufe 1).
+	host_table._on_peer_left(gid)
+	t.expect(not host_table._presence.is_present(GUEST_SEAT), "Presence: Gast nach Trennung noch anwesend")
+	_give_turn(GUEST_SEAT)
+	var hand_before := var_to_str(rules.state.players[GUEST_SEAT].hand)
+	pen_before = rules.state.players[GUEST_SEAT].penalty_cards.size()
+	host_table._tick_presence(44.0)
+	t.expect(int(rules.state.current_index) == GUEST_SEAT, "Funkloch: Zug vor Ablauf der Reserve beendet")
+	host_table._tick_presence(2.0)
+	t.expect(int(rules.state.current_index) != GUEST_SEAT, "Funkloch: Zug nach Reserve nicht uebersprungen")
+	t.expect(rules.state.players[GUEST_SEAT].penalty_cards.size() == pen_before, "Funkloch: Strafkarte trotz Funkloch")
+	t.expect(var_to_str(rules.state.players[GUEST_SEAT].hand) == hand_before, "Funkloch: Hand veraendert")
+	# Laenger weg: KI-Vertretung spielt, kein Aussetzen mehr (Stufe 2).
+	host_table._presence.tick(70.0)
+	t.expect(host_table._presence.is_machine_controlled(GUEST_SEAT), "Presence: Stufe 2 nicht erreicht")
+	_give_turn(GUEST_SEAT)
+	host_table._tick_presence(5.0)
+	t.expect(int(rules.state.current_index) != GUEST_SEAT or str(rules.state.turn_step) != "draw", "Stufe 2: Vertretung zieht nicht")
+	t.expect(rules.assert_zones(), "Vertretung: Zonen kaputt: %s" % rules.zone_error)
+	# Wiedereinstieg in Stufe 2: eine Strafkarte in der naechsten Ausgabe.
+	host_table._presence.set_present(GUEST_SEAT, true)
+	rules.state.phase = "round_end"
+	host_table._view = host_table.session.latest_view.duplicate(true)
+	host_table._view.phase = "round_end"
+	var deal_pen: int = rules.state.players[GUEST_SEAT].penalty_cards.size()
+	host_table.next_deal()
+	t.expect(rules.state.players[GUEST_SEAT].penalty_cards.size() == deal_pen + 1 or rules.state.players[GUEST_SEAT].penalty_cards.size() == 1, "Wiedereinstieg: genau eine Strafkarte")
+	t.expect(rules.assert_zones(), "Wiedereinstieg: Zonen kaputt: %s" % rules.zone_error)
+	_teardown()
+
+
+func _give_turn(seat: int) -> void:
+	var st: Dictionary = host_table.rules.state
+	st.phase = "play"
+	st.current_index = seat
+	st.turn_step = "draw"
+	st.drawn_card = null
+	st.round = int(st.round) + 1
+	host_table.session.broadcast()
+
+
 func _check_host_leaves(seed: int) -> void:
 	if app == null:
 		return

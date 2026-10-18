@@ -100,6 +100,119 @@ func timeout_turn(ai) -> Dictionary:
 	return {"ok": true, "penalty": bool(pen.get("penalty", false))}
 
 
+# ---- Abwesenheit (CONCEPT_DECISIONS §11) --------------------------------
+
+# Stufe 1: Platz ist weg, die Wartezeit ist um. Vor dem Ziehen aussetzen (keine Strafkarte),
+# mitten im Zug neutral zu Ende spielen. Ein Dame-Zwangszug laeuft regulaer.
+func absent_turn(ai, seat: int) -> Dictionary:
+	if int(rules.state.current_index) != seat:
+		return {"ok": false}
+	if str(rules.state.turn_step) == "draw" and rules.state.drawn_card == null:
+		if rules.must_take_queen():
+			return _forced_queen(ai, seat)
+		var skip := {"type": "skip_turn", "seat": seat}
+		if bool(rules.apply_action(skip).get("ok", false)):
+			_dispatch(_broadcast({"type": "skip_turn", "seat": seat}))
+			return {"ok": true}
+	# Gezogene Dame nicht ablegen (das gaebe eine Strafkarte): eintauschen.
+	var drawn = rules.state.drawn_card
+	if str(rules.state.turn_step) == "play" and drawn != null and str(drawn.rank) == "Q":
+		_apply_public({"type": "swap", "seat": seat, "hand_index": worst_known_slot(seat)})
+	_finish_turn_safely(ai, seat)
+	return {"ok": true}
+
+
+# Stufe 2/3: vorsichtige Vertretung, ein Schritt pro Aufruf. Ruft nie Dame.
+func machine_step(ai, seat: int) -> Dictionary:
+	if int(rules.state.current_index) != seat:
+		return {"ok": false}
+	if str(rules.state.turn_step) == "draw" and rules.state.drawn_card == null and rules.must_take_queen():
+		return _forced_queen(ai, seat)
+	var drawn = rules.state.drawn_card
+	if drawn != null and str(drawn.rank) == "Q" and str(rules.state.turn_step) == "play":
+		return _apply_public({"type": "swap", "seat": seat, "hand_index": worst_known_slot(seat)})
+	var action: Dictionary = _cautious_action(ai, seat)
+	var res := _apply_public(action)
+	if not bool(res.get("ok", false)):
+		_finish_turn_safely(ai, seat)
+	return res
+
+
+# Strafkarte beim Wiedereinstieg (Stufe 2), zu Beginn der naechsten Ausgabe.
+func penalize_absence(seat: int) -> Dictionary:
+	var res: Dictionary = rules.give_absence_penalty(seat)
+	if bool(res.get("ok", false)):
+		_dispatch(_broadcast())
+	return res
+
+
+# Hoechste bekannte eigene Karte, sonst die erste.
+func worst_known_slot(seat: int) -> int:
+	var player: Dictionary = rules.state.players[seat]
+	var best := 0
+	var best_value := -1
+	for i in range(player.hand.size()):
+		if player.known.has(i) and int(player.hand[i].value) > best_value:
+			best_value = int(player.hand[i].value)
+			best = i
+	return best
+
+
+func _forced_queen(ai, seat: int) -> Dictionary:
+	if not bool(_apply_public({"type": "draw_discard", "seat": seat}).get("ok", false)):
+		_finish_turn_safely(ai, seat)
+		return {"ok": false}
+	_apply_public({"type": "swap", "seat": seat, "hand_index": worst_known_slot(seat)})
+	_finish_turn_safely(ai, seat)
+	return {"ok": true}
+
+
+func _finish_turn_safely(ai, seat: int) -> void:
+	var guard := 0
+	while guard < 10 and int(rules.state.current_index) == seat:
+		guard += 1
+		var phase := str(rules.state.phase)
+		if phase != "play" and phase != "dame_called":
+			return
+		if not bool(_apply_public(_cautious_action(ai, seat)).get("ok", false)):
+			if not _try_any_target(seat):
+				return
+
+
+func _cautious_action(ai, seat: int) -> Dictionary:
+	if str(rules.state.turn_step) == "extra":
+		return {"type": "end_turn", "seat": seat}
+	return ai.fallback_action(rules, seat)
+
+
+# Bube/Koenig: die Standardwahl kann scheitern. Dann irgendein gueltiges Ziel.
+func _try_any_target(seat: int) -> bool:
+	var step := str(rules.state.turn_step)
+	if step != "jack" and step != "king":
+		return false
+	for p in rules.state.players:
+		if bool(p.eliminated):
+			continue
+		for i in range(p.hand.size()):
+			if step == "jack":
+				if bool(_apply_public({"type": "look_card", "seat": seat, "target_seat": int(p.seat), "hand_index": i}).get("ok", false)):
+					return true
+			elif int(p.seat) != seat:
+				for mine in range(rules.state.players[seat].hand.size()):
+					var a := {"type": "king_swap", "seat": seat, "opponent_seat": int(p.seat), "opponent_index": i, "chosen_index": mine}
+					if bool(_apply_public(a).get("ok", false)):
+						return true
+	return false
+
+
+# Aktion der Vertretung anwenden und allen die neue Sicht schicken.
+func _apply_public(action: Dictionary) -> Dictionary:
+	var res: Dictionary = rules.apply_action(action)
+	if bool(res.get("ok", false)):
+		_dispatch(_broadcast(Protocol.public_action(action, int(action.seat))))
+	return res
+
+
 # Naechste Runde starten (nur der Host).
 func next_round() -> Dictionary:
 	var res: Dictionary = rules.apply_action({"type": "start_next_round"})
