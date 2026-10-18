@@ -338,11 +338,18 @@ func start_online_host(job: Dictionary) -> void:
 	_presence = PresenceScript.new()
 	for peer in _guest_seats:
 		_presence.track(int(_guest_seats[peer]))
+	# Jede Stufenaenderung geht als Anzeige an alle Tische.
+	_presence.stage_changed.connect(_on_presence_stage)
 	# Raum der Partie offen halten, damit Gaeste nach Verbindungsverlust zurueckkommen.
 	var room := str(job.get("room", ""))
 	if room != "" and _net_owner != null and _net_owner.has_method("drop_peer"):
 		_rejoin_host = RejoinHostScript.new(_net_owner, session, room, _new_signaling, _rejoin_allowed)
 	_apply_online_ui()
+
+
+func _on_presence_stage(seat: int, stage: int) -> void:
+	if session != null and not _net_closed:
+		session.set_absence(seat, stage)
 
 
 func _new_signaling():

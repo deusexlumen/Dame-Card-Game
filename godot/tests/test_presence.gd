@@ -22,6 +22,7 @@ func run(ctx) -> void:
 	_check_forced_queen()
 	_check_machine_turn()
 	_check_absence_penalty()
+	_check_absence_in_views()
 
 
 func _host(seed: int = 3):
@@ -168,3 +169,34 @@ func _check_absence_penalty() -> void:
 	t.expect(bool(res.ok) and h.rules.state.players[1].penalty_cards.size() == before + 1, "Wiedereinstieg: genau eine Strafkarte")
 	t.expect(h.rules.assert_zones(), "Wiedereinstieg: Zonen heil: %s" % h.rules.zone_error)
 	t.expect(not bool(h.penalize_absence(9).ok), "Wiedereinstieg: ungueltiger Platz abgelehnt")
+
+
+# Abwesenheit geht als Zahl je Platz in die Sicht jedes Gastes; ohne Aenderung kein neuer Versand.
+func _check_absence_in_views() -> void:
+	var Loopback = preload("res://scripts/net/loopback_link.gd")
+	var DameGuest = preload("res://scripts/net/dame_guest.gd")
+	var hub = Loopback.new_hub()
+	var rules = DameRulesScript.new()
+	rules.start_match({"seed": 3, "seat_count": 3, "ai_seats": [2]})
+	var host = DameHost.new(rules, hub.link(1))
+	var guest = DameGuest.new(hub.link(2))
+	guest.connect_to_host()
+	host.poll()
+	guest.poll()
+	host.assign_seat(2, 1)
+	guest.poll()
+	t.expect(int(guest.latest_view.players[0].absence) == 0, "Abwesenheit: Standard nicht 0")
+	var rev: int = guest.rev
+	host.set_absence(0, 1)
+	guest.poll()
+	t.expect(int(guest.latest_view.players[0].absence) == 1 and guest.rev == rev + 1, "Abwesenheit: Gast sieht Stufe 1 des Hosts nicht")
+	host.set_absence(0, 1)
+	guest.poll()
+	t.expect(guest.rev == rev + 1, "Abwesenheit: gleiche Stufe sendet erneut")
+	host.set_absence(0, 3)
+	guest.poll()
+	t.expect(int(guest.latest_view.players[0].absence) == 3, "Abwesenheit: Stufe 3 fehlt")
+	host.set_absence(0, 0)
+	guest.poll()
+	t.expect(int(guest.latest_view.players[0].absence) == 0 and not host.absence.has(0), "Abwesenheit: Rueckkehr loescht die Stufe nicht")
+	t.expect(DameView.absence_text(0) == "" and DameView.absence_text(1) != "" and DameView.absence_text(9) == "", "Abwesenheit: Texte")

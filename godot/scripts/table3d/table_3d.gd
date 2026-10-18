@@ -8,6 +8,7 @@ const Card3DScript = preload("res://scripts/table3d/card_3d.gd")
 const HandRigScript = preload("res://scripts/table3d/hand_rig.gd")
 const Figure3DScript = preload("res://scripts/table3d/figure_3d.gd")
 const UiThemeScript = preload("res://scripts/ui/ui_theme.gd")
+const DameViewScript = preload("res://scripts/dame_view.gd")
 
 const TABLE_Y := 0.76
 const TABLE_R := 0.64
@@ -782,9 +783,12 @@ func _update_figure(seat: int, p: Dictionary) -> void:
 	var title := ("▶ " if bool(p.is_current) else "") + str(p.name)
 	if bool(p.locked):
 		title += tr("  DAME!")
+	var away := int(p.get("absence", 0))
+	if away > 0:
+		tags.append(tr(DameViewScript.absence_text(away)))
 	var label: Label3D = f.label
 	label.text = title + "\n" + " · ".join(PackedStringArray(tags))
-	label.modulate = accent if bool(p.is_current) else (Color(1, 1, 1, 0.4) if bool(p.eliminated) else Color(0.92, 0.9, 0.86))
+	label.modulate = accent if bool(p.is_current) else (Color(1, 1, 1, 0.4) if bool(p.eliminated) or away > 0 else Color(0.92, 0.9, 0.86))
 	(f.glow as OmniLight3D).light_energy = 0.9 if bool(p.is_current) else 0.0
 	(f.node as Node3D).visible = true
 	var thinking := bool(p.is_current) and bool(p.is_ai) and (_phase == "play" or _phase == "dame_called")

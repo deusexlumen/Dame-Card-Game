@@ -5,7 +5,16 @@ class_name DameView
 # Gezeigt wird: eigene bekannte Karten, fremde Karten aus dem eigenen Gedaechtnis,
 # die oberste Ablagekarte, Zaehler. Nie: Stapelreihenfolge, fremde unbekannte Karten.
 
-static func for_viewer(rules: RefCounted, viewer_seat: int) -> Dictionary:
+# Abwesenheit online (CONCEPT_DECISIONS §11): 0 da, 1 Funkloch, 2 KI-Vertretung, 3 aufgegeben.
+const ABSENT_TEXTS := {1: "Verbindung weg", 2: "KI-Vertretung", 3: "aufgegeben"}
+
+
+static func absence_text(stage: int) -> String:
+	return str(ABSENT_TEXTS.get(stage, ""))
+
+
+# absence: {Platz: Stufe}, nur der Host kennt sie (leer = alle da, offline immer leer).
+static func for_viewer(rules: RefCounted, viewer_seat: int, absence: Dictionary = {}) -> Dictionary:
 	var state: Dictionary = rules.state
 	var phase := str(state.phase)
 	var reveal_all := phase == "round_end" or phase == "game_over"
@@ -39,6 +48,7 @@ static func for_viewer(rules: RefCounted, viewer_seat: int) -> Dictionary:
 			"is_self": own,
 			"role": rules._seat_role(viewer_seat, seat),
 			"deal_penalties": int(p.get("deal_penalties", 0)),
+			"absence": int(absence.get(seat, 0)),
 			"angle": rules.seat_angle(viewer_seat, seat),
 			"cards": cards,
 		})
