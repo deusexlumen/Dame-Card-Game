@@ -178,6 +178,7 @@ func run(ctx) -> void:
 	_check_foreign_invite()
 	_check_retry_after_failure()
 	_check_host_room_reopens()
+	_check_two_guests_rejoin()
 
 
 # ---------- Hilfen ----------
@@ -369,3 +370,38 @@ func _check_host_room_reopens() -> void:
 		return p.st.link != null, "Wiedereintritt nach Ausfall des Raum-Dienstes")
 	p.rh.close()
 	t.expect(not p.rh.is_open(), "close laesst den Host-Raum offen")
+
+
+# Zwei Gaeste (Peer 2 und 3) im selben Raum: jeder kommt mit seinem Schluessel zurueck,
+# der andere Platz bleibt unberuehrt.
+func _check_two_guests_rejoin() -> void:
+	var hub := FakeRoom.new()
+	var wire := Wire.new()
+	var hrtc := FakeHostRtc.new(wire)
+	var session = _host_session()
+	session.token_of_peer[2] = "schluessel-zwei"
+	session.token_of_peer[3] = "schluessel-drei"
+	var rh = RejoinHost.new(hrtc, session, ROOM, func(): return FakeSig.new(hub), func(_p): return true)
+	var out := {"2": null, "3": null}
+	var guests: Array = []
+	for pair in [[2, "schluessel-zwei"], [3, "schluessel-drei"]]:
+		var rg = RejoinGuest.new(ROOM, pair[1], pair[0], func(): return FakeSig.new(hub), func(): return FakeGuestRtc.new(wire))
+		var key := str(pair[0])
+		rg.reconnected.connect(func(l, _o): out[key] = l)
+		guests.append(rg)
+	# Nur Gast 3 verliert die Verbindung: nur er meldet sich.
+	var only3: Array = [guests[1]]
+	_wait(func():
+		rh.poll()
+		for g in only3:
+			g.poll()
+		return out["3"] != null, "Zwei Gaeste: Gast 3 kommt zurueck")
+	t.expect(hrtc.dropped == [3] and out["2"] == null, "Zwei Gaeste: Gast 2 beruehrt: %s" % str(hrtc.dropped))
+	t.expect(str(out["3"]).ends_with("-3"), "Zwei Gaeste: Gast 3 bekam fremde Einladung: %s" % str(out["3"]))
+	# Danach verliert auch Gast 2 die Verbindung.
+	_wait(func():
+		rh.poll()
+		guests[0].poll()
+		return out["2"] != null, "Zwei Gaeste: Gast 2 kommt zurueck")
+	t.expect(hrtc.dropped == [3, 2] and str(out["2"]).ends_with("-2"), "Zwei Gaeste: Gast 2 falsch: %s %s" % [str(hrtc.dropped), str(out["2"])])
+	rh.close()

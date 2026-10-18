@@ -21,6 +21,10 @@ signal invite_ready(code: String)
 signal answer_ready(code: String)
 signal connected(link)
 signal failed(reason: String)
+# Mehrere Gaeste (Host): welcher Platz hat eine Einladung, ist verbunden, ist gescheitert.
+signal invite_for(peer_id: int, code: String)
+signal guest_connected(peer_id: int)
+signal slot_failed(peer_id: int)
 
 const HOST_PEER := 1
 const GATHER_MAX_MS := 8000        # ICE-Sammlung hoechstens so lange
@@ -217,6 +221,7 @@ func _on_peer_connected(id: int) -> void:
 	if slot.is_empty() or bool(slot.connected):
 		return
 	slot.connected = true
+	guest_connected.emit(id)
 	connected.emit(_link)
 
 
@@ -270,6 +275,7 @@ func _check_gathering(slot: Dictionary, now: int) -> void:
 		_fail_slot(slot, I18n.t(SETUP_TEXT))
 		return
 	if _is_host:
+		invite_for.emit(int(slot.peer_id), code)
 		invite_ready.emit(code)
 	else:
 		# Gast: ab jetzt laeuft das Zeitlimit (der Host muss die Antwort noch einfuegen).
@@ -286,7 +292,9 @@ func _add_candidates(conn: WebRTCPeerConnection, cands: Array) -> void:
 # Einladung frei, der Gast schliesst den ganzen Connector.
 func _fail_slot(slot: Dictionary, reason: String) -> void:
 	if _is_host:
+		var peer := int(slot.peer_id)
 		_drop_slot(slot)
+		slot_failed.emit(peer)
 	else:
 		close()
 	failed.emit(reason)
