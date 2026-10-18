@@ -13,6 +13,8 @@ func _initialize() -> void:
 	var app := root.get_node("App")
 	app.use_test_storage()
 	app.test_mode = false
+	# DAMEs eigener Ablauf, auch in einer einbettenden App (Latte lenkt home_scene ins Hinterzimmer).
+	app.home_scene = app.MAIN_MENU
 	change_scene_to_file("res://scenes/main_menu.tscn")
 
 

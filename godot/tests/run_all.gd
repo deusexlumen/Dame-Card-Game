@@ -28,6 +28,8 @@ const SUITES := [
 func _ready() -> void:
 	var app := get_node_or_null("/root/App")
 	if app != null:
+		# DAMEs Tests prüfen DAMEs eigenen Ablauf, auch wenn eine einbettende App (Latte) home_scene umgelenkt hat.
+		app.home_scene = app.MAIN_MENU
 		app.use_test_storage()
 	var ctx = TestContext.new()
 	ctx.root = self

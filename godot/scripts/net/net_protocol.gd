@@ -50,8 +50,26 @@ static func public_action(a: Dictionary, seat: int) -> Dictionary:
 	return out
 
 
-static func hello() -> Dictionary:
-	return {"t": "hello", "v": VERSION}
+const MAX_NAME := 20
+
+
+# name: Spielername des Gastes (leer = Platzhalter des Hosts bleibt).
+static func hello(name: String = "") -> Dictionary:
+	var msg := {"t": "hello", "v": VERSION}
+	if not name.is_empty():
+		msg["name"] = name
+	return msg
+
+
+# Fremden Namen säubern: nur Text, ohne Steuerzeichen, getrimmt, höchstens MAX_NAME Zeichen.
+static func clean_name(raw) -> String:
+	if typeof(raw) != TYPE_STRING:
+		return ""
+	var out := ""
+	for ch in (raw as String):
+		if ch.unicode_at(0) >= 32 and ch.unicode_at(0) != 127:
+			out += ch
+	return out.strip_edges().left(MAX_NAME).strip_edges()
 
 
 static func action(a: Dictionary) -> Dictionary:

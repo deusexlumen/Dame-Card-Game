@@ -20,6 +20,8 @@ var latest_view: Dictionary = {}
 var room := ""
 var token := ""
 var peer_id := -1
+# Eigener Spielername, geht mit jedem hello mit (auch beim Wiedereintritt).
+var player_name := ""
 
 
 func _init(net_link) -> void:
@@ -31,7 +33,7 @@ func is_authority() -> bool:
 
 
 func connect_to_host() -> void:
-	link.send(Protocol.HOST_PEER, Codec.encode(Protocol.hello()))
+	link.send(Protocol.HOST_PEER, Codec.encode(Protocol.hello(player_name)))
 
 
 func send_action(action: Dictionary) -> void:

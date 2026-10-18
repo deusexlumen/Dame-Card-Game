@@ -31,7 +31,8 @@ const FIRST_VIEW_MS := 300000  # Gast: so lange auf die erste Sicht warten (der 
 const AI_NAMES := ["Lotte", "Bruno", "Erika", "Kurt", "Hilde", "Otto"]
 const DIFF_KEYS := ["easy", "medium", "hard"]
 
-const TITLE_TEXT := "Online (Test)"
+const TITLE_TEXT := "Mit Menschen spielen"
+const MANUAL_TOGGLE := "Ohne Raum-Dienst: Codes von Hand austauschen"
 const PRIVACY_TEXT := "Der Code enthält deine IP-Adresse. Teile ihn nur mit Leuten, mit denen du spielen willst."
 const UNAVAILABLE_TEXT := "Online-Spiel braucht WebRTC. Diese Version hat es nicht – spiele im Browser oder mit der WebRTC-Erweiterung."
 const HOST_HEAD := "Hosten"
@@ -80,7 +81,7 @@ const TEXTS := [TITLE_TEXT, PRIVACY_TEXT, UNAVAILABLE_TEXT, HOST_HEAD, GUEST_HEA
 	CONNECTING_TEXT, PREPARING_TEXT, MAKING_ANSWER_TEXT, WAIT_HOST_TEXT, WAIT_START_TEXT, COPIED_TEXT, NO_INVITE_TEXT,
 	EMPTY_CODE_TEXT, NO_START_TEXT, LOST_TEXT, REJECTED_TEXT, GUEST_NAME, "%d Spieler", ROOM_BUTTON, ROOM_CODE_TEXT,
 	ROOM_OPENING_TEXT, ROOM_JOIN_BUTTON, ROOM_LABEL, ROOM_WAIT_TEXT, ROOM_BAD_TEXT,
-	GUESTS_LABEL, START_BUTTON, ROOM_COUNT_TEXT, ROOM_FAILED_KEEP_TEXT, "%d Gast", "%d Gäste", "Gast %d"]
+	GUESTS_LABEL, START_BUTTON, MANUAL_TOGGLE, ROOM_COUNT_TEXT, ROOM_FAILED_KEEP_TEXT, "%d Gast", "%d Gäste", "Gast %d"]
 
 # Vor add_child setzbar (Tests): ICE-Konfiguration fuer neue Connectoren ({} = Standard)
 # und WebRTC-Erkennung erzwingen (-1 = erkennen, 0 = fehlt, 1 = vorhanden).
@@ -119,6 +120,10 @@ var room_join_button: Button
 var _sig_host = null
 var _sig_guest = null
 var guest_option: OptionButton
+# Notweg ohne Raum-Dienst (Codes von Hand, ein Gast): standardmäßig eingeklappt.
+var manual_toggle: Button
+var host_manual: VBoxContainer
+var guest_manual: VBoxContainer
 var start_button: Button
 # Raum-Modus (mehrere Gaeste): wie viele Gaeste erwartet werden, wer welchen Platz hat,
 # wer schon verbunden ist. nonce -> {peer, code, at}.
@@ -181,13 +186,16 @@ func build() -> void:
 	content.add_child(cols)
 	host_box = _build_host(cols)
 	guest_box = _build_guest(cols)
+	manual_toggle = _big_button(MANUAL_TOGGLE, toggle_manual)
+	content.add_child(manual_toggle)
 	var ok := webrtc_available()
 	unavailable_label.visible = not ok
 	host_box.visible = ok
 	guest_box.visible = ok
+	manual_toggle.visible = ok
 	privacy_label.visible = ok
 	if ok:
-		invite_button.grab_focus()
+		room_button.grab_focus()
 	else:
 		back_button.grab_focus()
 	var app := app_node()
@@ -224,21 +232,22 @@ func _build_host(parent: Control) -> Control:
 	vb.add_child(row(GUESTS_LABEL, guest_option, 170))
 	seat_option.item_selected.connect(func(_i: int) -> void: _fill_guest_options())
 	_fill_guest_options()
-	invite_button = _big_button(INVITE_BUTTON, host_invite)
-	vb.add_child(invite_button)
-	vb.add_child(label(INVITE_LABEL, 15))
-	invite_edit = _field("")
-	invite_edit.editable = false
-	invite_copy_button = _big_button(COPY_BUTTON, func() -> void: _copy(invite_edit, host_status))
-	vb.add_child(_field_row(invite_edit, invite_copy_button))
 	room_button = _big_button(ROOM_BUTTON, host_room)
 	vb.add_child(room_button)
 	room_label = label("", 18)
 	room_label.add_theme_color_override("font_color", UiTheme.GOLD)
 	vb.add_child(room_label)
+	host_manual = _manual_box(vb)
+	invite_button = _big_button(INVITE_BUTTON, host_invite)
+	host_manual.add_child(invite_button)
+	host_manual.add_child(label(INVITE_LABEL, 15))
+	invite_edit = _field("")
+	invite_edit.editable = false
+	invite_copy_button = _big_button(COPY_BUTTON, func() -> void: _copy(invite_edit, host_status))
+	host_manual.add_child(_field_row(invite_edit, invite_copy_button))
 	answer_in_edit = _field(ANSWER_IN_LABEL)
 	connect_button = _big_button(CONNECT_BUTTON, func() -> void: host_accept(answer_in_edit.text))
-	vb.add_child(_field_row(answer_in_edit, connect_button))
+	host_manual.add_child(_field_row(answer_in_edit, connect_button))
 	host_status = label("", 15)
 	vb.add_child(host_status)
 	start_button = _big_button(START_BUTTON, host_start)
@@ -251,18 +260,19 @@ func _build_host(parent: Control) -> Control:
 
 func _build_guest(parent: Control) -> Control:
 	var vb := _panel_column(parent, GUEST_HEAD)
-	join_edit = _field(JOIN_LABEL)
-	join_button = _big_button(JOIN_BUTTON, func() -> void: guest_join(join_edit.text))
-	vb.add_child(_field_row(join_edit, join_button))
 	room_edit = _field(ROOM_LABEL)
 	room_edit.max_length = Signaling.ROOM_LEN + 2
 	room_join_button = _big_button(ROOM_JOIN_BUTTON, func() -> void: guest_room(room_edit.text))
 	vb.add_child(_field_row(room_edit, room_join_button))
-	vb.add_child(label(ANSWER_OUT_LABEL, 15))
+	guest_manual = _manual_box(vb)
+	join_edit = _field(JOIN_LABEL)
+	join_button = _big_button(JOIN_BUTTON, func() -> void: guest_join(join_edit.text))
+	guest_manual.add_child(_field_row(join_edit, join_button))
+	guest_manual.add_child(label(ANSWER_OUT_LABEL, 15))
 	answer_out_edit = _field("")
 	answer_out_edit.editable = false
 	answer_copy_button = _big_button(COPY_BUTTON, func() -> void: _copy(answer_out_edit, guest_status))
-	vb.add_child(_field_row(answer_out_edit, answer_copy_button))
+	guest_manual.add_child(_field_row(answer_out_edit, answer_copy_button))
 	guest_status = label("", 15)
 	vb.add_child(guest_status)
 	cancel_button = _big_button(CANCEL_BUTTON, guest_cancel)
@@ -271,6 +281,21 @@ func _build_guest(parent: Control) -> Control:
 	guest_error = _error_label()
 	vb.add_child(guest_error)
 	return vb.get_parent()
+
+
+func _manual_box(parent: Control) -> VBoxContainer:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	box.visible = false
+	parent.add_child(box)
+	return box
+
+
+## Notweg ein- oder ausklappen (Host und Gast gemeinsam).
+func toggle_manual() -> void:
+	var show := not host_manual.visible
+	host_manual.visible = show
+	guest_manual.visible = show
 
 
 func _big_button(text: String, cb: Callable) -> Button:
@@ -466,6 +491,13 @@ func _fill_guest_options() -> void:
 
 
 # guests: Zahl der menschlichen Gaeste am Tisch (Standard: die gewaehlte).
+func _own_name() -> String:
+	var app := app_node()
+	if app == null:
+		return ""
+	return str(app.settings.get_value("player_name")).strip_edges()
+
+
 func host_config(guests: int = -1) -> Dictionary:
 	var app := app_node()
 	var count: int = seat_option.selected + 2
@@ -656,6 +688,7 @@ func _close_guest() -> void:
 
 func _start_guest_session() -> void:
 	_guest_session = DameGuest.new(_guest_link)
+	_guest_session.player_name = _own_name()
 	# Methoden statt Lambdas: Session und Link reisen zum Tisch, die Verbindungen
 	# werden bei der Uebergabe wieder geloest (_unhook_guest_session).
 	_guest_session.rejected.connect(_on_guest_rejected)

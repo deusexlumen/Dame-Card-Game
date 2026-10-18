@@ -148,6 +148,13 @@ func _check_loads() -> void:
 	for e in [s.invite_edit, s.answer_in_edit, s.join_edit, s.answer_out_edit]:
 		t.expect(e.custom_minimum_size.y >= 44, "Feld kleiner als 44 px")
 	t.expect(not s.cancel_button.visible, "Abbrechen vor dem Beitreten sichtbar")
+	# Raum ist der Hauptweg, der Copy-Paste-Notweg ist eingeklappt.
+	t.expect(s.room_button.visible and s.room_join_button.visible, "Raum-Knoepfe nicht sichtbar")
+	t.expect(not s.host_manual.visible and not s.guest_manual.visible, "Notweg nicht eingeklappt")
+	s.manual_toggle.pressed.emit()
+	t.expect(s.host_manual.visible and s.guest_manual.visible and s.invite_button.is_visible_in_tree(), "Notweg klappt nicht auf")
+	s.manual_toggle.pressed.emit()
+	t.expect(not s.host_manual.visible, "Notweg klappt nicht zu")
 	# Zurueck schliesst alles und geht ins Hauptmenue.
 	s.go_back()
 	t.expect(app.last_goto == app.MAIN_MENU, "Zurueck geht nicht ins Hauptmenue")
@@ -157,8 +164,8 @@ func _check_texts() -> void:
 	for text in OnlineScreen.TEXTS:
 		t.expect(I18n.EN.has(text), "Englisch fehlt: " + str(text))
 	t.expect(OnlineScreen.PRIVACY_TEXT == "Der Code enthält deine IP-Adresse. Teile ihn nur mit Leuten, mit denen du spielen willst.", "Datenschutztext falsch")
-	t.expect(OnlineScreen.TEXTS.has(OnlineScreen.PRIVACY_TEXT) and OnlineScreen.TEXTS.has("Online (Test)"), "Textliste unvollstaendig")
-	t.expect(I18n.EN.has("Online (Test)"), "Menuetext Englisch fehlt")
+	t.expect(OnlineScreen.TEXTS.has(OnlineScreen.PRIVACY_TEXT) and OnlineScreen.TEXTS.has(OnlineScreen.TITLE_TEXT), "Textliste unvollstaendig")
+	t.expect(I18n.EN.has("Online"), "Menuetext Englisch fehlt")
 
 
 func _check_clean() -> void:
@@ -218,12 +225,12 @@ func _check_main_menu() -> void:
 	_screens.append(menu)
 	var found = null
 	for b in menu.buttons:
-		if b.text == "Online (Test)":
+		if b.text == "Online":
 			found = b
-	t.expect(found != null, "Hauptmenue ohne Online (Test)")
+	t.expect(found != null, "Hauptmenue ohne Online")
 	if found != null:
 		found.pressed.emit()
-		t.expect(app.last_goto == app.ONLINE, "Online (Test) oeffnet nicht online.tscn")
+		t.expect(app.last_goto == app.ONLINE, "Online oeffnet nicht online.tscn")
 	t.expect(app.online_screen() == app.ONLINE, "Tisch faellt noch aufs Hauptmenue zurueck")
 	# Web-Test-Startbildschirm: ohne ?e2e=1 (hier: nicht Web) bleibt er aus.
 	t.expect(not app.e2e_mode(), "e2e-Modus ausserhalb des Browsers an")
