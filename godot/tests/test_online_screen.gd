@@ -59,7 +59,7 @@ func run(ctx) -> void:
 		t.expect(OS.get_environment("DAME_REQUIRE_WEBRTC") != "1", "WebRTC-Erweiterung fehlt, DAME_REQUIRE_WEBRTC=1 verlangt sie")
 	else:
 		var rtc_checks: Array[Callable] = [_check_dropped_connector_kills_link, _check_guest_retry,
-				_check_screen_to_table, _check_room_flow, _check_room_rejoin, _check_room_errors, _check_guest_no_start, _check_guest_rejected, _check_guest_lost,
+				_check_screen_to_table, _check_room_flow, _check_room_two_guests, _check_room_start_early, _check_room_rejoin, _check_room_errors, _check_guest_no_start, _check_guest_rejected, _check_guest_lost,
 				_check_host_turn_fetch]
 		for check in rtc_checks:
 			check.call()
@@ -140,7 +140,8 @@ func _check_loads() -> void:
 	t.expect(s.host_box.visible and s.guest_box.visible, "Hosten/Beitreten nicht sichtbar")
 	t.expect(not s.unavailable_label.visible, "WebRTC-fehlt-Text trotz WebRTC sichtbar")
 	t.expect(s.privacy_label.visible and s.privacy_label.text == OnlineScreen.PRIVACY_TEXT, "Datenschutzhinweis fehlt")
-	t.expect(s.seat_option.item_count == 3, "Spieleranzahl nicht 2-4")
+	t.expect(s.seat_option.item_count == 5, "Spieleranzahl nicht 2-6")
+	t.expect(s.guest_option.item_count == 1 and s.guest_count() == 1, "Gaeste: Standard ist ein Gast")
 	t.expect(s.invite_edit.editable == false, "Einladungscode-Feld ist beschreibbar")
 	for b in [s.invite_button, s.invite_copy_button, s.connect_button, s.join_button, s.answer_copy_button, s.cancel_button]:
 		t.expect(b.custom_minimum_size.y >= 44, "Knopf kleiner als 44 px: " + b.text)
@@ -584,6 +585,164 @@ func _check_room_flow() -> void:
 		return str(app.pending.get("mode", "")) == "online_guest", "Raumcode: Gast-Uebergabe")
 	t.expect(str(app.pending.get("mode", "")) == "online_guest", "Raumcode: Gast landet nicht am Tisch")
 	t.expect(gs._sig_guest == null, "Raumcode: Gast-Raum nach Verbindung offen")
+	_sig_stop()
+
+
+# Pumpt Raum-Dienst und alle Bildschirme. Uebergaben an den Tisch landen in jobs
+# (app.pending wird danach geleert, damit zwei Gaeste im selben Takt nichts ueberschreiben).
+func _room_pump(screens: Array, jobs: Array) -> void:
+	_sig_pump()
+	for s in screens:
+		if not is_instance_valid(s):
+			continue
+		s.poll_net()
+		if not app.pending.is_empty():
+			jobs.append(app.pending.duplicate())
+			app.pending = {}
+
+
+# Tisch aus einem gemerkten Auftrag (der Tisch holt ihn aus app.pending).
+func _table_for(job: Dictionary):
+	app.pending = job
+	var tb = _new_table()
+	t.root.add_child(tb)
+	app.pending = {}
+	return tb
+
+
+func _job_of(jobs: Array, mode: String) -> Dictionary:
+	for j in jobs:
+		if str(j.get("mode", "")) == mode:
+			return j
+	return {}
+
+
+# Mehrere Gaeste: Host + 2 Gaeste ueber einen Raum, 4 Plaetze (Host, Gast, Gast, KI).
+func _check_room_two_guests() -> void:
+	app.pending = {}
+	var port := _sig_start()
+	if port == 0:
+		t.expect(false, "Zwei Gaeste: kein freier Port")
+		return
+	var url := "ws://127.0.0.1:%d/websocket" % port
+	var hs = _screen()
+	var g1 = _screen()
+	var g2 = _screen()
+	for s in [hs, g1, g2]:
+		s.signaling_url = url
+	hs.seat_option.select(2)  # 4 Spieler
+	hs._fill_guest_options()  # select() meldet item_selected nicht
+	t.expect(hs.guest_option.item_count == 3, "Zwei Gaeste: Auswahl bei 4 Plaetzen hat %d Eintraege" % hs.guest_option.item_count)
+	hs.guest_option.select(1)  # 2 Gaeste
+	t.expect(hs.guest_count() == 2, "Zwei Gaeste: guest_count")
+	hs.host_room()
+	var room: String = hs._sig_host.room
+	for g in [g1, g2]:
+		g.room_edit.text = room
+		g.room_join_button.pressed.emit()
+	var jobs: Array = []
+	var screens := [hs, g1, g2]
+	if not _wait(func():
+		_room_pump(screens, jobs)
+		return not _job_of(jobs, "online_host").is_empty(), "Zwei Gaeste: Host-Uebergabe"):
+		_sig_stop()
+		return
+	t.expect(not hs.start_button.visible, "Zwei Gaeste: 'Jetzt starten' bei vollem Raum sichtbar")
+	var hjob := _job_of(jobs, "online_host")
+	t.expect(hjob.guest_seats == {2: 1, 3: 2}, "Zwei Gaeste: Plaetze %s" % str(hjob.guest_seats))
+	t.expect(int(hjob.config.seat_count) == 4 and hjob.config.ai_seats == [3], "Zwei Gaeste: Konfiguration %s" % str(hjob.config))
+	t.expect(not hjob.config.names.has(null) and (hjob.config.names as Array).size() == 4 and hjob.config.names[1] != hjob.config.names[2], "Zwei Gaeste: Namen %s" % str(hjob.config.names))
+	var host_table = _table_for(hjob)
+	jobs.erase(hjob)
+	_free(hs)
+	screens = [g1, g2]
+	var tables: Array = []
+	_wait(func():
+		_room_pump(screens, jobs)
+		host_table.session.poll()
+		return jobs.size() >= 2, "Zwei Gaeste: beide Gast-Uebergaben")
+	for j in jobs:
+		t.expect(str(j.mode) == "online_guest", "Zwei Gaeste: Auftrag %s" % str(j.get("mode")))
+		tables.append(_table_for(j))
+	_free(g1)
+	_free(g2)
+	_screens.clear()
+	if tables.size() != 2:
+		_sig_stop()
+		return
+	var seats := [int(tables[0].viewer_seat), int(tables[1].viewer_seat)]
+	seats.sort()
+	t.expect(seats == [1, 2], "Zwei Gaeste: Gast-Plaetze %s" % str(seats))
+	t.expect(host_table.session.seat_of(2) >= 1 and host_table.session.seat_of(3) >= 1 and host_table.session.seat_of(2) != host_table.session.seat_of(3), "Zwei Gaeste: Host ordnet die Peers nicht verschieden zu")
+	# Verkehr: Sicht an beide Gaeste, Aktion eines Gastes bekommt ein Ergebnis.
+	var revs := [int(tables[0].session.rev), int(tables[1].session.rev)]
+	host_table.session.broadcast()
+	_wait(func():
+		host_table.session.poll()
+		tables[0].session.poll()
+		tables[1].session.poll()
+		return int(tables[0].session.rev) > revs[0] and int(tables[1].session.rev) > revs[1], "Zwei Gaeste: Sicht bei beiden")
+	var results: Array = []
+	tables[1].session.action_result.connect(func(r): results.append(r))
+	tables[1].session.send_action({"type": "end_turn"})
+	_wait(func():
+		host_table.session.poll()
+		tables[1].session.poll()
+		return not results.is_empty(), "Zwei Gaeste: Ergebnis fuer Gast 2")
+	t.expect(host_table._rejoin_host != null, "Zwei Gaeste: Raum fuer Wiedereintritt nicht offen")
+	for tb in tables:
+		_free(tb)
+	_free(host_table)
+	_tables.clear()
+	_sig_stop()
+
+
+# Nicht alle Gaeste kommen: der Host startet mit dem einen, der Rest wird KI.
+func _check_room_start_early() -> void:
+	app.pending = {}
+	var port := _sig_start()
+	if port == 0:
+		t.expect(false, "Frueh starten: kein freier Port")
+		return
+	var url := "ws://127.0.0.1:%d/websocket" % port
+	var hs = _screen()
+	var g1 = _screen()
+	hs.signaling_url = url
+	g1.signaling_url = url
+	hs.seat_option.select(2)  # 4 Spieler
+	hs._fill_guest_options()
+	hs.guest_option.select(2)  # 3 Gaeste erwartet
+	hs.host_room()
+	g1.room_edit.text = hs._sig_host.room
+	g1.room_join_button.pressed.emit()
+	var jobs: Array = []
+	var screens := [hs, g1]
+	_wait(func():
+		_room_pump(screens, jobs)
+		return hs.start_button.visible, "Frueh starten: Knopf erscheint")
+	t.expect(hs.start_button.visible and hs.host_status.text == hs.tr(OnlineScreen.ROOM_COUNT_TEXT) % [1, 3], "Frueh starten: Status '%s'" % hs.host_status.text)
+	t.expect(jobs.is_empty(), "Frueh starten: Uebergabe vor dem Start")
+	hs.host_start()
+	_wait(func():
+		_room_pump(screens, jobs)
+		return not _job_of(jobs, "online_host").is_empty(), "Frueh starten: Host-Uebergabe")
+	var hjob := _job_of(jobs, "online_host")
+	t.expect(hjob.guest_seats == {2: 1}, "Frueh starten: Plaetze %s" % str(hjob.get("guest_seats")))
+	t.expect(int(hjob.config.seat_count) == 4 and hjob.config.ai_seats == [2, 3], "Frueh starten: Konfiguration %s" % str(hjob.config))
+	var host_table = _table_for(hjob)
+	jobs.erase(hjob)
+	_free(hs)
+	screens = [g1]
+	_wait(func():
+		_room_pump(screens, jobs)
+		host_table.session.poll()
+		return not _job_of(jobs, "online_guest").is_empty(), "Frueh starten: Gast-Uebergabe")
+	var gjob := _job_of(jobs, "online_guest")
+	if not gjob.is_empty():
+		var gt = _table_for(gjob)
+		t.expect(int(gt.viewer_seat) == 1, "Frueh starten: Gast-Platz")
+	_free(g1)
+	_screens.clear()
 	_sig_stop()
 
 

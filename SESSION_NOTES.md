@@ -58,4 +58,5 @@ Plan: `docs/superpowers/plans/2026-10-06-godot-pages-release.md`. Ziel: Godot-We
 - Neu: SessionStart-Hook `.claude/hooks/session-start.sh` (Linux-Godot, `GODOT_BIN`, Import).
 - Wiedereintritt nach Verbindungsverlust gebaut (Raum bleibt offen, Schlüssel aus `welcome`, siehe `docs/online-p2p-plan.md` 4b). Echter WebRTC-Test mit zwei Tischen in der Sandbox grün.
 - Abwesenheitsanzeige am Tisch gebaut (`players[].absence` in der Sicht, Platz-Karte und 3D-Schild).
-- Offen: mehrere Gäste, Test mit zwei echten Geräten (Mobilfunk), Wiedereintritt bei Copy-Paste-Partien.
+- Mehrere Gäste pro Partie gebaut (Raum-Weg, bis 5 Gäste, „Jetzt starten“, siehe Plan 4d).
+- Offen: Test mit zwei echten Geräten (Mobilfunk), mehrere Gäste und Wiedereintritt beim Copy-Paste-Notweg.
