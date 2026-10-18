@@ -40,6 +40,7 @@ func run(ctx) -> void:
 	_check_host_drives_ai_and_timeout()
 	_check_failed_action_that_changes_state()
 	_check_full_game_no_leak()
+	_check_guest_name()
 
 
 func _setup(seed: int) -> void:
@@ -369,3 +370,29 @@ func _reach_guest_extra() -> bool:
 	if not _guest_act({"type": "draw_deck"}) or not _guest_act({"type": "discard_drawn"}):
 		return false
 	return str(rules.state.turn_step) == "extra"
+
+
+# Gastname: geht im hello mit, wird gesäubert, Doppelte bekommen eine Nummer.
+func _check_guest_name() -> void:
+	t.expect(Protocol.clean_name("  Lotte  ") == "Lotte", "Name nicht getrimmt")
+	t.expect(Protocol.clean_name("A\nB\u0007C") == "ABC", "Steuerzeichen bleiben im Namen")
+	t.expect(Protocol.clean_name("x".repeat(40)).length() == Protocol.MAX_NAME, "Name nicht gekürzt")
+	t.expect(Protocol.clean_name(5) == "" and Protocol.clean_name({"a": 1}) == "", "Nicht-Text als Name angenommen")
+	t.expect(not Protocol.hello().has("name") and Protocol.hello("Ute").name == "Ute", "hello ohne/mit Namen falsch")
+	rules = DameRulesScript.new()
+	rules.start_match({"seed": 4, "seat_count": 3, "ai_seats": [2], "names": ["Ute", "Gast", "Otto"]})
+	hub = Loopback.new_hub()
+	host = DameHost.new(rules, hub.link(Protocol.HOST_PEER))
+	guest = DameGuest.new(hub.link(GUEST_PEER))
+	guest.player_name = "  Ute\t"
+	guest.connect_to_host()
+	host.poll()
+	t.expect(str(host.name_of_peer.get(GUEST_PEER, "")) == "Ute", "Host kennt den Gastnamen nicht: " + str(host.name_of_peer))
+	host.set_seat_name(GUEST_SEAT, host.name_of_peer[GUEST_PEER])
+	t.expect(str(rules.state.players[GUEST_SEAT].name) == "Ute 2", "Doppelter Name nicht nummeriert: " + str(rules.state.players[GUEST_SEAT].name))
+	host.assign_seat(GUEST_PEER, GUEST_SEAT)
+	guest.poll()
+	guest.poll()
+	t.expect(str(guest.latest_view.players[GUEST_SEAT].name) == "Ute 2", "Gast sieht seinen Namen nicht")
+	host.set_seat_name(GUEST_SEAT, "")
+	t.expect(str(rules.state.players[GUEST_SEAT].name) == "Ute 2", "Leerer Name überschreibt")

@@ -39,7 +39,7 @@ func build() -> void:
 	resume_button.visible = app != null and app.saves.has_save()
 	_menu_button(col, "Gegen die KI spielen", func() -> void: _open_setup("ai"))
 	_menu_button(col, "Hot-Seat (mehrere Menschen)", func() -> void: _open_setup("hotseat"))
-	_menu_button(col, "Online (Test)", func() -> void: app.goto(app.ONLINE))
+	_menu_button(col, "Online", func() -> void: app.goto(app.ONLINE))
 	_menu_button(col, "Regeln", func() -> void: app.goto(app.RULES))
 	_menu_button(col, "Shop", func() -> void: app.goto(app.SHOP))
 	_menu_button(col, "Statistik", func() -> void: app.goto(app.STATS))

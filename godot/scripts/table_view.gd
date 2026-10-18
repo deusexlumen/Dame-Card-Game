@@ -1467,6 +1467,10 @@ func _on_peer_joined(peer_id: int) -> void:
 			return
 		returning = not _presence.is_present(seat)
 		_presence.set_present(seat, true)
+	# Eigener Name des Gastes statt Platzhalter; die Sicht folgt mit assign_seat.
+	var guest_name: String = str(session.name_of_peer.get(peer_id, ""))
+	if not guest_name.is_empty():
+		session.set_seat_name(seat, guest_name, false)
 	session.assign_seat(peer_id, seat)
 	if returning and not _view.is_empty() and seat < (_view.players as Array).size():
 		_toast_text(tr("%s ist wieder da.") % str(_view.players[seat].name))

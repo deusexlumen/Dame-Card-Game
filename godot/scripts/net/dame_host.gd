@@ -20,6 +20,8 @@ var link
 var seat_of_peer := {}
 # Wiedereintritts-Schluessel je Gast-Peer (geht nur ueber den verschluesselten Datenkanal).
 var token_of_peer := {}
+# Spielername je Gast-Peer aus dem hello (gesäubert); leer = Platzhalter bleibt.
+var name_of_peer := {}
 # Abwesenheitsstufe je Platz (siehe DameView.absence_text); geht in jede Sicht.
 var absence := {}
 var rev := 0
@@ -48,6 +50,27 @@ func seat_of(peer_id: int) -> int:
 func assign_seat(peer_id: int, seat: int) -> void:
 	seat_of_peer[peer_id] = seat
 	_dispatch(_broadcast())
+
+
+# Namen eines Platzes setzen (Gastname). Doppelte Namen bekommen eine Nummer.
+# Ohne announce keine neue Sicht (der Aufrufer schickt gleich eine).
+func set_seat_name(seat: int, name: String, announce: bool = true) -> void:
+	if name.is_empty() or seat < 0 or seat >= rules.state.players.size():
+		return
+	var taken := []
+	for p in rules.state.players:
+		if int(p.seat) != seat:
+			taken.append(str(p.name))
+	var unique := name
+	var n := 2
+	while taken.has(unique):
+		unique = "%s %d" % [name, n]
+		n += 1
+	if str(rules.state.players[seat].name) == unique:
+		return
+	rules.state.players[seat].name = unique
+	if announce:
+		_dispatch(_broadcast())
 
 
 # Stufe eines Platzes setzen; bei Aenderung bekommen alle eine neue Sicht.
@@ -275,6 +298,9 @@ func handle_packet(from: int, bytes: PackedByteArray) -> Array:
 			# Bei einem Wiedereintritt behaelt der Peer seinen Schluessel.
 			if not token_of_peer.has(from):
 				token_of_peer[from] = new_token()
+			var name := Protocol.clean_name(msg.get("name"))
+			if not name.is_empty():
+				name_of_peer[from] = name
 			peer_joined.emit(from)
 			return [{"to": from, "msg": {"t": "welcome", "peer": from, "token": token_of_peer[from]}}]
 		"action":
