@@ -50,3 +50,10 @@ Plan: `docs/superpowers/plans/2026-10-06-godot-pages-release.md`. Ziel: Godot-We
 - Branch `ccr-ee360b9b-4sc6j1`. Linux-Godot 4.7.2 lässt sich in der Cloud-Sandbox laden (GODOT_BIN setzen, vorher `--import`). WebRTC-Verbindungstests (`test_rtc_connector`) sind in der Sandbox instabil (keine Netzwerkschnittstellen, Host-Kandidaten fehlen); der Rest der Suite ist grün.
 - Neu: `net/presence.gd` (§11 Stufen), Host-Methoden für abwesende Plätze, Gast-Zugtimer + Auto-Weiter (§10), `net/signaling.gd` + Raumcode im Online-Bildschirm.
 - Offen: Signaling gegen echtes Supabase testen (Realtime „public access“ prüfen), Wiedereintritt nach Verbindungsverlust (neuer Handshake), mehrere Gäste, Anzeige der Abwesenheit am Tisch, Test mit zwei echten Geräten (Mobilfunk).
+
+## 2026-10-18 (Abend) – Arbeitsweise, Cloud-Setup, Live-Signaling
+- PR #16 gemergt. Neue verbindliche Arbeitsregeln oben in `CLAUDE.md` (selbst mergen, nur Handlungsrelevantes melden, „offen“ nur mit Lösungsversuch).
+- Korrektur: Supabase ist aus der Sandbox per HTTPS erreichbar (Projekt aktiv, öffentlicher Broadcast per REST angenommen, HTTP 202). Nicht testbar ist nur der WebSocket-Weg, weil der Sandbox-Proxy keine WebSockets durchlässt.
+- Neu: `godot/tools/live_signaling.gd` + Workflow `online-live.yml` testen Host↔Gast über das echte Supabase in GitHub Actions (bei Netz-Änderungen und täglich; hält das Gratis-Projekt aktiv).
+- Neu: SessionStart-Hook `.claude/hooks/session-start.sh` (Linux-Godot, `GODOT_BIN`, Import).
+- Offen: Wiedereintritt nach Verbindungsverlust (neuer WebRTC-Handshake), mehrere Gäste, Abwesenheitsanzeige am Tisch, Test mit zwei echten Geräten.

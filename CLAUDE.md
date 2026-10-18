@@ -6,6 +6,21 @@ Browser-based implementation of the German memory/bluff card game "Dame" (not ch
 
 **Main project is now the Godot client in `godot/`** (see the top of `AGENTS.md`, load the `dame-godot` skill). GitHub Pages deploys only the Godot web build. The React app below is kept as reference.
 
+## Arbeitsweise mit dem Nutzer (verbindlich, geht allem anderen vor)
+
+Der Nutzer gibt Routinearbeit komplett ab. Diese Regeln gelten wörtlich:
+
+1. **Selbst erledigen, nicht fragen.** Eigene PRs gleich als „ready“ (kein Draft) öffnen, CI-Fehler und Review-Kommentare selbst beheben und **selbst nach `main` mergen** (Squash), sobald CI auf dem aktuellen Commit grün ist, kein Konflikt besteht und kein Review-Thread offen ist. Dafür keine Rückfrage. Gefragt wird nur bei echten Produktentscheidungen (Spielregeln, Geld, Datenschutz, Löschen).
+2. **Nur melden, was der Nutzer zum Handeln braucht.** Keine Bestätigung von Selbstverständlichem (Merge geklappt, Subscription beendet, Benachrichtigung gelesen). Läuft alles glatt, reicht ein Satz.
+3. **Kein „offen“ oder „ungeprüft“ ohne Lösungsversuch.** Erst lösen. Geht es nicht: sagen, warum nicht, was das praktisch fürs Spiel bedeutet und wer konkret was tun muss. Ein Grund muss geprüft sein, nicht vermutet.
+4. **Wörter meinen, was sie sagen.** „Nichts zu tun“ heißt: gemergt, Notizen aktuell, kein offener Punkt. Sonst die offenen Punkte nennen.
+
+## Cloud-Sandbox (Claude Code im Web)
+
+- `.claude/hooks/session-start.sh` holt Linux-Godot 4.7.2 und setzt `GODOT_BIN`; Tests: `node scripts/godot-test.mjs`.
+- Die Sandbox lässt **keine WebSockets** durch (Proxy) und hat keine Netzwerkschnittstellen für WebRTC. Dort schlagen deshalb 3 Warte-Checks in `test_rtc_connector`/`test_online_screen` fehl; maßgeblich ist die CI auf GitHub, nicht die Sandbox.
+- Live-Prüfungen gegen Supabase laufen deshalb in GitHub Actions: `.github/workflows/online-live.yml` (`godot/tools/live_signaling.gd`, bei Netz-Änderungen und täglich).
+
 ## Commands
 
 Package manager is **pnpm** (lockfile + CI use pnpm 9 / Node 22). `node_modules` is not committed — run `pnpm install` first.
@@ -22,7 +37,7 @@ pnpm test:ui                   # Vitest UI
 
 `tsconfig.app.json` is strict with `noUnusedLocals`/`noUnusedParameters` and `verbatimModuleSyntax` — unused symbols break `pnpm build`, and type-only imports must use `import type`. Path alias `@/*` → `src/*` (configured in both `vite.config.ts` and `vitest.config.ts`).
 
-Deployment: every push to `main` builds and deploys to GitHub Pages via `.github/workflows/deploy.yml` (build only — CI does not run tests or lint). Vite `base` is `/Dame-Card-Game/` (AGENTS.md's mention of `base: './'` is outdated).
+Deployment: every push to `main` runs `.github/workflows/deploy.yml`, which tests, exports and deploys only the **Godot** web build to GitHub Pages. The React app is no longer built or deployed; CI does not run its tests or lint. Vite `base` is `/Dame-Card-Game/` (AGENTS.md's mention of `base: './'` is outdated).
 
 ## Architecture
 
