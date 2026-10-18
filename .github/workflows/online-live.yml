@@ -1,0 +1,37 @@
+name: Online live
+
+# Prueft das Raumcode-Signaling gegen das echte Supabase (zwei Clients, ein Raum).
+# Eigener Workflow, damit ein Supabase-Ausfall die normalen Tests nicht rot faerbt.
+# Der taegliche Lauf haelt nebenbei das kostenlose Supabase-Projekt aktiv
+# (es pausiert sonst nach einer Woche ohne Zugriff).
+
+on:
+  push:
+    branches: [main]
+    paths: ['godot/scripts/net/**', 'godot/tools/live_signaling.gd', '.github/workflows/online-live.yml']
+  pull_request:
+    paths: ['godot/scripts/net/**', 'godot/tools/live_signaling.gd', '.github/workflows/online-live.yml']
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: 4.7.2
+
+jobs:
+  signaling:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Godot
+        run: |
+          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          echo "GODOT_BIN=$PWD/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Import project
+        run: $GODOT_BIN --headless --path godot --import || true
+      - name: Live signaling
+        run: |
+          $GODOT_BIN --headless --path godot --script res://tools/live_signaling.gd | tee out.txt
+          grep -q LIVE_SIGNALING_OK out.txt
