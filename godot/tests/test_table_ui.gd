@@ -74,7 +74,7 @@ func _faces(table, seat: int) -> Array:
 
 
 func _cfg(extra: Dictionary = {}) -> Dictionary:
-	var c := {"seed": 101, "seat_count": 4, "ai_seats": [1, 2, 3], "difficulties": {1: "medium", 2: "medium", 3: "hard"}, "names": ["Spieler", "A", "B", "C"]}
+	var c := {"peek_phase": false, "seed": 101, "seat_count": 4, "ai_seats": [1, 2, 3], "difficulties": {1: "medium", 2: "medium", 3: "hard"}, "names": ["Spieler", "A", "B", "C"]}
 	c.merge(extra, true)
 	return c
 
@@ -166,7 +166,7 @@ func _check_full_deal_and_stats() -> void:
 
 
 func _check_hotseat_handoff() -> void:
-	var table = _make_table({"seed": 104, "seat_count": 3, "ai_seats": [2], "names": ["Anna", "Ben", "KI"]})
+	var table = _make_table({"peek_phase": false, "seed": 104, "seat_count": 3, "ai_seats": [2], "names": ["Anna", "Ben", "KI"]})
 	t.expect(table.is_hotseat(), "zwei Menschen ergeben kein Hot-Seat")
 	t.expect(table.handoff_pending and table._handoff.visible, "Start ohne Uebergabe-Schirm")
 	for seat in [0, 1, 2]:
@@ -286,7 +286,7 @@ func _check_resume() -> void:
 	var fresh = TableScene.instantiate()
 	fresh.instant_ai = true
 	t.root.add_child(fresh)
-	t.expect(fresh.rules != null and str(fresh.rules.state.phase) == "play", "kaputter Spielstand startet kein Spiel")
+	t.expect(fresh.rules != null and str(fresh.rules.state.phase) == "peek", "kaputter Spielstand startet kein Spiel")
 	_free(fresh)
 
 

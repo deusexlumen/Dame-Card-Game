@@ -104,3 +104,16 @@ Als „abwesend" gilt: Verbindung getrennt **oder** App/Tab im Hintergrund.
 ## 12. Plattformen (Entscheidung 2026-10-06)
 
 Wo und wie gespielt wird, ist egal (Browser, als App installiert, Windows, später weitere). **Das Spiel muss überall gleich sein:** gleiche Regeln, gleicher Look, gleicher Ablauf. Plattformen dürfen nur Bedienung und Technik anpassen, nie das Spiel.
+
+## 12. Merkphase vor dem ersten Zug (Entscheidung 2026-10-19, verbindlich)
+
+Das Spiel lebt davon, Informationen zu beschaffen und sich zu merken. Darum beginnt jede Ausgabe so:
+
+- Jeder bekommt 4 verdeckte Karten. **Vor dem ersten Zug** sieht jeder seine **ersten zwei** Karten (Plätze 1 und 2 der Hand) an. Die anderen zwei bleiben unbekannt.
+- Die zwei Karten liegen offen, bis der Spieler **„Gemerkt“** bestätigt. Dann sind sie wieder verdeckt. Erst wenn **alle** Menschen bestätigt haben (KI sofort), beginnt der erste Zug. Bis dahin sind alle Spielaktionen gesperrt.
+- Das gilt für jede neue Ausgabe, nicht nur für die erste.
+- **Hardcore-Modus** (Option im Setup): kein Blick auf die Startkarten, das Spiel beginnt sofort, jeder spielt blind.
+- **Anfängerhilfe** (Einstellung, Standard aus): bekannte Karten bleiben auch nach der Merkphase offen. Vorher hieß sie „Gedächtnishilfe“ und war an, wodurch die Karten dauerhaft offen lagen.
+- **Hot-Seat:** Jeder Mensch merkt sich seine Karten hinter dem Übergabe-Schirm, einer nach dem anderen.
+- **Online:** Der Host wartet höchstens 45 s auf Bestätigungen, danach gelten alle als bereit.
+- Offen, noch nicht entschieden: ob man sich später selbst aussuchen darf, welche zwei Karten man ansieht (heute immer die ersten zwei), und ob Hardcore auch online wählbar sein soll.

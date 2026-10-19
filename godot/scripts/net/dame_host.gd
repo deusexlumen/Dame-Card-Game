@@ -282,6 +282,14 @@ func next_round() -> Dictionary:
 	return res
 
 
+# Merkphase abbrechen (nur der Host): wer nicht bestaetigt hat, gilt als bereit.
+func peek_timeout() -> Dictionary:
+	var res: Dictionary = rules.apply_action({"type": "peek_timeout"})
+	if bool(res.get("ok", false)):
+		_dispatch(_broadcast({"type": "peek_timeout", "seat": -1}))
+	return res
+
+
 # Nach Aenderungen ausserhalb von submit (z. B. KI-Zuege auf dem Host) aufrufen.
 func broadcast() -> void:
 	_dispatch(_broadcast())

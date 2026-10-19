@@ -25,7 +25,7 @@ func build() -> void:
 	content.add_child(label("Spiel", 20))
 	_choice("ai_speed", "KI-Tempo", SPEED_KEYS, SPEED_LABELS, s)
 	_choice("default_difficulty", "Standard-KI-Stufe", DIFF_KEYS, DIFF_LABELS, s)
-	_check("memory_aid", "Gedächtnishilfe (bekannte Karten bleiben offen)", s)
+	_check("memory_aid", "Anfängerhilfe: bekannte Karten bleiben offen", s)
 	_check("turn_timer", "Zugtimer", s)
 	_choice("turn_timer_seconds", "Zeit pro Zug", TIMER_VALUES, ["15 Sekunden", "30 Sekunden", "60 Sekunden"], s)
 	var name_edit := LineEdit.new()

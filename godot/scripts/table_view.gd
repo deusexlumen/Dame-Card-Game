@@ -71,6 +71,8 @@ From round 3, at the start of your turn (D), if you think you have the fewest po
 [b]Keys[/b]
 1–6 pick card · Space draw · Enter confirm / end turn · A discard drawn card · X extra discard · D call Dame · Z/E hide peek · H help · Esc menu"""
 const REVEAL_PEEK_MS := 3000
+# Online: so lange wartet der Host in der Merkphase auf Bestaetigungen, dann gelten alle als bereit.
+const PEEK_TIMEOUT_SECONDS := 45.0
 const REVEAL_SWAP_MS := 2200
 
 # DameHost oder DameGuest. Einziger Weg, das Spiel zu veraendern.
@@ -180,6 +182,9 @@ var _handoff: Control
 var _handoff_label: Label
 var _handoff_button: Button
 var _round_panel: PanelContainer
+var _peek_panel: PanelContainer
+var _peek_button: Button
+var _peek_wait := 0.0
 var _round_text: RichTextLabel
 var _round_button: Button
 var _over_panel: PanelContainer
@@ -260,7 +265,7 @@ func _setting(key: String):
 	var app := _app()
 	if app != null:
 		return app.settings.get_value(key)
-	var defaults := {"memory_aid": true, "animations": true, "turn_timer": false, "turn_timer_seconds": 30, "ai_speed": "normal", "table_3d": true}
+	var defaults := {"memory_aid": false, "animations": true, "turn_timer": false, "turn_timer_seconds": 30, "ai_speed": "normal", "table_3d": true}
 	return defaults.get(key)
 
 
@@ -299,6 +304,9 @@ func _new_rules(cfg: Dictionary):
 		config.seed = int(Time.get_unix_time_from_system()) % 1000000 + randi() % 1000
 	match_id = str(config.get("match_id", "m%d" % int(config.seed)))
 	config.match_id = match_id
+	# Echte Partien beginnen mit der Merkphase; nur reine Regeltests lassen sie weg.
+	if not config.has("peek_phase"):
+		config.peek_phase = true
 	var r = DameRulesScript.new()
 	r.start_match(config)
 	return r
@@ -573,6 +581,7 @@ func _build_ui() -> void:
 	if _use_3d:
 		_layout_hud_3d()
 	_build_round_panel()
+	_build_peek_panel()
 	_build_over_panel()
 	_build_handoff()
 	_build_pause()
@@ -682,6 +691,17 @@ func _build_round_panel() -> void:
 	_round_button.text = "Nächste Ausgabe [Enter]"
 	_round_button.pressed.connect(next_deal)
 	vb.add_child(_round_button)
+
+
+# Merkphase: die zwei Startkarten liegen offen, bis man "gemerkt" bestaetigt.
+func _build_peek_panel() -> void:
+	_peek_panel = _panel(Vector2(440, 478), Vector2(400, 64))
+	var vb := VBoxContainer.new()
+	_peek_panel.add_child(vb)
+	_peek_button = Button.new()
+	_peek_button.text = tr("Gemerkt – los geht's [Enter]")
+	_peek_button.pressed.connect(peek_done)
+	vb.add_child(_peek_button)
 
 
 func _build_over_panel() -> void:
@@ -1091,6 +1111,9 @@ func _on_result(msg: Dictionary) -> void:
 func _on_view(view: Dictionary, action: Dictionary) -> void:
 	var before := _view
 	_view = view
+	# Merkphase vorbei: die Startkarten sofort wieder verdecken (kein Nachglimmen des Aufdeckens).
+	if str(before.get("phase", "")) == "peek" and str(view.get("phase", "")) != "peek":
+		_reveal_until.clear()
 	# Absichtlich: jede neue Sicht loest die Eingabesperre. Der Host schickt das
 	# Ergebnis immer vor der Sicht; eine Sicht heisst also, die Aktion ist erledigt.
 	_awaiting_result = false
@@ -1264,6 +1287,16 @@ func end_turn() -> void:
 		act({"type": "end_turn"})
 
 
+# Eigene Startkarten gemerkt: Karten wieder verdeckt, das Spiel beginnt, sobald alle so weit sind.
+func peek_done() -> void:
+	if session == null or handoff_pending or str(_view.get("phase", "")) != "peek":
+		return
+	if viewer_seat < 0 or bool(_view.players[viewer_seat].get("peek_ready", true)):
+		return
+	act({"type": "peek_ready"})
+	_sound("click")
+
+
 func next_deal() -> void:
 	# Nur der Host startet die naechste Ausgabe; Ton und Aufdecken kommen aus _on_view.
 	if session == null or str(_view.get("phase", "")) != "round_end":
@@ -1308,6 +1341,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	var phase := str(_view.get("phase", ""))
 	if phase == "round_end" and (key == KEY_ENTER or key == KEY_KP_ENTER):
 		next_deal()
+		accept_event()
+		return
+	if phase == "peek" and (key == KEY_ENTER or key == KEY_KP_ENTER or key == KEY_SPACE):
+		peek_done()
 		accept_event()
 		return
 	if key >= KEY_1 and key <= KEY_6:
@@ -1647,6 +1684,13 @@ func _tick_presence(delta: float) -> void:
 		return
 	_deal_wait = 0.0
 	_presence.tick(delta)
+	if phase == "peek":
+		_peek_wait += delta
+		if _peek_wait >= PEEK_TIMEOUT_SECONDS:
+			_peek_wait = 0.0
+			session.peek_timeout()
+		return
+	_peek_wait = 0.0
 	if phase != "play" and phase != "dame_called":
 		return
 	var seat := int(_view.current_index)
@@ -1720,6 +1764,9 @@ func _face_for(seat: int, index: int, card: Dictionary) -> bool:
 		return true
 	if spectating or handoff_pending:
 		return false
+	# Merkphase: die eigenen Startkarten liegen offen, bis man sie bestaetigt hat.
+	if phase == "peek":
+		return true
 	if bool(_setting("memory_aid")):
 		return true
 	return int(_reveal_until.get("%d:%d" % [seat, index], 0)) > Time.get_ticks_msec()
@@ -1786,6 +1833,11 @@ func _refresh() -> void:
 	_log.text = "\n".join(PackedStringArray(lines))
 	_update_actions()
 	_round_panel.visible = phase == "round_end"
+	var peeking: bool = phase == "peek" and viewer_seat >= 0 and not handoff_pending and not spectating \
+		and not bool(_view.players[viewer_seat].get("peek_ready", true))
+	_peek_panel.visible = peeking
+	if peeking and not _peek_button.has_focus():
+		_peek_button.grab_focus()
 	_over_panel.visible = phase == "game_over"
 	if phase == "round_end":
 		_round_text.text = _round_summary()
@@ -1823,6 +1875,10 @@ func _prompt_text() -> String:
 		return "Spiel vorbei."
 	if handoff_pending:
 		return ""
+	if phase == "peek":
+		if viewer_seat >= 0 and not bool(_view.players[viewer_seat].get("peek_ready", true)):
+			return tr("Merke dir deine zwei Karten. Dann bestätige.")
+		return tr("Warte auf die anderen …")
 	var current := int(_view.current_index)
 	var name := str(_view.current_name)
 	if bool(_view.players[current].is_ai):

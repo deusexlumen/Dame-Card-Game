@@ -43,7 +43,13 @@ func _process(_delta: float) -> bool:
 			if scene.rules.seat_count() != 4 or scene.local_seats != [0]:
 				return _abort("Setup-Konfiguration kam nicht am Tisch an")
 			scene.instant_ai = true
+			# Merkphase: erst die Startkarten bestaetigen, dann beginnt das Spiel.
+			if str(scene._view.phase) != "peek":
+				return _abort("Tisch startet nicht in der Merkphase")
+			scene.peek_done()
 			scene.run_ai_until_human()
+			if str(scene._view.phase) != "play":
+				return _abort("Spiel beginnt nach der Merkphase nicht")
 			scene._on_deck()
 			scene._on_drawn()
 			var step := str(scene.rules.state.turn_step)

@@ -12,8 +12,8 @@ var t
 
 func run(ctx) -> void:
 	t = ctx
-	var result_a: Dictionary = _play({"seed": 2024, "seat_count": 4, "ai_seats": [1, 2, 3]}, "A", false)
-	var result_b: Dictionary = _play({"seed": 2025, "seat_count": 3, "ai_seats": [2]}, "B", true)
+	var result_a: Dictionary = _play({"peek_phase": false, "seed": 2024, "seat_count": 4, "ai_seats": [1, 2, 3]}, "A", false)
+	var result_b: Dictionary = _play({"peek_phase": false, "seed": 2025, "seat_count": 3, "ai_seats": [2]}, "B", true)
 	var a: String = result_a.state
 	var b: String = result_b.state
 	var total_jacks: int = result_a.jacks + result_b.jacks

@@ -50,7 +50,9 @@ const REQUIRED_STATE_KEYS := [
 	"deck", "discard", "phase", "round", "safe_phase", "turn_step", "drawn_card",
 	"dame_caller_index", "dame_turns_left", "winner_index", "last_action", "log",
 ]
-const PHASES := ["play", "dame_called", "round_end", "game_over"]
+# "peek": Merkphase vor dem ersten Zug jeder Ausgabe. Jeder sieht seine zwei Startkarten und
+# bestaetigt "gemerkt"; erst wenn alle bestaetigt haben (KI sofort), beginnt "play".
+const PHASES := ["peek", "play", "dame_called", "round_end", "game_over"]
 const TURN_STEPS := ["draw", "play", "jack", "king", "extra"]
 
 var state: Dictionary = {}
@@ -97,10 +99,11 @@ func start_match(config: Dictionary = {}) -> void:
 	var players: Array = []
 	for seat in range(seat_count):
 		var known: Array = []
-		if hands[seat].size() > 0:
-			known.append(0)
-		if hands[seat].size() > 1:
-			known.append(1)
+		if not bool(config.get("blind", false)):
+			if hands[seat].size() > 0:
+				known.append(0)
+			if hands[seat].size() > 1:
+				known.append(1)
 		var difficulty := str(difficulties.get(seat, "medium"))
 		if not DIFFICULTIES.has(difficulty):
 			difficulty = "medium"
@@ -119,6 +122,7 @@ func start_match(config: Dictionary = {}) -> void:
 			"eliminated": false,
 			"has_called_dame": false,
 			"locked": false,
+			"peek_ready": true,
 		})
 	state = {
 		"players": players,
@@ -144,12 +148,17 @@ func start_match(config: Dictionary = {}) -> void:
 		"last_round_false_call": false,
 		# Vorbereitet, in V1 aus: Ass und Zehn ohne Wirkung (CONCEPT_DECISIONS §9).
 		"power_effects": bool(config.get("power_effects", false)),
+		# Merkphase vor dem ersten Zug (Standard fuer echte Partien, hier fuer reine Regeltests aus)
+		# und Hardcore ohne Blick auf die Startkarten.
+		"peek_phase": bool(config.get("peek_phase", false)),
+		"blind": bool(config.get("blind", false)),
 		"ai_turns_finished": 0,
 		"last_look": null,
 		"last_look_by": -1,
 		"last_king_swap": null,
 		"log": ["%d Plätze. Ausgabe 1, Runde 1, Safe Phase." % seat_count],
 	}
+	_begin_deal_peek()
 
 
 func apply_action(action: Dictionary) -> Dictionary:
@@ -159,6 +168,12 @@ func apply_action(action: Dictionary) -> Dictionary:
 		seat = int(state.current_index)
 	if type == "start_next_round":
 		return _start_next_round()
+	if type == "peek_ready":
+		return _peek_ready(seat)
+	if type == "peek_timeout":
+		return _peek_timeout()
+	if str(state.phase) == "peek":
+		return _fail("Merkphase: erst alle Startkarten merken")
 	if str(state.phase) == "round_end" or str(state.phase) == "game_over":
 		return _fail("Runde ist vorbei")
 	if seat != int(state.current_index):
@@ -591,7 +606,7 @@ func _start_next_round() -> Dictionary:
 			hand.append(pen)
 		p.hand = hand
 		p.penalty_cards = []
-		p.known = [0, 1] if hand.size() >= 2 else [0]
+		p.known = [] if bool(state.get("blind", false)) else ([0, 1] if hand.size() >= 2 else [0])
 		p.locked = false
 		p.score = 0
 		p.has_called_dame = false
@@ -610,8 +625,62 @@ func _start_next_round() -> Dictionary:
 	state.round = 1
 	state.safe_phase = true
 	state.phase = "play"
+	_begin_deal_peek()
 	return _ok("Neue Ausgabe. Am Zug: %s" % str(current_player().name))
 
+
+
+# Beginn einer Ausgabe: mit Merkphase warten alle Menschen auf ihr "gemerkt". KI und
+# Ausgeschiedene sind sofort bereit. Ohne Merkphase (Regeltests, Hardcore) geht es direkt los.
+func _begin_deal_peek() -> void:
+	var waiting := false
+	for p in state.players:
+		var skip: bool = bool(p.is_ai) or bool(p.eliminated)
+		p["peek_ready"] = skip or not bool(state.get("peek_phase", false)) or bool(state.get("blind", false))
+		if not bool(p.peek_ready):
+			waiting = true
+	if not waiting:
+		return
+	state.phase = "peek"
+	state.current_index = _next_peek_seat(-1)
+	state.last_action = "Merkphase: Startkarten ansehen und merken."
+
+
+# Naechster Mensch, der noch nicht bestaetigt hat (nach `after`, reihum). -1: keiner.
+func _next_peek_seat(after: int) -> int:
+	for step in range(1, seat_count() + 1):
+		var seat := (after + step) % seat_count()
+		if not bool(state.players[seat].get("peek_ready", true)):
+			return seat
+	return -1
+
+
+func _peek_ready(seat: int) -> Dictionary:
+	if str(state.phase) != "peek":
+		return _fail("Keine Merkphase")
+	if seat < 0 or seat >= seat_count() or bool(state.players[seat].eliminated):
+		return _fail("Ungültiger Platz")
+	state.players[seat].peek_ready = true
+	return _finish_peek_if_done(seat)
+
+
+# Wer nicht bestaetigt (z. B. online abwesend), wird nach Ablauf der Wartezeit uebergangen.
+func _peek_timeout() -> Dictionary:
+	if str(state.phase) != "peek":
+		return _fail("Keine Merkphase")
+	for p in state.players:
+		p.peek_ready = true
+	return _finish_peek_if_done(-1)
+
+
+func _finish_peek_if_done(seat: int) -> Dictionary:
+	var next := _next_peek_seat(seat)
+	if next >= 0:
+		state.current_index = next
+		return _ok("%s hat sich die Karten gemerkt." % str(state.players[seat].name))
+	state.phase = "play"
+	state.current_index = int(state.round_start_index)
+	return _ok("Alle haben sich gemerkt. %s beginnt." % str(current_player().name))
 
 
 func _private_look(viewer_seat: int):

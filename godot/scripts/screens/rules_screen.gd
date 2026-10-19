@@ -6,7 +6,7 @@ const RULES_TEXT := """[b]Ziel[/b]
 Möglichst wenige Punkte sammeln. Wer über 50 Gesamtpunkte kommt, scheidet aus. Genau 50 setzt dich auf 0 zurück. Wer am Ende übrig bleibt, gewinnt.
 
 [b]Ausgabe[/b]
-Jeder bekommt 4 verdeckte Karten. Die ersten zwei darfst du dir ansehen, die anderen zwei kennst du nicht. Merk dir gut, was wo liegt.
+Jeder bekommt 4 verdeckte Karten. Vor dem ersten Zug (Merkphase) siehst du deine ersten zwei Karten an, die anderen zwei kennst du nicht. Merk dir gut, was wo liegt, und bestätige „Gemerkt“: Die Karten werden wieder verdeckt. Erst wenn alle sich gemerkt haben, beginnt das Spiel. Im Hardcore-Modus gibt es diesen Blick nicht, du spielst blind.
 
 [b]Dein Zug[/b]
 1. Ziehe eine Karte vom Stapel oder nimm die oberste Karte der Ablage.
@@ -46,7 +46,7 @@ const RULES_TEXT_EN := """[b]Goal[/b]
 Collect as few points as possible. Anyone above 50 total points is out. Exactly 50 resets you to 0. Whoever is left at the end wins.
 
 [b]Deal[/b]
-Everyone gets 4 face-down cards. You may look at the first two; the other two stay unknown. Remember well what lies where.
+Everyone gets 4 face-down cards. Before the first turn (memorising phase) you look at your first two cards; the other two stay unknown. Remember well what lies where and confirm “Memorised”: the cards are turned face down again. The game starts once everyone has memorised. In hardcore mode there is no look at all, you play blind.
 
 [b]Your turn[/b]
 1. Draw a card from the deck or take the top card of the discard pile.
