@@ -1,7 +1,8 @@
 extends RefCounted
 
-# Merkphase: vor dem ersten Zug sieht jeder seine zwei Startkarten und bestaetigt "gemerkt".
-# Erst wenn alle bestaetigt haben, beginnt das Spiel. Hardcore: kein Blick, sofort Spiel.
+# Merkphase: vor dem ersten Zug sieht sich jeder zwei seiner Karten an (frei waehlbar, beliebig oft
+# wieder ansehen, eine dritte Karte kostet eine Strafkarte) und bestaetigt "Fertig". Erst wenn alle
+# fertig sind, beginnt das Spiel. Hardcore: kein Blick, sofort Spiel.
 
 const TableScene = preload("res://scenes/table.tscn")
 const DameRulesScript = preload("res://scripts/dame_rules.gd")
@@ -52,19 +53,36 @@ func _check_rules_single_human() -> void:
 	t.expect(not bool(r.state.players[0].peek_ready), "Mensch ist von Anfang an bereit")
 	for seat in [1, 2, 3]:
 		t.expect(bool(r.state.players[seat].peek_ready), "KI ist nicht sofort bereit")
-	t.expect(_known_cards(r, 0) == 2, "Mensch sieht in der Merkphase nicht genau zwei Karten")
-	t.expect(_known_cards(r, 1) == 2, "Die Sicht der KI zeigt ihr nicht ihre zwei Karten")
+	t.expect(_known_cards(r, 0) == 0, "Mensch kennt vor dem Ansehen schon Karten")
+	t.expect(_known_cards(r, 1) == 2, "Die KI kennt ihre zwei Karten nicht")
 	# Waehrend der Merkphase ist jede Spielaktion gesperrt und aendert nichts.
 	var before := var_to_str(r.state)
 	var res: Dictionary = r.apply_action({"type": "draw_deck", "seat": 0})
 	t.expect(not bool(res.ok), "Ziehen in der Merkphase erlaubt")
 	t.expect(var_to_str(r.state) == before, "abgelehnte Aktion in der Merkphase aendert den Zustand")
+	# Zwei beliebige Karten ansehen, dieselbe beliebig oft.
+	res = r.apply_action({"type": "peek_look", "seat": 0, "hand_index": 3})
+	t.expect(bool(res.ok) and _known_cards(r, 0) == 1, "erste Karte ansehen scheitert")
+	res = r.apply_action({"type": "peek_look", "seat": 0, "hand_index": 1})
+	t.expect(bool(res.ok) and _known_cards(r, 0) == 2, "zweite Karte ansehen scheitert")
+	for _i in range(3):
+		res = r.apply_action({"type": "peek_look", "seat": 0, "hand_index": 3})
+		t.expect(bool(res.ok), "dieselbe Karte nochmal ansehen scheitert")
+	t.expect(r.state.players[0].penalty_cards.is_empty(), "nochmal ansehen kostet eine Strafkarte")
+	# Eine dritte Karte ist ein Fehler: Strafkarte, die Karte bleibt unbekannt.
+	res = r.apply_action({"type": "peek_look", "seat": 0, "hand_index": 0})
+	t.expect(not bool(res.ok), "dritte Karte ansehen erlaubt")
+	t.expect(r.state.players[0].penalty_cards.size() == 1, "dritte Karte ohne genau eine Strafkarte")
+	t.expect(_known_cards(r, 0) == 2 and r.state.players[0].hand.size() == 4, "dritte Karte wurde bekannt oder die Hand veraendert")
+	t.expect(str(r.state.phase) == "peek", "Strafkarte beendet die Merkphase")
+	res = r.apply_action({"type": "peek_look", "seat": 0, "hand_index": 99})
+	t.expect(not bool(res.ok) and r.state.players[0].penalty_cards.size() == 1, "ungueltiger Index kostet eine Strafkarte")
 	res = r.apply_action({"type": "peek_ready", "seat": 0})
-	t.expect(bool(res.ok), "gemerkt wird abgelehnt: %s" % str(res.get("reason", "")))
+	t.expect(bool(res.ok), "fertig wird abgelehnt: %s" % str(res.get("reason", "")))
 	t.expect(str(r.state.phase) == "play", "nach dem Merken beginnt das Spiel nicht")
 	t.expect(int(r.state.current_index) == int(r.state.round_start_index), "falscher Spieler beginnt")
-	res = r.apply_action({"type": "peek_ready", "seat": 0})
-	t.expect(not bool(res.ok), "zweites gemerkt ausserhalb der Merkphase erlaubt")
+	res = r.apply_action({"type": "peek_look", "seat": 0, "hand_index": 1})
+	t.expect(not bool(res.ok), "Ansehen nach Spielbeginn erlaubt")
 	res = r.apply_action({"type": "draw_deck", "seat": 0})
 	t.expect(bool(res.ok), "Ziehen nach der Merkphase nicht erlaubt")
 
@@ -76,6 +94,9 @@ func _check_rules_two_humans() -> void:
 	var res: Dictionary = r.apply_action({"type": "peek_ready", "seat": 1})
 	t.expect(bool(res.ok) and str(r.state.phase) == "peek", "Platz 1 kann nicht zuerst bestaetigen")
 	t.expect(int(r.state.current_index) == 0, "Hot-Seat: nach Platz 1 ist nicht Platz 0 dran")
+	# Nach "Fertig" darf man noch ansehen, solange nicht alle fertig sind.
+	var again: Dictionary = r.apply_action({"type": "peek_look", "seat": 1, "hand_index": 2})
+	t.expect(bool(again.ok), "Ansehen nach Fertig, vor Spielbeginn, nicht erlaubt")
 	r.apply_action({"type": "peek_ready", "seat": 0})
 	t.expect(str(r.state.phase) == "play", "Spiel beginnt nicht, obwohl alle Menschen bestaetigt haben")
 	# Hot-Seat-Reihenfolge: nach Platz 0 ist Platz 1 an der Reihe.
@@ -90,6 +111,7 @@ func _check_rules_hardcore() -> void:
 	for seat in range(4):
 		t.expect(_known_cards(r, seat) == 0, "Hardcore: Platz %d kennt Karten" % seat)
 		t.expect(r.state.players[seat].known.is_empty(), "Hardcore: bekannte Karten gespeichert")
+	t.expect(not bool(r.apply_action({"type": "peek_look", "seat": 0, "hand_index": 0}).ok), "Hardcore: Ansehen erlaubt")
 
 
 func _check_rules_timeout() -> void:
@@ -113,7 +135,7 @@ func _check_next_deal_peeks_again() -> void:
 		else:
 			t.expect(str(r.state.phase) == "peek", "neue Ausgabe ohne Merkphase")
 			t.expect(not bool(r.state.players[0].peek_ready) and bool(r.state.players[1].peek_ready), "neue Ausgabe: falsche Bereitschaft")
-			t.expect(_known_cards(r, 0) == 2, "neue Ausgabe: Mensch sieht nicht zwei Karten")
+			t.expect(_known_cards(r, 0) == 0 and _known_cards(r, 1) == 2, "neue Ausgabe: falsches Wissen zu Beginn")
 
 
 func _check_old_save_loads() -> void:
@@ -137,6 +159,7 @@ func _check_old_save_loads() -> void:
 func _check_protocol_and_host() -> void:
 	t.expect(not DameProtocol.sanitize_action({"type": "peek_ready"}).is_empty(), "Gast darf nicht 'gemerkt' senden")
 	t.expect(DameProtocol.sanitize_action({"type": "peek_timeout"}).is_empty(), "Gast darf die Merkphase beenden")
+	t.expect(int(DameProtocol.sanitize_action({"type": "peek_look", "hand_index": 2}).get("hand_index", -1)) == 2, "Gast darf keine Karte ansehen")
 	var r = _rules({"seat_count": 3, "ai_seats": [2]})
 	var host = DameHostScript.new(r, null)
 	host.assign_seat(DameProtocol.HOST_PEER, 0)
@@ -180,15 +203,28 @@ func _check_table_flow() -> void:
 	# Ohne Angabe beginnt eine echte Partie mit der Merkphase.
 	var table = _table({})
 	t.expect(str(table._view.phase) == "peek", "Tisch startet nicht in der Merkphase")
-	t.expect(_faces(table, 0) == [0, 1], "Merkphase: eigene Startkarten nicht offen: %s" % str(_faces(table, 0)))
-	for seat in [1, 2, 3]:
-		t.expect(_faces(table, seat).is_empty(), "Merkphase: fremde Karte sichtbar (Platz %d)" % seat)
+	for seat in [0, 1, 2, 3]:
+		t.expect(_faces(table, seat).is_empty(), "Merkphase: Karten schon offen (Platz %d)" % seat)
 	t.expect(table._peek_panel.visible, "Merkphase: Bestaetigungsknopf fehlt")
-	t.expect("Merke dir" in table._prompt.text, "Merkphase: Hinweis fehlt: " + table._prompt.text)
+	t.expect("Tippe zwei" in table._prompt.text, "Merkphase: Hinweis fehlt: " + table._prompt.text)
 	t.expect(not table._human_turn(), "Merkphase: Mensch darf schon ziehen")
 	var deck_before := int(table._view.deck_count)
 	table._on_deck()
 	t.expect(int(table._view.deck_count) == deck_before, "Merkphase: Stapel ziehbar")
+	# Zwei beliebige Karten antippen: nur sie liegen offen.
+	table._on_card(0, 2)
+	table._on_card(0, 0)
+	t.expect(_faces(table, 0) == [0, 2], "Angetippte Karten nicht offen: %s" % str(_faces(table, 0)))
+	# Nochmal antippen blendet aus, wieder antippen zeigt sie erneut (ohne Strafkarte).
+	table._on_card(0, 2)
+	t.expect(_faces(table, 0) == [0], "Karte laesst sich nicht wieder ausblenden")
+	table._on_card(0, 2)
+	t.expect(_faces(table, 0) == [0, 2], "Karte laesst sich nicht erneut ansehen")
+	t.expect(int(table._view.players[0].penalty_count) == 0, "nochmal ansehen kostet eine Strafkarte")
+	# Eine dritte Karte kostet eine Strafkarte und bleibt verdeckt.
+	table._on_card(0, 1)
+	t.expect(int(table._view.players[0].penalty_count) == 1, "dritte Karte ohne Strafkarte")
+	t.expect(not (1 in _faces(table, 0)), "dritte Karte liegt offen")
 	table.peek_done()
 	table.run_ai_until_human()
 	t.expect(str(table._view.phase) == "play", "Spiel beginnt nach dem Merken nicht")
@@ -210,6 +246,8 @@ func _check_table_hardcore() -> void:
 func _check_table_beginner_aid() -> void:
 	# Anfaengerhilfe: bekannte Karten bleiben auch nach dem Merken offen.
 	var table = _table({}, {"memory_aid": true})
+	table._on_card(0, 0)
+	table._on_card(0, 1)
 	table.peek_done()
 	table.run_ai_until_human()
 	t.expect(_faces(table, 0) == [0, 1], "Anfaengerhilfe: Karten nach dem Merken nicht offen")
@@ -235,7 +273,10 @@ func _check_table_hotseat() -> void:
 	for seat in [0, 1, 2]:
 		t.expect(_faces(table, seat).is_empty(), "Hot-Seat: vor der Uebergabe sichtbare Karte Platz %d" % seat)
 	table.confirm_handoff()
-	t.expect(table.viewer_seat == 0 and _faces(table, 0) == [0, 1], "Anna sieht ihre Karten in der Merkphase nicht")
+	t.expect(table.viewer_seat == 0 and _faces(table, 0).is_empty(), "Anna sieht Karten, ohne sie angetippt zu haben")
+	table._on_card(0, 0)
+	table._on_card(0, 1)
+	t.expect(_faces(table, 0) == [0, 1], "Anna sieht ihre Karten in der Merkphase nicht")
 	t.expect(_faces(table, 1).is_empty(), "Anna sieht Bens Karten")
 	table.peek_done()
 	t.expect(str(table._view.phase) == "peek", "Spiel beginnt, obwohl Ben sich noch nicht gemerkt hat")
@@ -243,7 +284,9 @@ func _check_table_hotseat() -> void:
 	for seat in [0, 1, 2]:
 		t.expect(_faces(table, seat).is_empty(), "Hot-Seat: Karten offen waehrend der Uebergabe an Ben (Platz %d)" % seat)
 	table.confirm_handoff()
-	t.expect(table.viewer_seat == 1 and _faces(table, 1) == [0, 1], "Ben sieht seine Karten in der Merkphase nicht")
+	table._on_card(1, 2)
+	table._on_card(1, 3)
+	t.expect(table.viewer_seat == 1 and _faces(table, 1) == [2, 3], "Ben sieht seine Karten in der Merkphase nicht")
 	t.expect(_faces(table, 0).is_empty(), "Ben sieht Annas Karten")
 	table.peek_done()
 	table.run_ai_until_human()

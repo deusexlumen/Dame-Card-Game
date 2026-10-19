@@ -34,6 +34,40 @@ func step(rules) -> Dictionary:
 	return rules.apply_action(last_action)
 
 
+# Mitwerf-Aktion der KI auf diesem Platz (leer, wenn sie nichts Sicheres hat).
+func reaction_for(rules, seat: int) -> Dictionary:
+	if not bool(rules.state.players[seat].is_ai):
+		return {}
+	var phase := str(rules.state.phase)
+	if phase != "play" and phase != "dame_called":
+		return {}
+	return DamePolicyScript.choose_reaction(DameViewScript.for_viewer(rules, seat))
+
+
+# Irgendein KI-Platz hat etwas Sicheres zum Mitwerfen.
+func reaction_due(rules) -> bool:
+	for seat in range(rules.seat_count()):
+		if not reaction_for(rules, seat).is_empty():
+			return true
+	return false
+
+
+# Genau eine Mitwerf-Aktion eines KI-Platzes (reihum zufaellig). Liefert {} wenn keiner etwas hat.
+func react(rules) -> Dictionary:
+	var seats: Array = range(rules.seat_count())
+	var start := rng.randi_range(0, maxi(seats.size() - 1, 0))
+	for k in range(seats.size()):
+		var seat := int(seats[(start + k) % seats.size()])
+		var action := reaction_for(rules, seat)
+		if action.is_empty():
+			continue
+		var result: Dictionary = rules.apply_action(action)
+		last_action = action
+		result["seat"] = seat
+		return result
+	return {}
+
+
 func complete_turn(rules) -> bool:
 	last_completed = false
 	last_error = ""

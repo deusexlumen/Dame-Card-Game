@@ -193,6 +193,23 @@ static func _choose_extra(view: Dictionary, me: Dictionary, difficulty: String) 
 	return {"type": "end_turn", "seat": seat}
 
 
+# Mitwerfen ausserhalb des eigenen Zugs: nur mit sicherem Wissen (bekannte Karte, gleicher Rang,
+# keine Dame), sonst droht eine Strafkarte. "Einfach" wirft nie mit.
+static func choose_reaction(view: Dictionary) -> Dictionary:
+	var me := _me(view)
+	var difficulty := str(me.difficulty)
+	var top = view.discard_top
+	if difficulty == "easy" or top == null or bool(me.eliminated) or bool(me.locked):
+		return {}
+	var phase := str(view.phase)
+	if phase != "play" and phase != "dame_called":
+		return {}
+	for card in me.cards:
+		if bool(card.known) and str(card.rank) == str(top.rank) and str(card.rank) != "Q":
+			return {"type": "discard_extra", "seat": int(view.viewer_seat), "hand_index": int(card.index)}
+	return {}
+
+
 static func _should_call(view: Dictionary, difficulty: String) -> bool:
 	var estimate := estimate_own_score(view)
 	match difficulty:

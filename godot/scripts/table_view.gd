@@ -73,6 +73,8 @@ From round 3, at the start of your turn (D), if you think you have the fewest po
 const REVEAL_PEEK_MS := 3000
 # Online: so lange wartet der Host in der Merkphase auf Bestaetigungen, dann gelten alle als bereit.
 const PEEK_TIMEOUT_SECONDS := 45.0
+# So lange bleibt eine in der Merkphase angesehene Karte offen (nochmal tippen blendet sie aus).
+const PEEK_LOOK_MS := 4000
 const REVEAL_SWAP_MS := 2200
 
 # DameHost oder DameGuest. Einziger Weg, das Spiel zu veraendern.
@@ -185,6 +187,7 @@ var _round_panel: PanelContainer
 var _peek_panel: PanelContainer
 var _peek_button: Button
 var _peek_wait := 0.0
+var _react_timer: Timer
 var _round_text: RichTextLabel
 var _round_button: Button
 var _over_panel: PanelContainer
@@ -577,6 +580,11 @@ func _build_ui() -> void:
 	_ai_timer.one_shot = true
 	_ai_timer.timeout.connect(_ai_step)
 	add_child(_ai_timer)
+	# Mitwerfen der KI ausserhalb ihres Zugs: bewusst langsamer als ein Mensch reagieren kann.
+	_react_timer = Timer.new()
+	_react_timer.one_shot = true
+	_react_timer.timeout.connect(_ai_react)
+	add_child(_react_timer)
 
 	if _use_3d:
 		_layout_hud_3d()
@@ -699,7 +707,7 @@ func _build_peek_panel() -> void:
 	var vb := VBoxContainer.new()
 	_peek_panel.add_child(vb)
 	_peek_button = Button.new()
-	_peek_button.text = tr("Gemerkt – los geht's [Enter]")
+	_peek_button.text = tr("Fertig – los geht's [Enter]")
 	_peek_button.pressed.connect(peek_done)
 	vb.add_child(_peek_button)
 
@@ -967,6 +975,7 @@ func _after_change() -> void:
 			call_deferred("_ai_step")
 		else:
 			_ai_timer.start(maxf(_ai_delay(), 0.05))
+	_plan_reaction(phase)
 	state_changed.emit()
 
 
@@ -1053,6 +1062,28 @@ func _ai_step() -> void:
 		if seen == _views_seen:
 			# Keine neue Sicht: trotzdem weiterplanen wie bisher.
 			_after_change()
+
+
+# Mitwerfen der KI plant nur der Host, und nur im echten Spiel (Tests mit instant_ai laufen ohne).
+func _plan_reaction(phase: String) -> void:
+	var live: bool = session != null and session.is_authority() and ai != null and not instant_ai \
+		and not handoff_pending and (phase == "play" or phase == "dame_called")
+	if not live or not session.ai_reaction_due(ai):
+		_react_timer.stop()
+		return
+	if _react_timer.is_stopped():
+		_react_timer.start(maxf(_ai_delay() * 2.0 + randf() * 0.8, 0.4))
+
+
+func _ai_react() -> void:
+	if session == null or not session.is_authority() or ai == null or _view.is_empty():
+		return
+	var phase := str(_view.phase)
+	if phase != "play" and phase != "dame_called":
+		return
+	session.ai_react(ai)
+	# Erfolg kommt als neue Sicht und plant ueber _after_change weiter; sonst hier neu pruefen.
+	_plan_reaction(str(_view.phase))
 
 
 # Fuer Tests: alle anstehenden KI-Schritte sofort ausfuehren.
@@ -1241,8 +1272,48 @@ func _on_drawn() -> void:
 		act({"type": "discard_drawn"})
 
 
+# Mitwerfen: jederzeit eine eigene Karte ablegen, auch ausserhalb des eigenen Zugs, solange sie zur
+# obersten Ablagekarte passt. Falsch (oder die Karte liegt nicht mehr oben) kostet eine Strafkarte.
+func _can_throw_in() -> bool:
+	if session == null or handoff_pending or _net_closed or spectating or _view.is_empty() or is_hotseat():
+		return false
+	var phase := str(_view.phase)
+	if phase != "play" and phase != "dame_called":
+		return false
+	if viewer_seat < 0 or viewer_seat >= _view.players.size():
+		return false
+	var me: Dictionary = _view.players[viewer_seat]
+	return not bool(me.eliminated) and not bool(me.locked) and _view.discard_top != null
+
+
+func throw_in(index: int) -> Dictionary:
+	if not _can_throw_in() or index < 0:
+		return {"ok": false, "reason": "Nicht möglich"}
+	return act({"type": "discard_extra", "hand_index": index})
+
+
+# Merkphase: eine eigene Karte ansehen. Nochmal tippen blendet sie wieder aus (nur lokal).
+func peek_look(index: int) -> void:
+	if session == null or handoff_pending or str(_view.get("phase", "")) != "peek" or viewer_seat < 0:
+		return
+	if int(_reveal_until.get("%d:%d" % [viewer_seat, index], 0)) > Time.get_ticks_msec():
+		_reveal_until.erase("%d:%d" % [viewer_seat, index])
+		_refresh()
+		return
+	act({"type": "peek_look", "hand_index": index})
+	# Aufgedeckt wird nur, was der Host als bekannt meldet; eine abgelehnte dritte Karte bleibt verdeckt.
+	_reveal(viewer_seat, index, PEEK_LOOK_MS)
+	_refresh()
+
+
 func _on_card(seat: int, index: int) -> void:
+	if str(_view.get("phase", "")) == "peek":
+		if seat == viewer_seat:
+			peek_look(index)
+		return
 	if not _human_turn():
+		if seat == viewer_seat and _can_throw_in():
+			throw_in(index)
 		return
 	match str(_view.turn_step):
 		"draw":
@@ -1368,8 +1439,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			if step == "play" and _human_turn():
 				act({"type": "discard_drawn"})
 		KEY_X:
-			if step == "extra" and selected >= 0 and _human_turn():
+			if selected >= 0 and _human_turn() and (step == "extra" or step == "draw"):
 				act({"type": "discard_extra", "hand_index": selected})
+			elif selected >= 0 and not _human_turn() and _can_throw_in():
+				throw_in(selected)
 		KEY_D:
 			call_dame()
 		KEY_Z, KEY_E:
@@ -1764,9 +1837,9 @@ func _face_for(seat: int, index: int, card: Dictionary) -> bool:
 		return true
 	if spectating or handoff_pending:
 		return false
-	# Merkphase: die eigenen Startkarten liegen offen, bis man sie bestaetigt hat.
+	# Merkphase: nur die gerade angetippten Karten sind offen (Zeitgeber unten), nie alle auf einmal.
 	if phase == "peek":
-		return true
+		return int(_reveal_until.get("%d:%d" % [seat, index], 0)) > Time.get_ticks_msec()
 	if bool(_setting("memory_aid")):
 		return true
 	return int(_reveal_until.get("%d:%d" % [seat, index], 0)) > Time.get_ticks_msec()
@@ -1774,6 +1847,8 @@ func _face_for(seat: int, index: int, card: Dictionary) -> bool:
 
 func _targets_for(seat: int, data: Dictionary) -> Array:
 	var out: Array = []
+	if str(_view.get("phase", "")) == "peek":
+		return range(data.cards.size()) if seat == viewer_seat and not handoff_pending else out
 	if not _human_turn() or bool(data.eliminated):
 		return out
 	var step := str(_view.turn_step)
@@ -1877,14 +1952,17 @@ func _prompt_text() -> String:
 		return ""
 	if phase == "peek":
 		if viewer_seat >= 0 and not bool(_view.players[viewer_seat].get("peek_ready", true)):
-			return tr("Merke dir deine zwei Karten. Dann bestätige.")
-		return tr("Warte auf die anderen …")
+			return tr("Tippe zwei deiner Karten an und merke sie dir. Eine dritte kostet eine Strafkarte.")
+		return tr("Warte auf die anderen … (Karten ansehen geht noch)")
 	var current := int(_view.current_index)
 	var name := str(_view.current_name)
+	var hint := ""
+	if current != viewer_seat and _can_throw_in():
+		hint = "  " + tr("Passende Karte? Antippen = mitwerfen (falsch = Strafkarte).")
 	if bool(_view.players[current].is_ai):
-		return tr("%s ist am Zug …") % name
+		return tr("%s ist am Zug …") % name + hint
 	if current != viewer_seat:
-		return tr("%s ist am Zug.") % name
+		return tr("%s ist am Zug.") % name + hint
 	match str(_view.turn_step):
 		"draw":
 			if bool(_view.must_take_queen):

@@ -19,6 +19,7 @@ const PLAYER_ACTIONS := {
 	"call_dame": [],
 	"end_turn": [],
 	"peek_ready": [],
+	"peek_look": ["hand_index"],
 }
 const SYSTEM_ACTIONS := ["start_next_round", "timeout_penalty", "peek_timeout"]
 

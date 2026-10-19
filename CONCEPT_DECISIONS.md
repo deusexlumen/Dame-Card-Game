@@ -4,6 +4,8 @@ Basierend auf dem Dossier werden die offenen Fragen wie folgt verbindlich festge
 
 ## 1. Echtzeit-Reaktionsregel ("Mitwerfen")
 
+> **Überholt am 2026-10-19 durch §13.** Der Nutzer hat klargestellt: Mitwerfen außerhalb des eigenen Zugs ist Kern des Spiels. Der folgende Absatz gilt nicht mehr.
+
 **Entscheidung:** Keine physische Echtzeit-Reaktion. Das digitale Spiel arbeitet rundenbasiert.  
 Stattdessen gilt die **Extra-Ablegen-Regel**: Hat ein Spieler während seines eigenen Zuges eine Karte auf der Hand, die zum aktuell obersten Ablagestapel passt, darf er diese zusätzlich ablegen.  
 Dadurch bleibt der Information-/Timing-Vorteil erhalten, ohne Netzwerk-Latenz oder Klick-Wettrennen einzuführen.
@@ -19,6 +21,8 @@ Diese wird aus dem Nachziehstapel gezogen und verdeckt an die Auslage angehängt
 Sie ist damit für alle Spieler sichtbar und löst den Zwangszug für den nächsten Spieler aus (außer in Safe Phase / Rundenende).
 
 ## 4. Mitwerfen identischer Karten
+
+> **Überholt am 2026-10-19 durch §13.**
 
 **Entscheidung:** Siehe Abschnitt 1. "Extra-Ablegen" innerhalb des eigenen Zuges.  
 Es gibt keine "Schnappreaktion" anderer Spieler außerhalb ihres Zuges.
@@ -109,11 +113,23 @@ Wo und wie gespielt wird, ist egal (Browser, als App installiert, Windows, spät
 
 Das Spiel lebt davon, Informationen zu beschaffen und sich zu merken. Darum beginnt jede Ausgabe so:
 
-- Jeder bekommt 4 verdeckte Karten. **Vor dem ersten Zug** sieht jeder seine **ersten zwei** Karten (Plätze 1 und 2 der Hand) an. Die anderen zwei bleiben unbekannt.
-- Die zwei Karten liegen offen, bis der Spieler **„Gemerkt“** bestätigt. Dann sind sie wieder verdeckt. Erst wenn **alle** Menschen bestätigt haben (KI sofort), beginnt der erste Zug. Bis dahin sind alle Spielaktionen gesperrt.
-- Das gilt für jede neue Ausgabe, nicht nur für die erste.
+- Jeder bekommt 4 verdeckte Karten. **Vor dem ersten Zug** darf sich jeder Mensch **zwei** seiner Karten ansehen. Welche, entscheidet er selbst (antippen). Die Karten sind sonst verdeckt.
+- Solange die Merkphase läuft, also bis **alle** Menschen „Fertig“ bestätigt haben (KI sofort), darf er seine zwei Karten **beliebig oft wieder ansehen**. Es gibt keine Sperre nach „Fertig“.
+- Eine **dritte** Karte anzusehen ist ein Regelverstoß: **eine Strafkarte**, die Karte bleibt unbekannt.
+- Bis alle fertig sind, sind alle Spielaktionen gesperrt. Das gilt für jede neue Ausgabe.
 - **Hardcore-Modus** (Option im Setup): kein Blick auf die Startkarten, das Spiel beginnt sofort, jeder spielt blind.
-- **Anfängerhilfe** (Einstellung, Standard aus): bekannte Karten bleiben auch nach der Merkphase offen. Vorher hieß sie „Gedächtnishilfe“ und war an, wodurch die Karten dauerhaft offen lagen.
-- **Hot-Seat:** Jeder Mensch merkt sich seine Karten hinter dem Übergabe-Schirm, einer nach dem anderen.
+- **Anfängerhilfe** (Einstellung, Standard aus): bekannte Karten bleiben auch nach der Merkphase offen. Vorher hieß sie „Gedächtnishilfe“ und war an, wodurch Karten dauerhaft offen lagen.
+- **Hot-Seat:** Jeder Mensch merkt sich seine Karten hinter dem Übergabe-Schirm, einer nach dem anderen (kein erneutes Ansehen danach).
 - **Online:** Der Host wartet höchstens 45 s auf Bestätigungen, danach gelten alle als bereit.
-- Offen, noch nicht entschieden: ob man sich später selbst aussuchen darf, welche zwei Karten man ansieht (heute immer die ersten zwei), und ob Hardcore auch online wählbar sein soll.
+- Allgemeine Regel: **Jeder Regelverstoß kostet genau eine Strafkarte.**
+
+## 13. Mitwerfen (Entscheidung 2026-10-19, verbindlich, ersetzt §1 und §4)
+
+- Sobald eine Karte oben auf der Ablage liegt, darf **jeder** Spieler **jederzeit**, auch außerhalb seines Zugs, eine eigene verdeckte Karte mit **gleichem Rang** ablegen. Niemand kann das verhindern. Es zählt nur die Karte, die **gerade oben** liegt.
+- **Richtig:** die Karte wandert auf die Ablage, die **Hand wird kleiner** (keine Ersatzkarte). Das Ziel ist, verdeckte Karten loszuwerden.
+- **Falsch** (anderer Rang, oder der Zug eines anderen hat inzwischen eine neue Karte nach oben gelegt): **eine Strafkarte**, die Karte bleibt in der Hand. Wer schneller war, entscheidet die Reihenfolge, in der der Host die Aktionen annimmt.
+- Gilt nicht für den Ansager nach „Dame“ (Karten gesperrt) und nicht für Ausgeschiedene. In der Merkphase gibt es kein Mitwerfen.
+- Ein Mitwerfen außerhalb des eigenen Zugs löst **keine Sonderwirkung** (Bube/König) aus und stört den laufenden Zug nicht. Eine Dame kostet wie immer eine Strafkarte. Im eigenen Zug nach dem Ablegen gilt weiter die Sonderwirkung.
+- Wirft jemand außerhalb seines Zugs die **letzte** Karte mit, ruft er damit automatisch Dame. Der laufende Zug des anderen zählt als dessen letzter Zug.
+- **KI:** wirft nur mit sicherem Wissen mit (bekannte Karte, gleicher Rang, keine Dame), „Einfach“ nie, und bewusst langsamer, als ein Mensch reagieren kann.
+- Offen: Die Reaktionszeit der KI nach Schwierigkeit feintunen, Mitwerfen im Hot-Seat (heute nur im eigenen Zug).

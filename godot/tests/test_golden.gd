@@ -81,6 +81,13 @@ func _human_step(table, counters: Dictionary) -> void:
 			table._on_card(seat, 0)
 		"king":
 			table._on_card(seat, 0)
-			table._on_card(opp, 0)
+			# Ein gesperrter Ansager (nach "Dame") ist kein Ziel: naechsten freien Gegner nehmen.
+			var target := opp
+			for k in range(1, int(table.rules.seat_count())):
+				var cand := (seat + k) % int(table.rules.seat_count())
+				if not bool(table.rules.state.players[cand].locked) and not bool(table.rules.state.players[cand].eliminated):
+					target = cand
+					break
+			table._on_card(target, 0)
 		_:
 			table.end_turn()
