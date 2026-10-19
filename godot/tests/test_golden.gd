@@ -12,8 +12,8 @@ var t
 
 func run(ctx) -> void:
 	t = ctx
-	var result_a: Dictionary = _play({"seed": 2024, "seat_count": 4, "ai_seats": [1, 2, 3]}, "A", false)
-	var result_b: Dictionary = _play({"seed": 2025, "seat_count": 3, "ai_seats": [2]}, "B", true)
+	var result_a: Dictionary = _play({"peek_phase": false, "seed": 2024, "seat_count": 4, "ai_seats": [1, 2, 3]}, "A", false)
+	var result_b: Dictionary = _play({"peek_phase": false, "seed": 2025, "seat_count": 3, "ai_seats": [2]}, "B", true)
 	var a: String = result_a.state
 	var b: String = result_b.state
 	var total_jacks: int = result_a.jacks + result_b.jacks
@@ -81,6 +81,13 @@ func _human_step(table, counters: Dictionary) -> void:
 			table._on_card(seat, 0)
 		"king":
 			table._on_card(seat, 0)
-			table._on_card(opp, 0)
+			# Ein gesperrter Ansager (nach "Dame") ist kein Ziel: naechsten freien Gegner nehmen.
+			var target := opp
+			for k in range(1, int(table.rules.seat_count())):
+				var cand := (seat + k) % int(table.rules.seat_count())
+				if not bool(table.rules.state.players[cand].locked) and not bool(table.rules.state.players[cand].eliminated):
+					target = cand
+					break
+			table._on_card(target, 0)
 		_:
 			table.end_turn()

@@ -11,6 +11,7 @@ var seat_option: OptionButton
 var rows: Array = []
 var error_label: Label
 var start_button: Button
+var hardcore_check: CheckBox
 
 func build() -> void:
 	var app := app_node()
@@ -26,6 +27,10 @@ func build() -> void:
 	rows_box.name = "Rows"
 	rows_box.add_theme_constant_override("separation", 8)
 	content.add_child(rows_box)
+	hardcore_check = CheckBox.new()
+	hardcore_check.text = tr("Hardcore: kein Blick auf die Startkarten")
+	hardcore_check.tooltip_text = tr("Sonst sieht jeder vor dem ersten Zug zwei seiner vier Karten und merkt sie sich.")
+	content.add_child(hardcore_check)
 	error_label = label("", 16)
 	error_label.modulate = Color(1.0, 0.7, 0.6)
 	content.add_child(error_label)
@@ -105,7 +110,7 @@ func build_config() -> Dictionary:
 		error_label.text = "Mindestens ein Mensch muss mitspielen."
 		return {}
 	error_label.text = ""
-	return {"seat_count": rows.size(), "ai_seats": ai_seats, "difficulties": difficulties, "names": names}
+	return {"seat_count": rows.size(), "ai_seats": ai_seats, "difficulties": difficulties, "names": names, "blind": hardcore_check.button_pressed}
 
 
 func start_game() -> void:

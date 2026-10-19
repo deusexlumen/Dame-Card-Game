@@ -36,8 +36,11 @@ func _check_extra_and_single_penalty() -> void:
 	var disc_r: Dictionary = rules.apply_action({"type": "discard_drawn", "seat": 0})
 	_expect(bool(disc_r.ok), "Mini: Ablegen fehlgeschlagen")
 	var wrong: Dictionary = rules.apply_action({"type": "discard_extra", "seat": 1, "hand_index": 0})
-	_expect(not bool(wrong.ok), "Mini: fremdes Extra-Ablegen war erlaubt")
-	_expect("eigenen Zug" in str(wrong.reason), "Mini: Grund ohne eigenen Zug: " + str(wrong.reason))
+	# Mitwerfen ausserhalb des eigenen Zugs ist erlaubt (CONCEPT_DECISIONS 13); eine falsche Karte kostet eine Strafkarte.
+	_expect(not bool(wrong.ok), "Mini: falsches Mitwerfen war erlaubt")
+	_expect("Passt nicht" in str(wrong.reason), "Mini: Grund ohne Passt nicht: " + str(wrong.reason))
+	_expect(rules.state.players[1].penalty_cards.size() == 1, "Mini: falsches Mitwerfen ohne genau eine Strafkarte")
+	_expect(rules.state.players[1].hand.size() == 4, "Mini: falsch mitgeworfene Karte ist nicht in der Hand geblieben")
 	var mismatch: Dictionary = rules.apply_action({"type": "discard_extra", "seat": 0, "hand_index": 1})
 	_expect(not bool(mismatch.ok), "Mini: falsches Extra war erlaubt")
 	_expect(rules.state.players[0].penalty_cards.size() == 1, "Mini: nicht genau eine Strafkarte bei falschem Extra")
@@ -215,9 +218,7 @@ func _check_plain_ace_ten() -> void:
 		],
 		"draw_first": [
 			{"suit": "diamonds", "rank": "A"},
-			{"suit": "hearts", "rank": "2"},
 			{"suit": "diamonds", "rank": "10"},
-			{"suit": "hearts", "rank": "3"},
 		],
 	})
 	_expect(rules.state.players.size() == 4, "Ass/Zehn: nicht vier Plaetze")
@@ -253,7 +254,8 @@ func _check_plain_ace_ten() -> void:
 		_expect(rules.state.last_look == null and rules.state.last_king_swap == null, label + " Extra hat geschaut oder getauscht")
 		_expect(str(rules.top_discard().rank) == code, label + " Extra liegt nicht oben")
 		_expect(rules.state.players[seat].penalty_cards.size() == penalties_before, label + " Extra hat eine Strafkarte erzeugt")
-		_expect(rules.state.deck.size() == deck_before - 2, label + " hat nicht genau eine Ersatzkarte gezogen")
+		_expect(rules.state.deck.size() == deck_before - 1, label + " hat eine Ersatzkarte gezogen (Hand soll kleiner werden)")
+		_expect(rules.state.players[seat].hand.size() == 3, label + " Hand ist nach dem Mitwerfen nicht kleiner")
 		_expect(_hand_ids_except(rules, seat) == others_before, label + " hat fremde Haende veraendert")
 		var end_r: Dictionary = rules.apply_action({"type": "end_turn", "seat": seat})
 		_expect(bool(end_r.ok), label + " Zugende fehlgeschlagen: " + str(end_r.reason))
@@ -389,9 +391,6 @@ func _play_one(rules, ai) -> void:
 		var disc_r2: Dictionary = rules.apply_action({"type": "discard_drawn", "seat": seat})
 		_expect(bool(disc_r2.ok), "Ablegen fehlgeschlagen Sitz %d: %s" % [seat, disc_r2.reason])
 	_resolve_special(rules, seat)
-	var other := (seat + 1) % 4
-	var foreign: Dictionary = rules.apply_action({"type": "discard_extra", "seat": other, "hand_index": 0})
-	_expect(not bool(foreign.ok), "Extra-Ablegen ausserhalb des eigenen Zuges war erlaubt")
 	var end_r: Dictionary = rules.apply_action({"type": "end_turn", "seat": seat})
 	_expect(bool(end_r.ok), "Zugende fehlgeschlagen Sitz %d: %s" % [seat, end_r.reason])
 

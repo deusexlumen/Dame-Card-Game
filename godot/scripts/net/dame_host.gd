@@ -141,6 +141,23 @@ func ai_step(ai) -> Dictionary:
 	return res
 
 
+# Mitwerfen der KI (ausserhalb des eigenen Zugs). Gibt true zurueck, wenn eine KI etwas geworfen hat.
+func ai_react(ai) -> bool:
+	var res: Dictionary = ai.react(rules)
+	if res.is_empty():
+		return false
+	var seat := int(res.seat)
+	if bool(res.get("ok", false)):
+		_dispatch(_broadcast(Protocol.public_action(ai.last_action, seat)))
+		return true
+	_dispatch(_broadcast())
+	return false
+
+
+func ai_reaction_due(ai) -> bool:
+	return ai.reaction_due(rules)
+
+
 # Zeit abgelaufen: genau eine Strafkarte, dann sichere Ersatzaktionen bis Zugende.
 func timeout_turn(ai) -> Dictionary:
 	var seat := int(rules.state.current_index)
@@ -279,6 +296,14 @@ func next_round() -> Dictionary:
 	var res: Dictionary = rules.apply_action({"type": "start_next_round"})
 	if bool(res.get("ok", false)):
 		_dispatch(_broadcast({"type": "start_next_round", "seat": -1}))
+	return res
+
+
+# Merkphase abbrechen (nur der Host): wer nicht bestaetigt hat, gilt als bereit.
+func peek_timeout() -> Dictionary:
+	var res: Dictionary = rules.apply_action({"type": "peek_timeout"})
+	if bool(res.get("ok", false)):
+		_dispatch(_broadcast({"type": "peek_timeout", "seat": -1}))
 	return res
 
 

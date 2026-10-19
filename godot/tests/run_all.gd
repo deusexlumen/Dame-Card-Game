@@ -7,6 +7,8 @@ const TestContext = preload("res://tests/test_context.gd")
 const SUITES := [
 	"res://tests/test_stage1.gd",
 	"res://tests/test_rules_core.gd",
+	"res://tests/test_peek.gd",
+	"res://tests/test_throw_in.gd",
 	"res://tests/test_ai.gd",
 	"res://tests/test_table_ui.gd",
 	"res://tests/test_meta.gd",

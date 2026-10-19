@@ -7,7 +7,7 @@ const VERSION := 1
 const HOST_PEER := 1
 
 # Aktionen, die ein Spieler (Gast oder Host-Spieler) schicken darf.
-# start_next_round und timeout_penalty steuert nur der Host selbst (Timer, Rundenende).
+# start_next_round, timeout_penalty und peek_timeout steuert nur der Host selbst (Timer, Rundenende, Merkphase).
 const PLAYER_ACTIONS := {
 	"draw_deck": [],
 	"draw_discard": [],
@@ -18,8 +18,10 @@ const PLAYER_ACTIONS := {
 	"king_swap": ["opponent_seat", "opponent_index", "chosen_index"],
 	"call_dame": [],
 	"end_turn": [],
+	"peek_ready": [],
+	"peek_look": ["hand_index"],
 }
-const SYSTEM_ACTIONS := ["start_next_round", "timeout_penalty"]
+const SYSTEM_ACTIONS := ["start_next_round", "timeout_penalty", "peek_timeout"]
 
 
 # Baut aus einer fremden Aktion eine saubere: nur bekannte Typen, nur bekannte

@@ -46,7 +46,7 @@ func _check_settings_service() -> void:
 	var path := "user://t_meta_settings.json"
 	_clean(path)
 	var s = SettingsServiceScript.new(path)
-	t.expect(bool(s.get_value("memory_aid")), "Standard Gedaechtnishilfe nicht an")
+	t.expect(not bool(s.get_value("memory_aid")), "Standard Anfaengerhilfe nicht aus")
 	t.expect(s.set_value("ai_speed", "fast"), "gueltiger Wert abgelehnt")
 	t.expect(not s.set_value("ai_speed", "turbo"), "ungueltiger Wert angenommen")
 	t.expect(not s.set_value("turn_timer_seconds", 17), "ungueltige Zugzeit angenommen")
@@ -61,7 +61,7 @@ func _check_settings_service() -> void:
 	t.expect(FileAccess.file_exists(path + ".bak"), "kaputte Einstellungen nicht gesichert")
 	_write(path, '{"ai_speed": 5, "memory_aid": "ja", "player_name": "   "}')
 	var odd = SettingsServiceScript.new(path)
-	t.expect(str(odd.get_value("ai_speed")) == "normal" and bool(odd.get_value("memory_aid")), "falsche Typen nicht verworfen")
+	t.expect(str(odd.get_value("ai_speed")) == "normal" and not bool(odd.get_value("memory_aid")), "falsche Typen nicht verworfen")
 	t.expect(str(odd.get_value("player_name")) == "Spieler", "leerer Name angenommen")
 	_clean(path)
 
@@ -329,7 +329,7 @@ func _check_match_finished() -> void:
 	var table = load("res://scenes/table.tscn").instantiate()
 	table.instant_ai = true
 	table.settings_override = {"memory_aid": true, "animations": false, "turn_timer": false}
-	table.pending_config = {"seed": 77, "seat_count": 3, "ai_seats": [1, 2]}
+	table.pending_config = {"peek_phase": false, "seed": 77, "seat_count": 3, "ai_seats": [1, 2]}
 	t.root.add_child(table)
 	table._view["phase"] = "game_over"
 	table._view["winner_index"] = 0

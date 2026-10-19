@@ -6,13 +6,15 @@ const RULES_TEXT := """[b]Ziel[/b]
 Möglichst wenige Punkte sammeln. Wer über 50 Gesamtpunkte kommt, scheidet aus. Genau 50 setzt dich auf 0 zurück. Wer am Ende übrig bleibt, gewinnt.
 
 [b]Ausgabe[/b]
-Jeder bekommt 4 verdeckte Karten. Die ersten zwei darfst du dir ansehen, die anderen zwei kennst du nicht. Merk dir gut, was wo liegt.
+Jeder bekommt 4 verdeckte Karten. Vor dem ersten Zug (Merkphase) darfst du dir zwei davon ansehen, die anderen kennst du nicht. Solange noch nicht alle fertig sind, darfst du deine zwei Karten beliebig oft wieder ansehen. Eine dritte Karte anzusehen ist ein Fehler und kostet eine Strafkarte. Erst wenn alle „Fertig“ bestätigt haben, beginnt das Spiel. Im Hardcore-Modus gibt es diesen Blick nicht, du spielst blind.
 
 [b]Dein Zug[/b]
 1. Ziehe eine Karte vom Stapel oder nimm die oberste Karte der Ablage.
 2. Tausche sie gegen eine eigene Karte (die alte kommt offen auf die Ablage) oder lege sie direkt ab.
-3. Danach darfst du eine eigene Karte mit gleichem Rang wie die Ablage zusätzlich ablegen. Liegst du falsch, bekommst du eine Strafkarte.
-4. Zug beenden.
+3. Zug beenden.
+
+[b]Mitwerfen[/b]
+Sobald eine Karte oben auf der Ablage liegt, darfst du jederzeit eine eigene verdeckte Karte mit gleichem Rang mitablegen, auch wenn du nicht am Zug bist. Niemand kann dich daran hindern, aber nur solange diese Karte oben liegt. Richtig: deine Hand wird kleiner. Falsch, oder es liegt schon eine neue Karte oben: Strafkarte.
 
 [b]Kartenwerte[/b]
 Ass 1 · Zwei bis Zehn nach Augen · Bube 10 · König 10 · Dame 0
@@ -46,13 +48,15 @@ const RULES_TEXT_EN := """[b]Goal[/b]
 Collect as few points as possible. Anyone above 50 total points is out. Exactly 50 resets you to 0. Whoever is left at the end wins.
 
 [b]Deal[/b]
-Everyone gets 4 face-down cards. You may look at the first two; the other two stay unknown. Remember well what lies where.
+Everyone gets 4 face-down cards. Before the first turn (memorising phase) you may look at two of them; the other two stay unknown. As long as not everyone is done you may look at your two cards again as often as you like. Looking at a third card is a mistake and costs a penalty card. The game starts once everyone has confirmed “Done”. In hardcore mode there is no look at all, you play blind.
 
 [b]Your turn[/b]
 1. Draw a card from the deck or take the top card of the discard pile.
 2. Swap it for one of your cards (the old one goes face up onto the discard) or discard it directly.
-3. Then you may additionally discard one of your cards with the same rank as the discard. If you are wrong, you get a penalty card.
-4. End your turn.
+3. End your turn.
+
+[b]Throwing in[/b]
+As soon as a card lies on top of the discard pile you may, at any time, throw in one of your face-down cards of the same rank, even when it is not your turn. Nobody can stop you, but only while that card is on top. Right: your hand gets smaller. Wrong, or a new card already lies on top: penalty card.
 
 [b]Card values[/b]
 Ace 1 · Two to Ten by pips · Jack 10 · King 10 · Queen 0

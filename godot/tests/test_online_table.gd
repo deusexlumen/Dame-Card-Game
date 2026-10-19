@@ -134,7 +134,7 @@ func _teardown() -> void:
 
 
 func _config(seed: int) -> Dictionary:
-	return {"seed": seed, "seat_count": 3, "ai_seats": [AI_SEAT], "difficulties": {AI_SEAT: "medium"}, "names": ["Host", "Gast", "KI"]}
+	return {"peek_phase": false, "seed": seed, "seat_count": 3, "ai_seats": [AI_SEAT], "difficulties": {AI_SEAT: "medium"}, "names": ["Host", "Gast", "KI"]}
 
 
 func _new_table():
@@ -630,7 +630,7 @@ func _check_app_handoff(seed: int) -> void:
 # Offline bleibt der Pause-Text unveraendert.
 func _check_offline_pause_label() -> void:
 	var tb = _new_table()
-	tb.pending_config = {"seed": 5, "seat_count": 2, "ai_seats": [1], "difficulties": {1: "easy"}, "names": ["A", "B"]}
+	tb.pending_config = {"peek_phase": false, "seed": 5, "seat_count": 2, "ai_seats": [1], "difficulties": {1: "easy"}, "names": ["A", "B"]}
 	t.root.add_child(tb)
 	t.expect(tb._pause_menu_button.text == "Hauptmenü (Spiel wird gespeichert)", "Offline-Pause-Text geaendert")
 	t.expect(tb.session.link == null, "Offline-Tisch hat Link")

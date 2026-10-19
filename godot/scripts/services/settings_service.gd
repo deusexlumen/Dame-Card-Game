@@ -17,7 +17,9 @@ const DEFAULTS := {
 	"animations": true,
 	"turn_timer": false,
 	"turn_timer_seconds": 30,
-	"memory_aid": true,
+	"memory_aid": false,
+	# Hochzaehlen, wenn ein Standard geaendert wird und alte gespeicherte Werte verfallen sollen.
+	"settings_version": 2,
 	"table_3d": true,
 	"default_difficulty": "medium",
 	"fullscreen": false,
@@ -45,6 +47,9 @@ func _init(p_path: String = "user://settings.json") -> void:
 func load_settings() -> void:
 	values = DEFAULTS.duplicate(true)
 	var stored := JsonStoreScript.read_json(path)
+	# Bis Version 1 war die Gedächtnishilfe standardmäßig an (Karten blieben offen). Alte Werte verfallen.
+	if int(stored.get("settings_version", 1)) < 2:
+		stored.erase("memory_aid")
 	for key in stored:
 		if DEFAULTS.has(key):
 			var v = _sanitize(key, stored[key])

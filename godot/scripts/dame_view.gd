@@ -44,6 +44,7 @@ static func for_viewer(rules: RefCounted, viewer_seat: int, absence: Dictionary 
 			"total_score": int(p.total_score),
 			"eliminated": bool(p.eliminated),
 			"locked": bool(p.locked),
+			"peek_ready": bool(p.get("peek_ready", true)),
 			"is_current": seat == int(state.current_index),
 			"is_self": own,
 			"role": rules._seat_role(viewer_seat, seat),

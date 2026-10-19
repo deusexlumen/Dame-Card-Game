@@ -50,7 +50,9 @@ const REQUIRED_STATE_KEYS := [
 	"deck", "discard", "phase", "round", "safe_phase", "turn_step", "drawn_card",
 	"dame_caller_index", "dame_turns_left", "winner_index", "last_action", "log",
 ]
-const PHASES := ["play", "dame_called", "round_end", "game_over"]
+# "peek": Merkphase vor dem ersten Zug jeder Ausgabe. Jeder sieht seine zwei Startkarten und
+# bestaetigt "gemerkt"; erst wenn alle bestaetigt haben (KI sofort), beginnt "play".
+const PHASES := ["peek", "play", "dame_called", "round_end", "game_over"]
 const TURN_STEPS := ["draw", "play", "jack", "king", "extra"]
 
 var state: Dictionary = {}
@@ -97,10 +99,11 @@ func start_match(config: Dictionary = {}) -> void:
 	var players: Array = []
 	for seat in range(seat_count):
 		var known: Array = []
-		if hands[seat].size() > 0:
-			known.append(0)
-		if hands[seat].size() > 1:
-			known.append(1)
+		if not bool(config.get("blind", false)):
+			if hands[seat].size() > 0:
+				known.append(0)
+			if hands[seat].size() > 1:
+				known.append(1)
 		var difficulty := str(difficulties.get(seat, "medium"))
 		if not DIFFICULTIES.has(difficulty):
 			difficulty = "medium"
@@ -119,6 +122,7 @@ func start_match(config: Dictionary = {}) -> void:
 			"eliminated": false,
 			"has_called_dame": false,
 			"locked": false,
+			"peek_ready": true,
 		})
 	state = {
 		"players": players,
@@ -144,12 +148,17 @@ func start_match(config: Dictionary = {}) -> void:
 		"last_round_false_call": false,
 		# Vorbereitet, in V1 aus: Ass und Zehn ohne Wirkung (CONCEPT_DECISIONS §9).
 		"power_effects": bool(config.get("power_effects", false)),
+		# Merkphase vor dem ersten Zug (Standard fuer echte Partien, hier fuer reine Regeltests aus)
+		# und Hardcore ohne Blick auf die Startkarten.
+		"peek_phase": bool(config.get("peek_phase", false)),
+		"blind": bool(config.get("blind", false)),
 		"ai_turns_finished": 0,
 		"last_look": null,
 		"last_look_by": -1,
 		"last_king_swap": null,
 		"log": ["%d Plätze. Ausgabe 1, Runde 1, Safe Phase." % seat_count],
 	}
+	_begin_deal_peek()
 
 
 func apply_action(action: Dictionary) -> Dictionary:
@@ -159,11 +168,25 @@ func apply_action(action: Dictionary) -> Dictionary:
 		seat = int(state.current_index)
 	if type == "start_next_round":
 		return _start_next_round()
+	if type == "peek_ready":
+		return _peek_ready(seat)
+	if type == "peek_look":
+		return _peek_look(seat, int(action.get("hand_index", -1)))
+	if type == "peek_timeout":
+		return _peek_timeout()
+	if str(state.phase) == "peek":
+		return _fail("Merkphase: erst alle Startkarten merken")
 	if str(state.phase) == "round_end" or str(state.phase) == "game_over":
 		return _fail("Runde ist vorbei")
+	# Mitwerfen (CONCEPT_DECISIONS §13): jeder darf jederzeit eine Karte ablegen, solange sie zur
+	# obersten Ablagekarte passt, auch ausserhalb des eigenen Zugs.
+	if type == "discard_extra":
+		if seat < 0 or seat >= seat_count():
+			return _fail("Ungültiger Platz")
+		if bool(state.players[seat].locked):
+			return _fail("Karten des Ansagers sind gelockt")
+		return _discard_extra(seat, int(action.get("hand_index", -1)))
 	if seat != int(state.current_index):
-		if type == "discard_extra":
-			return _fail("Extra-Ablegen nur im eigenen Zug")
 		return _fail("Nicht am Zug")
 	var player: Dictionary = state.players[seat]
 	if bool(player.locked) and type != "end_turn" and type != "timeout_penalty" and type != "skip_turn":
@@ -177,8 +200,6 @@ func apply_action(action: Dictionary) -> Dictionary:
 			return _swap(int(action.get("hand_index", -1)))
 		"discard_drawn":
 			return _discard_drawn()
-		"discard_extra":
-			return _discard_extra(int(action.get("hand_index", -1)))
 		"look_card":
 			return _look_card(int(action.get("target_seat", -1)), int(action.get("hand_index", -1)))
 		"king_swap":
@@ -391,11 +412,16 @@ func _discard_drawn() -> Dictionary:
 	return _ok(_played_message("%s legt %s ab" % [_who(), card_label(card)]))
 
 
-func _discard_extra(hand_index: int) -> Dictionary:
-	# Abschnitt 1 und 4: nur der Spieler, der gerade am Zug ist.
-	if str(state.turn_step) != "extra":
-		return _fail("Extra-Ablegen nur im eigenen Zug nach dem Ablegen")
-	var player: Dictionary = current_player()
+# Mitwerfen: eine verdeckte Karte mit gleichem Rang wie die oberste Ablagekarte sofort ablegen,
+# auch ausserhalb des eigenen Zugs. Passt sie nicht (mehr), kostet das eine Strafkarte und die
+# Karte bleibt in der Hand. Ein richtiges Mitwerfen verkleinert die Hand (keine Ersatzkarte).
+func _discard_extra(seat: int, hand_index: int) -> Dictionary:
+	var phase := str(state.phase)
+	if phase != "play" and phase != "dame_called":
+		return _fail("Mitwerfen ist jetzt nicht möglich")
+	var player: Dictionary = state.players[seat]
+	if bool(player.eliminated):
+		return _fail("Spieler ist ausgeschieden")
 	if hand_index < 0 or hand_index >= player.hand.size():
 		return _fail("Ungültiger Kartenindex")
 	var top = top_discard()
@@ -407,34 +433,39 @@ func _discard_extra(hand_index: int) -> Dictionary:
 		return _fail("Passt nicht. Genau eine Strafkarte")
 	player.hand.remove_at(hand_index)
 	_shift_known(player, hand_index)
-	var replacement = _pull_deck()
-	if replacement != null:
-		replacement.face_up = false
-		player.hand.append(replacement)
-	_place_on_discard(card, player)
+	# Eigener Zug, Extra-Schritt: Sonderwirkung wie beim normalen Ablegen. Sonst nur ablegen,
+	# der laufende Zug eines anderen bleibt unberuehrt.
+	var in_turn := seat == int(state.current_index) and str(state.turn_step) == "extra"
+	if in_turn:
+		_place_on_discard(card, player)
+	else:
+		_place_on_discard_quiet(card, player)
+	var who := str(player.name)
 	if player.hand.is_empty() and str(state.phase) == "play" and int(state.dame_caller_index) < 0:
 		# Leere Hand: Dame wird automatisch gerufen.
-		return _ok("Extra-Karte abgelegt, Hand leer. " + _call_dame_now())
-	return _ok(_played_message("%s legt extra %s ab" % [_who(), card_label(card)]))
+		return _ok("%s legt %s mit, Hand leer. %s" % [who, card_label(card), _call_dame_now(seat)])
+	return _ok(_played_message("%s wirft %s mit" % [who, card_label(card)]) if in_turn else "%s wirft %s mit." % [who, card_label(card)])
 
 
 func _call_dame() -> Dictionary:
 	if not can_call_dame():
 		return _fail("Dame ist jetzt nicht rufbar")
-	return _ok(_call_dame_now())
+	return _ok(_call_dame_now(int(state.current_index)))
 
 
-func _call_dame_now() -> String:
-	var caller: Dictionary = current_player()
+# caller_index ist normalerweise der Spieler am Zug. Wirft jemand ausserhalb seines Zugs die letzte
+# Karte mit, gilt das ebenfalls als Dame: der laufende Zug des anderen zaehlt dann als dessen letzter.
+func _call_dame_now(caller_index: int) -> String:
+	var caller: Dictionary = state.players[caller_index]
 	caller.has_called_dame = true
 	caller.locked = true
-	var caller_index := int(state.current_index)
 	state.dame_caller_index = caller_index
 	state.phase = "dame_called"
 	state.dame_turns_left = _other_active_count(caller_index)
-	state.current_index = _next_active(caller_index)
-	state.turn_step = "draw"
-	state.drawn_card = null
+	if caller_index == int(state.current_index):
+		state.current_index = _next_active(caller_index)
+		state.turn_step = "draw"
+		state.drawn_card = null
 	if bool(caller.is_ai):
 		state.ai_turns_finished = int(state.ai_turns_finished) + 1
 	return "%s hat Dame gerufen. Jeder andere Spieler hat noch genau einen Zug." % str(caller.name)
@@ -463,6 +494,10 @@ func _end_turn() -> Dictionary:
 			_resolve_round()
 			return _ok("Letzter Zug nach der Ansage. Karten aufgedeckt.")
 	state.current_index = _next_active(int(state.current_index))
+	# Der gesperrte Ansager spielt nicht mehr mit. Das trifft nur zu, wenn er ausserhalb seines
+	# Zugs ueber Mitwerfen Dame gerufen hat: dann wird er uebersprungen.
+	if str(state.phase) == "dame_called" and int(state.current_index) == int(state.dame_caller_index):
+		state.current_index = _next_active(int(state.current_index))
 	state.turn_step = "draw"
 	state.drawn_card = null
 	if str(state.phase) != "dame_called" and int(state.current_index) == int(state.round_start_index):
@@ -591,7 +626,7 @@ func _start_next_round() -> Dictionary:
 			hand.append(pen)
 		p.hand = hand
 		p.penalty_cards = []
-		p.known = [0, 1] if hand.size() >= 2 else [0]
+		p.known = [] if bool(state.get("blind", false)) else ([0, 1] if hand.size() >= 2 else [0])
 		p.locked = false
 		p.score = 0
 		p.has_called_dame = false
@@ -610,8 +645,93 @@ func _start_next_round() -> Dictionary:
 	state.round = 1
 	state.safe_phase = true
 	state.phase = "play"
+	_begin_deal_peek()
 	return _ok("Neue Ausgabe. Am Zug: %s" % str(current_player().name))
 
+
+
+# Beginn einer Ausgabe: mit Merkphase warten alle Menschen auf ihr "gemerkt". KI und
+# Ausgeschiedene sind sofort bereit. Ohne Merkphase (Regeltests, Hardcore) geht es direkt los.
+func _begin_deal_peek() -> void:
+	var waiting := false
+	var peeking: bool = bool(state.get("peek_phase", false)) and not bool(state.get("blind", false))
+	for p in state.players:
+		p["peeked"] = []
+		# Menschen kennen zu Beginn nichts: sie sehen erst nach und nach hin (hoechstens zwei Karten).
+		if peeking and not bool(p.is_ai):
+			p.known = []
+		var skip: bool = bool(p.is_ai) or bool(p.eliminated)
+		p["peek_ready"] = skip or not bool(state.get("peek_phase", false)) or bool(state.get("blind", false))
+		if not bool(p.peek_ready):
+			waiting = true
+	if not waiting:
+		return
+	state.phase = "peek"
+	state.current_index = _next_peek_seat(-1)
+	state.last_action = "Merkphase: Startkarten ansehen und merken."
+
+
+# Naechster Mensch, der noch nicht bestaetigt hat (nach `after`, reihum). -1: keiner.
+func _next_peek_seat(after: int) -> int:
+	for step in range(1, seat_count() + 1):
+		var seat := (after + step) % seat_count()
+		if not bool(state.players[seat].get("peek_ready", true)):
+			return seat
+	return -1
+
+
+# Eine eigene Karte ansehen. Zwei verschiedene Karten sind erlaubt, dieselbe beliebig oft, solange die
+# Merkphase laeuft (auch nach "gemerkt", bis alle fertig sind). Eine dritte Karte ist ein Fehler: Strafkarte.
+func _peek_look(seat: int, hand_index: int) -> Dictionary:
+	if str(state.phase) != "peek":
+		return _fail("Keine Merkphase")
+	if seat < 0 or seat >= seat_count() or bool(state.players[seat].eliminated):
+		return _fail("Ungültiger Platz")
+	var player: Dictionary = state.players[seat]
+	if hand_index < 0 or hand_index >= player.hand.size():
+		return _fail("Ungültiger Kartenindex")
+	var peeked: Array = player.get("peeked", [])
+	if peeked.has(hand_index):
+		return {"ok": true, "reason": ""}
+	if peeked.size() >= 2:
+		_give_one_penalty(player, "peek_third")
+		var msg := "%s hat eine dritte Karte angesehen: Strafkarte." % str(player.name)
+		_log(msg)
+		state.last_action = msg
+		return _fail("Nur zwei Karten ansehen. Genau eine Strafkarte")
+	peeked.append(hand_index)
+	player["peeked"] = peeked
+	if not player.known.has(hand_index):
+		player.known.append(hand_index)
+	return {"ok": true, "reason": ""}
+
+
+func _peek_ready(seat: int) -> Dictionary:
+	if str(state.phase) != "peek":
+		return _fail("Keine Merkphase")
+	if seat < 0 or seat >= seat_count() or bool(state.players[seat].eliminated):
+		return _fail("Ungültiger Platz")
+	state.players[seat].peek_ready = true
+	return _finish_peek_if_done(seat)
+
+
+# Wer nicht bestaetigt (z. B. online abwesend), wird nach Ablauf der Wartezeit uebergangen.
+func _peek_timeout() -> Dictionary:
+	if str(state.phase) != "peek":
+		return _fail("Keine Merkphase")
+	for p in state.players:
+		p.peek_ready = true
+	return _finish_peek_if_done(-1)
+
+
+func _finish_peek_if_done(seat: int) -> Dictionary:
+	var next := _next_peek_seat(seat)
+	if next >= 0:
+		state.current_index = next
+		return _ok("%s hat sich die Karten gemerkt." % str(state.players[seat].name))
+	state.phase = "play"
+	state.current_index = int(state.round_start_index)
+	return _ok("Alle haben sich gemerkt. %s beginnt." % str(current_player().name))
 
 
 func _private_look(viewer_seat: int):
@@ -644,6 +764,15 @@ func _place_on_discard(card: Dictionary, player: Dictionary) -> void:
 		state.turn_step = "king" if _has_king_target() else "extra"
 	else:
 		state.turn_step = "extra"
+
+
+# Mitgeworfene Karte ausserhalb des eigenen Zugs: offen auf die Ablage, keine Sonderwirkung
+# (Bube/Koenig), der Zug des Spielers am Zug aendert sich nicht. Eine Dame kostet wie immer eine Strafkarte.
+func _place_on_discard_quiet(card: Dictionary, player: Dictionary) -> void:
+	card.face_up = true
+	state.discard.append(card)
+	if str(card.rank) == "Q":
+		_give_queen_penalty(player)
 
 
 func _face_down_count(player: Dictionary) -> int:
