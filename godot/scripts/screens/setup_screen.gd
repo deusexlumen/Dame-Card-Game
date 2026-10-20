@@ -39,6 +39,13 @@ func build() -> void:
 	rows_box.add_theme_constant_override("separation", 8)
 	content.add_child(rows_box)
 	game_mode_option = option(GAME_MODE_LABELS.map(func(l): return tr(l)), 0)
+	var app_for_modes := app_node()
+	if app_for_modes != null:
+		var all_open := bool(app_for_modes.settings.get_value("all_modes_open"))
+		for i in range(GAME_MODES.size()):
+			if not app_for_modes.stats.is_unlocked(GAME_MODES[i], all_open):
+				game_mode_option.set_item_disabled(i, true)
+				game_mode_option.set_item_text(i, tr("%s (ab %d Partien)") % [tr(GAME_MODE_LABELS[i]), int(app_for_modes.stats.UNLOCK_GAMES[GAME_MODES[i]])])
 	game_mode_option.tooltip_text = tr("Grundspiel: die normalen Regeln. Joker-Modus: zwei Joker im Stapel, jeder wiederholt die Wirkung der Karte darunter. Eigene Regeln: du stellst sie selbst ein. Chaos-Modus: die Regeln werden jede Ausgabe neu gewürfelt und angesagt.")
 	game_mode_option.item_selected.connect(func(i: int) -> void: custom_box.visible = GAME_MODES[i] == "custom")
 	content.add_child(row("Spielmodus", game_mode_option, 200))

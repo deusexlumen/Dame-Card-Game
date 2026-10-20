@@ -26,6 +26,7 @@ func build() -> void:
 	_choice("ai_speed", "KI-Tempo", SPEED_KEYS, SPEED_LABELS, s)
 	_choice("default_difficulty", "Standard-KI-Stufe", DIFF_KEYS, DIFF_LABELS, s)
 	_check("memory_aid", "Anfängerhilfe: bekannte Karten bleiben offen", s)
+	_check("all_modes_open", "Alle Spielmodi sofort freischalten", s)
 	_check("turn_timer", "Zugtimer", s)
 	_choice("turn_timer_seconds", "Zeit pro Zug", TIMER_VALUES, ["15 Sekunden", "30 Sekunden", "60 Sekunden"], s)
 	var name_edit := LineEdit.new()

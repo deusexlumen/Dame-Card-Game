@@ -39,7 +39,7 @@ Jeder Fehler kostet genau eine Strafkarte vom Stapel. Sie zählt zu deinen Punkt
 2 bis 6 Plätze. Ab 5 Spielern wird mit zwei Decks gespielt.
 
 [b]Spielmodi[/b]
-Das Grundspiel gilt immer, wenn du nichts anderes wählst. [b]Joker-Modus:[/b] Zwei Joker (3 Punkte) kommen in den Stapel. Legst du einen Joker ab, wiederholt er die Wirkung der Karte darunter (Bube oder König), sonst passiert nichts. Ein Joker lässt sich nicht mitwerfen. [b]Eigene Regeln:[/b] Kartenzahl, Joker, Strafkarten, Safe-Phase, Mitwerfen und Sonderkarten stellst du selbst ein. [b]Chaos-Modus:[/b] Vor jeder Ausgabe werden Kartenzahl, Joker, Strafkarten, Safe-Phase und die Ränge für Ansehen und Tauschen neu gewürfelt und offen angesagt. Mitwerfen und die Dame bleiben wie immer. Jeder Modus zählt für sich.
+Das Grundspiel gilt immer, wenn du nichts anderes wählst. [b]Joker-Modus:[/b] Zwei Joker (3 Punkte) kommen in den Stapel. Legst du einen Joker ab, wiederholt er die Wirkung der Karte darunter (Bube oder König), sonst passiert nichts. Ein Joker lässt sich nicht mitwerfen. [b]Eigene Regeln:[/b] Kartenzahl, Joker, Strafkarten, Safe-Phase, Mitwerfen und Sonderkarten stellst du selbst ein. [b]Chaos-Modus:[/b] Vor jeder Ausgabe werden Kartenzahl, Joker, Strafkarten, Safe-Phase und die Ränge für Ansehen und Tauschen neu gewürfelt und offen angesagt. Mitwerfen und die Dame bleiben wie immer. Jeder Modus zählt für sich. Die Modi schaltest du durch beendete Grundspiel-Partien frei: Joker nach 3, Eigene Regeln nach 6, Chaos nach 10. In den Einstellungen kannst du alle sofort öffnen.
 
 [b]Hot-Seat[/b]
 Mehrere Menschen an einem Gerät: Vor jedem Zug wird der Tisch abgedeckt. Gib das Gerät weiter und bestätige erst, wenn nur der richtige Spieler hinsieht.
@@ -84,7 +84,7 @@ Every mistake costs exactly one penalty card from the deck. It counts towards yo
 2 to 6 seats. From 5 players on, two decks are used.
 
 [b]Game modes[/b]
-The basic game applies unless you choose otherwise. [b]Joker mode:[/b] two jokers (3 points) are added to the deck. A joker you discard repeats the effect of the card below it (Jack or King), otherwise nothing happens. A joker cannot be thrown in. [b]Custom rules:[/b] you set cards per hand, jokers, penalty cards, safe phase, throwing in and special cards yourself. [b]Chaos mode:[/b] before every deal, cards per hand, jokers, penalty cards, safe phase and the ranks for looking and swapping are rerolled and announced openly. Throwing in and the Queen stay as usual. Every mode counts on its own.
+The basic game applies unless you choose otherwise. [b]Joker mode:[/b] two jokers (3 points) are added to the deck. A joker you discard repeats the effect of the card below it (Jack or King), otherwise nothing happens. A joker cannot be thrown in. [b]Custom rules:[/b] you set cards per hand, jokers, penalty cards, safe phase, throwing in and special cards yourself. [b]Chaos mode:[/b] before every deal, cards per hand, jokers, penalty cards, safe phase and the ranks for looking and swapping are rerolled and announced openly. Throwing in and the Queen stay as usual. Every mode counts on its own. You unlock the modes by finishing basic games: Joker after 3, Custom after 6, Chaos after 10. In the settings you can open them all right away.
 
 [b]Hot seat[/b]
 Several people on one device: the table is covered before every turn. Pass the device and only confirm when the right player is looking.
