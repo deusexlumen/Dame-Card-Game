@@ -17,6 +17,9 @@ func run(ctx) -> void:
 	_check_joker_no_effect_and_no_throw_in()
 	_check_save_roundtrip()
 	_check_joker_table_and_art()
+	_check_custom_no_effects()
+	_check_chaos()
+	_check_mode_stats()
 
 
 func _hands() -> Array:
@@ -156,3 +159,60 @@ func _check_joker_table_and_art() -> void:
 			break
 	t.expect(guard < 4000, "Joker-Partie endet nicht")
 	t.expect(r.assert_zones(), "Zonen nach Joker-Partie: %s" % r.zone_error)
+
+
+func _check_custom_no_effects() -> void:
+	var r = _new({"ai_seats": [], "mode": "custom", "special_effects": false, "preset_hands": _hands(),
+		"draw_first": [{"suit": "diamonds", "rank": "J"}]})
+	r.apply_action({"type": "draw_deck", "seat": 0})
+	r.apply_action({"type": "discard_drawn", "seat": 0})
+	t.expect(str(r.state.turn_step) == "extra", "Bube loest trotz abgeschalteten Sonderkarten etwas aus")
+
+
+func _check_chaos() -> void:
+	var a: Dictionary = DameRulesScript.chaos_params(11, 1)
+	t.expect(a == DameRulesScript.chaos_params(11, 1), "Chaos-Parameter sind nicht reproduzierbar")
+	var differs := false
+	for d in range(2, 12):
+		if DameRulesScript.chaos_params(11, d) != a:
+			differs = true
+	t.expect(differs, "Chaos-Parameter aendern sich nie")
+	for seed_value in range(1, 40):
+		var p: Dictionary = DameRulesScript.chaos_params(seed_value, 1)
+		t.expect(int(p.hand_size) >= 3 and int(p.hand_size) <= 6, "Chaos-Handgroesse ausserhalb 3 bis 6")
+		t.expect(int(p.jokers) >= 0 and int(p.jokers) <= 2 and int(p.penalty_count) >= 1 and int(p.penalty_count) <= 2, "Chaos-Parameter ausserhalb des Rahmens")
+		t.expect(p.rank_effects.size() == 2 and not p.rank_effects.has("Q"), "Chaos-Sonderwirkung auf der Dame oder nicht zwei Raenge")
+	var r = _new({"ai_seats": [0, 1, 2, 3], "mode": "chaos", "seed": 5})
+	t.expect(int(r.state.hand_size) == int(DameRulesScript.chaos_params(5, 1).hand_size), "Chaos-Runde nutzt die Parameter nicht")
+	t.expect("Chaos:" in str(r.state.log.back()), "Chaos-Regeln werden nicht angesagt")
+	t.expect(r.assert_zones(), "Zonen im Chaos-Modus: %s" % r.zone_error)
+	var ai = load("res://scripts/dame_ai.gd").new(4)
+	var deals_seen := {}
+	var guard := 0
+	while guard < 20000 and str(r.state.phase) != "game_over" and int(r.state.deal) <= 4:
+		guard += 1
+		if str(r.state.phase) == "round_end":
+			r.apply_action({"type": "start_next_round"})
+			deals_seen[int(r.state.deal)] = int(r.state.hand_size)
+			continue
+		if not ai.complete_turn(r):
+			t.expect(false, "KI-Zug im Chaos-Modus scheitert: %s" % ai.last_error)
+			break
+	t.expect(guard < 20000, "Chaos-Partie endet nicht")
+	t.expect(r.assert_zones(), "Zonen nach Chaos-Partie: %s" % r.zone_error)
+	for d in deals_seen:
+		t.expect(deals_seen[d] == int(DameRulesScript.chaos_params(5, d).hand_size), "Ausgabe %d wuerfelt anders als angesagt" % d)
+
+
+func _check_mode_stats() -> void:
+	var path := "user://test_mode_stats.json"
+	var st = load("res://scripts/services/stats_service.gd").new(path)
+	st.reset()
+	st.record_mode_game("chaos", true)
+	st.record_mode_game("chaos", false)
+	t.expect(int(st.values.games_played) == 0 and int(st.values.games_won) == 0, "Moduspartie zaehlt im Grundspiel")
+	var again = load("res://scripts/services/stats_service.gd").new(path)
+	t.expect(int(again.mode_games.chaos.played) == 2 and int(again.mode_games.chaos.won) == 1, "Modus-Statistik geht beim Speichern verloren")
+	again.reset()
+	t.expect(again.mode_games.is_empty(), "Reset leert die Modus-Statistik nicht")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))

@@ -14,8 +14,15 @@ var start_button: Button
 var hardcore_check: CheckBox
 var game_mode_option: OptionButton
 # Spielmodi (CONCEPT_DECISIONS 15): Grundspiel ist Standard, die anderen sind optional.
-const GAME_MODES := ["classic", "joker"]
-const GAME_MODE_LABELS := ["Grundspiel", "Joker-Modus"]
+const GAME_MODES := ["classic", "joker", "custom", "chaos"]
+const GAME_MODE_LABELS := ["Grundspiel", "Joker-Modus", "Eigene Regeln", "Chaos-Modus"]
+var custom_box: VBoxContainer
+var custom_hand: SpinBox
+var custom_jokers: SpinBox
+var custom_penalty: SpinBox
+var custom_safe: SpinBox
+var custom_throw_in: CheckBox
+var custom_effects: CheckBox
 
 func build() -> void:
 	var app := app_node()
@@ -32,8 +39,30 @@ func build() -> void:
 	rows_box.add_theme_constant_override("separation", 8)
 	content.add_child(rows_box)
 	game_mode_option = option(GAME_MODE_LABELS.map(func(l): return tr(l)), 0)
-	game_mode_option.tooltip_text = tr("Grundspiel: die normalen Regeln. Joker-Modus: zwei Joker im Stapel, jeder wiederholt die Wirkung der Karte darunter.")
+	game_mode_option.tooltip_text = tr("Grundspiel: die normalen Regeln. Joker-Modus: zwei Joker im Stapel, jeder wiederholt die Wirkung der Karte darunter. Eigene Regeln: du stellst sie selbst ein. Chaos-Modus: die Regeln werden jede Ausgabe neu gewürfelt und angesagt.")
+	game_mode_option.item_selected.connect(func(i: int) -> void: custom_box.visible = GAME_MODES[i] == "custom")
 	content.add_child(row("Spielmodus", game_mode_option, 200))
+	custom_box = VBoxContainer.new()
+	custom_box.name = "CustomRules"
+	custom_box.visible = false
+	custom_box.add_theme_constant_override("separation", 6)
+	custom_hand = _spin(1, 8, 4)
+	custom_box.add_child(row("Karten pro Hand", custom_hand, 200))
+	custom_jokers = _spin(0, 4, 0)
+	custom_box.add_child(row("Joker pro Stapel", custom_jokers, 200))
+	custom_penalty = _spin(1, 3, 1)
+	custom_box.add_child(row("Strafkarten pro Fehler", custom_penalty, 200))
+	custom_safe = _spin(0, 6, 2)
+	custom_box.add_child(row("Safe-Phase (Runden)", custom_safe, 200))
+	custom_throw_in = CheckBox.new()
+	custom_throw_in.text = tr("Mitwerfen erlaubt")
+	custom_throw_in.button_pressed = true
+	custom_box.add_child(custom_throw_in)
+	custom_effects = CheckBox.new()
+	custom_effects.text = tr("Sonderkarten (Bube, König) wirken")
+	custom_effects.button_pressed = true
+	custom_box.add_child(custom_effects)
+	content.add_child(custom_box)
 	hardcore_check = CheckBox.new()
 	hardcore_check.text = tr("Hardcore: kein Blick auf die Startkarten")
 	hardcore_check.tooltip_text = tr("Sonst sieht jeder vor dem ersten Zug zwei seiner vier Karten und merkt sie sich.")
@@ -46,6 +75,15 @@ func build() -> void:
 	content.add_child(start_button)
 	_rebuild_rows()
 	start_button.grab_focus()
+
+
+func _spin(lo: int, hi: int, value: int) -> SpinBox:
+	var sb := SpinBox.new()
+	sb.min_value = lo
+	sb.max_value = hi
+	sb.step = 1
+	sb.value = value
+	return sb
 
 
 func seat_count() -> int:
@@ -117,7 +155,15 @@ func build_config() -> Dictionary:
 		error_label.text = "Mindestens ein Mensch muss mitspielen."
 		return {}
 	error_label.text = ""
-	return {"seat_count": rows.size(), "ai_seats": ai_seats, "difficulties": difficulties, "names": names, "blind": hardcore_check.button_pressed, "mode": GAME_MODES[game_mode_option.selected]}
+	var cfg := {"seat_count": rows.size(), "ai_seats": ai_seats, "difficulties": difficulties, "names": names, "blind": hardcore_check.button_pressed, "mode": GAME_MODES[game_mode_option.selected]}
+	if str(cfg.mode) == "custom":
+		cfg.hand_size = int(custom_hand.value)
+		cfg.jokers = int(custom_jokers.value)
+		cfg.penalty_count = int(custom_penalty.value)
+		cfg.safe_circuits = int(custom_safe.value)
+		cfg.throw_in = custom_throw_in.button_pressed
+		cfg.special_effects = custom_effects.button_pressed
+	return cfg
 
 
 func start_game() -> void:

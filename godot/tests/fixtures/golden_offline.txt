@@ -419,6 +419,10 @@
 }],
 "power_effects": false,
 "queen_penalties_given": 5,
+"rank_effects": {
+"J": "jack",
+"K": "king"
+},
 "round": 6,
 "round_start_index": 2,
 "safe_circuits": 2,
@@ -834,6 +838,10 @@
 }],
 "power_effects": false,
 "queen_penalties_given": 3,
+"rank_effects": {
+"J": "jack",
+"K": "king"
+},
 "round": 4,
 "round_start_index": 1,
 "safe_circuits": 2,
