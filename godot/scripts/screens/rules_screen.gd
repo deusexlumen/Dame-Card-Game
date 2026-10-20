@@ -38,6 +38,9 @@ Jeder Fehler kostet genau eine Strafkarte vom Stapel. Sie zählt zu deinen Punkt
 [b]Spieler[/b]
 2 bis 6 Plätze. Ab 5 Spielern wird mit zwei Decks gespielt.
 
+[b]Spielmodi[/b]
+Das Grundspiel gilt immer, wenn du nichts anderes wählst. [b]Joker-Modus:[/b] Zwei Joker (3 Punkte) kommen in den Stapel. Legst du einen Joker ab, wiederholt er die Wirkung der Karte darunter (Bube oder König), sonst passiert nichts. Ein Joker lässt sich nicht mitwerfen.
+
 [b]Hot-Seat[/b]
 Mehrere Menschen an einem Gerät: Vor jedem Zug wird der Tisch abgedeckt. Gib das Gerät weiter und bestätige erst, wenn nur der richtige Spieler hinsieht.
 
@@ -79,6 +82,9 @@ Every mistake costs exactly one penalty card from the deck. It counts towards yo
 
 [b]Players[/b]
 2 to 6 seats. From 5 players on, two decks are used.
+
+[b]Game modes[/b]
+The basic game applies unless you choose otherwise. [b]Joker mode:[/b] two jokers (3 points) are added to the deck. A joker you discard repeats the effect of the card below it (Jack or King), otherwise nothing happens. A joker cannot be thrown in.
 
 [b]Hot seat[/b]
 Several people on one device: the table is covered before every turn. Pass the device and only confirm when the right player is looking.

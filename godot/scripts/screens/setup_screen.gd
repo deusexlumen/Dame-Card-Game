@@ -12,6 +12,10 @@ var rows: Array = []
 var error_label: Label
 var start_button: Button
 var hardcore_check: CheckBox
+var game_mode_option: OptionButton
+# Spielmodi (CONCEPT_DECISIONS 15): Grundspiel ist Standard, die anderen sind optional.
+const GAME_MODES := ["classic", "joker"]
+const GAME_MODE_LABELS := ["Grundspiel", "Joker-Modus"]
 
 func build() -> void:
 	var app := app_node()
@@ -27,6 +31,9 @@ func build() -> void:
 	rows_box.name = "Rows"
 	rows_box.add_theme_constant_override("separation", 8)
 	content.add_child(rows_box)
+	game_mode_option = option(GAME_MODE_LABELS.map(func(l): return tr(l)), 0)
+	game_mode_option.tooltip_text = tr("Grundspiel: die normalen Regeln. Joker-Modus: zwei Joker im Stapel, jeder wiederholt die Wirkung der Karte darunter.")
+	content.add_child(row("Spielmodus", game_mode_option, 200))
 	hardcore_check = CheckBox.new()
 	hardcore_check.text = tr("Hardcore: kein Blick auf die Startkarten")
 	hardcore_check.tooltip_text = tr("Sonst sieht jeder vor dem ersten Zug zwei seiner vier Karten und merkt sie sich.")
@@ -110,7 +117,7 @@ func build_config() -> Dictionary:
 		error_label.text = "Mindestens ein Mensch muss mitspielen."
 		return {}
 	error_label.text = ""
-	return {"seat_count": rows.size(), "ai_seats": ai_seats, "difficulties": difficulties, "names": names, "blind": hardcore_check.button_pressed}
+	return {"seat_count": rows.size(), "ai_seats": ai_seats, "difficulties": difficulties, "names": names, "blind": hardcore_check.button_pressed, "mode": GAME_MODES[game_mode_option.selected]}
 
 
 func start_game() -> void:

@@ -10,6 +10,7 @@ const SUITES := [
 	"res://tests/test_peek.gd",
 	"res://tests/test_throw_in.gd",
 	"res://tests/test_king.gd",
+	"res://tests/test_modes.gd",
 	"res://tests/test_ai.gd",
 	"res://tests/test_table_ui.gd",
 	"res://tests/test_meta.gd",

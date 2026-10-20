@@ -6,6 +6,7 @@ godot/assets/cards/backs/<skin>.png. Bube und Dame gibt es je Sprache
 
 Aufruf: python gen_cards.py  (aus beliebigem Ordner)
         python gen_cards.py akte   (nur diese Rückseite(n), Vorderseiten bleiben unberührt)
+        python gen_cards.py joker  (nur der Joker JKjoker.png je Skin, sonst nichts)
 """
 import math
 import os
@@ -162,6 +163,41 @@ def face(skin, rank, suit, lang):
     return img.resize((W, H), Image.LANCZOS)
 
 
+def star(d, cx, cy, r, color, points=5):
+    pts = []
+    for i in range(points * 2):
+        ang = -math.pi / 2 + i * math.pi / points
+        rad = r if i % 2 == 0 else r * 0.42
+        pts.append((cx + rad * math.cos(ang), cy + rad * math.sin(ang)))
+    d.polygon(pts, fill=color)
+
+
+def joker_face(skin):
+    """Joker (Rang JK, Farbe joker, Wert 3): Stern und Schriftzug, ohne Farbsymbol."""
+    st = SKINS[skin]
+    col = st["hearts"] + (255,)
+    img = Image.new("RGBA", (W * SS, H * SS), st["bg"] + (255,))
+    d = ImageDraw.Draw(img)
+    m = 7 * SS
+    d.rounded_rectangle([m, m, W * SS - m, H * SS - m], (R - 5) * SS, outline=st["frame"] + (110,), width=SS)
+    fx0, fy0, fx1, fy1 = 54 * SS, 50 * SS, (W - 54) * SS, (H - 50) * SS
+    d.rectangle([fx0, fy0, fx1, fy1], outline=st["frame"] + (255,), width=3 * SS)
+    d.rectangle([fx0 + 6 * SS, fy0 + 6 * SS, fx1 - 6 * SS, fy1 - 6 * SS], outline=st["frame"] + (160,), width=SS)
+    star(d, W * SS / 2, H * SS * 0.42, 62 * SS, col)
+    star(d, W * SS / 2, H * SS * 0.42, 26 * SS, st["bg"] + (255,))
+    fword = font("PlayfairDisplay.ttf", 30, 800)
+    text(img, "JOKER", W * SS / 2, H * SS * 0.68, fword, col)
+    ix, iy = 22 * SS, 26 * SS
+    for rot in (False, True):
+        x, y = (ix, iy) if not rot else (W * SS - ix, H * SS - iy)
+        glyph(img, "★", x, y, 30, col, rot)
+    bx, by, br = W * SS / 2, (H - 19) * SS, 10 * SS
+    d.ellipse([bx - br, by - br, bx + br, by + br], outline=st["muted"] + (255,), width=SS)
+    text(img, "3", bx, by + SS, font("Inter.ttf", 11, 700), st["muted"] + (255,))
+    img.putalpha(Image.composite(img.getchannel("A"), Image.new("L", img.size, 0), rounded_mask()))
+    return img.resize((W, H), Image.LANCZOS)
+
+
 def akte_back(st):
     """Aktendeckel: Pappe mit Faserstruktur, Beschriftungsfeld, Aktenzeichen, schräger Eingangsstempel."""
     img = Image.new("RGBA", (W * SS, H * SS), st["base"] + (255,))
@@ -240,6 +276,11 @@ def back(name):
 
 
 def main():
+    if sys.argv[1:] == ["joker"]:
+        for skin in SKINS:
+            joker_face(skin).save(os.path.join(OUT, "faces", skin, "JKjoker.png"), optimize=True)
+        print("CARDS_OK")
+        return
     only_backs = len(sys.argv) > 1
     for skin in ([] if only_backs else SKINS):
         out = os.path.join(OUT, "faces", skin)

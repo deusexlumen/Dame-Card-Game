@@ -220,6 +220,8 @@
 "drawn_card": null,
 &"drawn_from": "deck",
 "false_call_penalties_given": 2,
+"hand_size": 4,
+"jokers": 0,
 "last_action": "Letzter Zug nach der Ansage. Karten aufgedeckt.",
 "last_king_swap": null,
 "last_look": {
@@ -240,7 +242,9 @@
 },
 "last_round_false_call": false,
 "log": ["Zug beendet. Am Zug: Gegenüber", "Gegenüber hat Dame gerufen. Jeder andere Spieler hat noch genau einen Zug.", "Rechts zieht vom Stapel.", "Rechts tauscht und legt Pik 8 ab", "Zug beendet. Am Zug: Spieler", "Spieler zieht vom Stapel.", "Spieler tauscht und legt Herz 4 ab", "Zug beendet. Am Zug: Links", "Links zieht vom Stapel.", "Links legt Herz Bube ab. Bube: eine verdeckte Karte ansehen, ohne Tausch.", "Bube: verdeckte Karte angesehen. Kein Tausch.", "Gegenüber hat Dame richtig gerufen.", "Spielende. Links gewinnt mit 26 Punkten.", "Letzter Zug nach der Ansage. Karten aufgedeckt."],
+"mode": "classic",
 "peek_phase": false,
+"penalty_count": 1,
 "phase": "game_over",
 "players": [{
 "deal_penalties": 0,
@@ -417,9 +421,11 @@
 "queen_penalties_given": 5,
 "round": 6,
 "round_start_index": 2,
+"safe_circuits": 2,
 "safe_phase": false,
 "seat_count": 4,
 "seed": 2024,
+"throw_in": true,
 "turn_step": "draw",
 "winner_index": 1
 }
@@ -682,6 +688,8 @@
 "drawn_card": null,
 &"drawn_from": "deck",
 "false_call_penalties_given": 0,
+"hand_size": 4,
+"jokers": 0,
 "last_action": "Letzter Zug nach der Ansage. Karten aufgedeckt.",
 "last_king_swap": null,
 "last_look": {
@@ -702,7 +710,9 @@
 },
 "last_round_false_call": false,
 "log": ["Zug beendet. Am Zug: Links", "Links zieht vom Stapel.", "Links tauscht und legt Pik Ass ab", "Zug beendet. Am Zug: Rechts", "Rechts hat Dame gerufen. Jeder andere Spieler hat noch genau einen Zug.", "Spieler zieht vom Stapel.", "Dame offen. Genau eine Strafkarte.", "Spieler tauscht und legt Pik Dame ab", "Zug beendet. Am Zug: Links", "Links zieht vom Stapel.", "Links tauscht und legt Herz 9 ab", "Rechts hat Dame richtig gerufen.", "Spielende. Rechts gewinnt mit 23 Punkten.", "Letzter Zug nach der Ansage. Karten aufgedeckt."],
+"mode": "classic",
 "peek_phase": false,
+"penalty_count": 1,
 "phase": "game_over",
 "players": [{
 "deal_penalties": 1,
@@ -826,9 +836,11 @@
 "queen_penalties_given": 3,
 "round": 4,
 "round_start_index": 1,
+"safe_circuits": 2,
 "safe_phase": false,
 "seat_count": 3,
 "seed": 2025,
+"throw_in": true,
 "turn_step": "draw",
 "winner_index": 2
 }

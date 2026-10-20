@@ -203,7 +203,7 @@ static func _choose_extra(view: Dictionary, me: Dictionary, difficulty: String) 
 	if difficulty != "easy" and top != null:
 		for card in me.cards:
 			# Nur mit sicherem Wissen ablegen, sonst droht eine Strafkarte.
-			if bool(card.known) and str(card.rank) == str(top.rank) and str(card.rank) != "Q":
+			if bool(card.known) and str(card.rank) == str(top.rank) and str(card.rank) != "Q" and str(card.rank) != "JK":
 				return {"type": "discard_extra", "seat": seat, "hand_index": int(card.index)}
 	return {"type": "end_turn", "seat": seat}
 
@@ -220,7 +220,7 @@ static func choose_reaction(view: Dictionary) -> Dictionary:
 	if phase != "play" and phase != "dame_called":
 		return {}
 	for card in me.cards:
-		if bool(card.known) and str(card.rank) == str(top.rank) and str(card.rank) != "Q":
+		if bool(card.known) and str(card.rank) == str(top.rank) and str(card.rank) != "Q" and str(card.rank) != "JK":
 			return {"type": "discard_extra", "seat": int(view.viewer_seat), "hand_index": int(card.index)}
 	return {}
 

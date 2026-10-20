@@ -35,6 +35,11 @@ const STAGE1_PLAIN_RANKS := {
 }
 
 const MIN_SEATS := 2
+# Spielmodi (CONCEPT_DECISIONS §15): benannte Gruppen von Regelschaltern. Das Grundspiel ("classic")
+# ist der Standard, alle Schalter stehen dort auf den festen Werten oben.
+const MODES := ["classic", "joker", "custom", "chaos"]
+const JOKER_RANK := "JK"
+const JOKER_VALUE := 3
 const SAVE_VERSION := 1
 const DIFFICULTIES := ["easy", "medium", "hard"]
 const DEFAULT_NAMES := {
@@ -66,7 +71,12 @@ func start_match(config: Dictionary = {}) -> void:
 	var names: Array = config.get("names", DEFAULT_NAMES[seat_count])
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
-	var pool := _fresh_pool(deck_count_for(seat_count))
+	var mode := str(config.get("mode", "classic"))
+	if not MODES.has(mode):
+		mode = "classic"
+	var hand_size := clampi(int(config.get("hand_size", HAND_SIZE)), 1, 8)
+	var jokers := clampi(int(config.get("jokers", 2 if mode == "joker" else 0)), 0, 4)
+	var pool := _fresh_pool(deck_count_for(seat_count), jokers)
 	var hands: Array = []
 	var preset_hands = config.get("preset_hands", null)
 	var draw_first = config.get("draw_first", null)
@@ -80,7 +90,7 @@ func start_match(config: Dictionary = {}) -> void:
 		_shuffle(pool, rng)
 		for seat in range(seat_count):
 			var dealt: Array = []
-			for _i in range(HAND_SIZE):
+			for _i in range(hand_size):
 				dealt.append(pool.pop_back())
 			hands.append(dealt)
 	var deck: Array = []
@@ -151,6 +161,12 @@ func start_match(config: Dictionary = {}) -> void:
 		# Merkphase vor dem ersten Zug (Standard fuer echte Partien, hier fuer reine Regeltests aus)
 		# und Hardcore ohne Blick auf die Startkarten.
 		"peek_phase": bool(config.get("peek_phase", false)),
+		"mode": mode,
+		"hand_size": hand_size,
+		"jokers": jokers,
+		"penalty_count": clampi(int(config.get("penalty_count", PENALTY_CARD_COUNT)), 1, 3),
+		"safe_circuits": clampi(int(config.get("safe_circuits", SAFE_CIRCUITS)), 0, 6),
+		"throw_in": bool(config.get("throw_in", true)),
 		"blind": bool(config.get("blind", false)),
 		"ai_turns_finished": 0,
 		"last_look": null,
@@ -181,6 +197,8 @@ func apply_action(action: Dictionary) -> Dictionary:
 	# Mitwerfen (CONCEPT_DECISIONS §13): jeder darf jederzeit eine Karte ablegen, solange sie zur
 	# obersten Ablagekarte passt, auch ausserhalb des eigenen Zugs.
 	if type == "discard_extra":
+		if not bool(state.get("throw_in", true)):
+			return _fail("Mitwerfen ist in diesem Modus aus")
 		if seat < 0 or seat >= seat_count():
 			return _fail("Ungültiger Platz")
 		if bool(state.players[seat].locked):
@@ -262,7 +280,7 @@ func assert_zones() -> bool:
 				zone_error = "Karte %s in %s und %s" % [id, seen[id], zone[0]]
 				return false
 			seen[id] = zone[0]
-	var total := DECK_SIZE * deck_count_for(seat_count())
+	var total := (DECK_SIZE + int(state.get("jokers", 0))) * deck_count_for(seat_count())
 	if seen.size() != total:
 		zone_error = "%d statt %d Karten im Spiel" % [seen.size(), total]
 		return false
@@ -415,7 +433,7 @@ func _discard_extra(seat: int, hand_index: int) -> Dictionary:
 	if top == null:
 		return _fail("Keine Ablage")
 	var card: Dictionary = player.hand[hand_index]
-	if str(card.rank) != str(top.rank):
+	if str(card.rank) != str(top.rank) or str(card.rank) == JOKER_RANK:
 		_give_one_penalty(player, "illegal_extra")
 		return _fail("Passt nicht. Genau eine Strafkarte")
 	player.hand.remove_at(hand_index)
@@ -489,7 +507,7 @@ func _end_turn() -> Dictionary:
 	state.drawn_card = null
 	if str(state.phase) != "dame_called" and int(state.current_index) == int(state.round_start_index):
 		state.round = int(state.round) + 1
-		if int(state.round) > SAFE_CIRCUITS:
+		if int(state.round) > int(state.get("safe_circuits", SAFE_CIRCUITS)):
 			state.safe_phase = false
 	if finished_was_ai:
 		state.ai_turns_finished = int(state.ai_turns_finished) + 1
@@ -590,7 +608,7 @@ func _start_next_round() -> Dictionary:
 		for pen in p.penalty_cards:
 			carried[str(pen.id)] = true
 	var deck: Array = []
-	for card in _fresh_pool(deck_count_for(seat_count())):
+	for card in _fresh_pool(deck_count_for(seat_count()), int(state.get("jokers", 0))):
 		if not carried.has(str(card.id)):
 			deck.append(card)
 	_shuffle(deck, rng)
@@ -603,7 +621,7 @@ func _start_next_round() -> Dictionary:
 			p.penalty_cards = []
 			continue
 		var hand: Array = []
-		for _i in range(HAND_SIZE):
+		for _i in range(int(state.get("hand_size", HAND_SIZE))):
 			var card: Dictionary = deck.pop_back()
 			card.face_up = false
 			hand.append(card)
@@ -742,6 +760,12 @@ func _place_on_discard(card: Dictionary, player: Dictionary) -> void:
 	card.face_up = true
 	state.discard.append(card)
 	var rank := str(card.rank)
+	if rank == JOKER_RANK:
+		# Joker wiederholt die Wirkung der Karte darunter (nur Bube oder Koenig, nie die Dame).
+		var below := ""
+		if state.discard.size() >= 2:
+			below = str(state.discard[state.discard.size() - 2].rank)
+		rank = below if below == "J" or below == "K" else ""
 	if rank == "Q":
 		_give_queen_penalty(player)
 		state.turn_step = "extra"
@@ -952,19 +976,20 @@ func _give_queen_penalty(player: Dictionary) -> void:
 	_log("Dame offen. Genau eine Strafkarte.")
 
 
+# Im Grundspiel genau eine Strafkarte pro Fehler; Custom-Modus darf mehr einstellen (penalty_count).
 func _give_one_penalty(player: Dictionary, source: String) -> Dictionary:
-	var card = _pull_deck()
-	if card == null:
-		# Keine Karte mehr da: keine Strafe, nie eine erfundene Karte.
-		_log("Keine Strafkarte mehr verfügbar (%s)." % source)
-		return {}
-	card.face_up = false
-	player.deal_penalties = int(player.get("deal_penalties", 0)) + 1
-	# Genau eine Karte, nie eine Schleife ueber mehrere.
-	if PENALTY_CARD_COUNT != 1:
-		push_error("PENALTY_CARD_COUNT muss 1 sein")
-	player.penalty_cards.append(card)
-	return card
+	var last: Dictionary = {}
+	for _i in range(int(state.get("penalty_count", PENALTY_CARD_COUNT))):
+		var card = _pull_deck()
+		if card == null:
+			# Keine Karte mehr da: keine Strafe, nie eine erfundene Karte.
+			_log("Keine Strafkarte mehr verfügbar (%s)." % source)
+			break
+		card.face_up = false
+		player.deal_penalties = int(player.get("deal_penalties", 0)) + 1
+		player.penalty_cards.append(card)
+		last = card
+	return last
 
 
 func _pull_deck():
@@ -1026,10 +1051,18 @@ static func deck_count_for(seats: int) -> int:
 	return int(ceil(float(seats) / 4.0))
 
 
-func _fresh_pool(decks: int = 1) -> Array:
+func _fresh_pool(decks: int = 1, jokers: int = 0) -> Array:
 	var pool: Array = []
 	var n := 0
 	for _d in range(maxi(decks, 1)):
+		for j in range(jokers):
+			pool.append({
+				"id": "joker-%d-%d" % [_d, j],
+				"suit": "joker",
+				"rank": JOKER_RANK,
+				"value": JOKER_VALUE,
+				"face_up": false,
+			})
 		for suit in SUITS:
 			for rank in RANKS:
 				pool.append({
@@ -1066,6 +1099,8 @@ const RANK_NAMES := {"J": "Bube", "Q": "Dame", "K": "König", "A": "Ass"}
 
 static func card_label(card: Dictionary) -> String:
 	var rank := str(card.rank)
+	if rank == JOKER_RANK:
+		return "Joker"
 	return "%s %s" % [SUIT_NAMES.get(str(card.suit), "?"), RANK_NAMES.get(rank, rank)]
 
 
