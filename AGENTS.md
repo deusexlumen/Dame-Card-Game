@@ -1,3 +1,5 @@
+> **Archived (2026-10-20). Source is latte-app.** All code, the GM proxy and the docs now live in [deusexlumen/latte-app](https://github.com/deusexlumen/latte-app) (game code under `addons/`, docs under `docs/`). Do not change, sync or open PRs here. A task that starts here belongs in latte-app.
+
 # AGENTS.md — Dame Kartenspiel
 
 Diese Datei dokumentiert die Architektur, den Technologie-Stack und die Entwicklungskonventionen des Projekts für AI-Coding-Agenten.
