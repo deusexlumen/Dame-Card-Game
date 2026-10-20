@@ -131,8 +131,22 @@ static func _choose_jack(view: Dictionary, me: Dictionary, difficulty: String, r
 static func _choose_king(view: Dictionary, me: Dictionary, difficulty: String, rng: RandomNumberGenerator) -> Dictionary:
 	var seat := int(view.viewer_seat)
 	var opponents := _opponents(view, true)
-	if opponents.is_empty() or me.cards.is_empty():
+	var pairs := _king_all_cards(view)
+	if pairs.size() < 2:
 		return {"type": "end_turn", "seat": seat}
+	# Keine Gegner zum Tauschen (alle gesperrt): zwei eigene Karten untereinander.
+	if opponents.is_empty() or me.cards.is_empty():
+		var own: Array = pairs.filter(func(c): return int(c[0]) == seat)
+		if own.size() >= 2:
+			return _king_action(seat, own[0], own[1])
+		return _king_action(seat, pairs[0], pairs[1])
+	if difficulty == "easy":
+		var i := rng.randi_range(0, pairs.size() - 1)
+		var j := rng.randi_range(0, pairs.size() - 2)
+		if j >= i:
+			j += 1
+		return _king_action(seat, pairs[i], pairs[j])
+	# Eigene schlechteste bekannte Karte abgeben, sonst eine unbekannte. Eine bekannte gute nicht hergeben.
 	var chosen := 0
 	var worst_value := -1
 	var unknown := -1
@@ -143,18 +157,12 @@ static func _choose_king(view: Dictionary, me: Dictionary, difficulty: String, r
 				chosen = int(card.index)
 		elif unknown < 0:
 			unknown = int(card.index)
-	# Bekannte gute Karte nicht weggeben: dann lieber eine unbekannte.
 	if (worst_value < 0 or worst_value <= 3) and unknown >= 0:
 		chosen = unknown
-	if difficulty == "easy":
-		chosen = rng.randi_range(0, me.cards.size() - 1)
 	var opp: Dictionary = opponents[0]
 	var opp_index := 0
-	if difficulty == "easy":
-		opp = opponents[rng.randi_range(0, opponents.size() - 1)]
-		opp_index = rng.randi_range(0, opp.cards.size() - 1)
-	elif difficulty == "hard":
-		# Bekannte niedrige fremde Karte holen, sonst beim Fuehrenden tauschen.
+	if difficulty == "hard":
+		# Bekannte niedrige fremde Karte holen, sonst beim Fuehrenden eine unbekannte.
 		var best_value := 99
 		for p in opponents:
 			for card in p.cards:
@@ -171,13 +179,22 @@ static func _choose_king(view: Dictionary, me: Dictionary, difficulty: String, r
 	else:
 		opp = opponents[rng.randi_range(0, opponents.size() - 1)]
 		opp_index = rng.randi_range(0, opp.cards.size() - 1)
-	return {
-		"type": "king_swap",
-		"seat": seat,
-		"opponent_seat": int(opp.seat),
-		"opponent_index": opp_index,
-		"chosen_index": chosen,
-	}
+	return _king_action(seat, [seat, chosen], [int(opp.seat), opp_index])
+
+
+# Alle Karten, die der Koenig tauschen darf: [Platz, Index], ohne Ausgeschiedene und gesperrte Plaetze.
+static func _king_all_cards(view: Dictionary) -> Array:
+	var out: Array = []
+	for p in view.players:
+		if bool(p.eliminated) or bool(p.locked):
+			continue
+		for card in p.cards:
+			out.append([int(p.seat), int(card.index)])
+	return out
+
+
+static func _king_action(seat: int, a: Array, b: Array) -> Dictionary:
+	return {"type": "king_swap", "seat": seat, "a_seat": int(a[0]), "a_index": int(a[1]), "b_seat": int(b[0]), "b_index": int(b[1])}
 
 
 static func _choose_extra(view: Dictionary, me: Dictionary, difficulty: String) -> Dictionary:

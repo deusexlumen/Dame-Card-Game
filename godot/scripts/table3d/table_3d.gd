@@ -579,14 +579,14 @@ func sync(view: Dictionary, opts: Dictionary) -> void:
 				if e != null:
 					from["discard"] = e.global_transform
 			"king_swap":
-				var own = _slot(s, int(a.get("chosen_index", -1)))
-				var other = _slot(int(a.get("opponent_seat", -1)), int(a.get("opponent_index", -1)))
-				if own != null and other != null:
-					from["slot:%d:%d" % [s, int(a.chosen_index)]] = other.global_transform
-					from["slot:%d:%d" % [int(a.opponent_seat), int(a.opponent_index)]] = own.global_transform
+				var card_a = _slot(int(a.get("a_seat", -1)), int(a.get("a_index", -1)))
+				var card_b = _slot(int(a.get("b_seat", -1)), int(a.get("b_index", -1)))
+				if card_a != null and card_b != null:
+					from["slot:%d:%d" % [int(a.a_seat), int(a.a_index)]] = card_b.global_transform
+					from["slot:%d:%d" % [int(a.b_seat), int(a.b_index)]] = card_a.global_transform
 				if s == _viewer:
 					hand_plan = "tap"
-					hand_target_key = "slot:%d:%d" % [int(a.opponent_seat), int(a.opponent_index)]
+					hand_target_key = "slot:%d:%d" % [int(a.get("b_seat", -1)), int(a.get("b_index", -1))]
 			"look_card":
 				bumps.append([int(a.get("target_seat", -1)), int(a.get("hand_index", -1))])
 				if s == _viewer:
@@ -602,6 +602,7 @@ func sync(view: Dictionary, opts: Dictionary) -> void:
 	var peek_cb: Callable = opts.get("peek", Callable())
 	var targets: Dictionary = opts.get("targets", {})
 	var selected := int(opts.get("selected", -1))
+	var selected_seat := int(opts.get("selected_seat", _viewer))
 	_markers.clear()
 	var deal_order := 0
 	# Rundenende: alle Karten drehen sich nacheinander um (Spec Dame-Call-Event).
@@ -642,13 +643,13 @@ func sync(view: Dictionary, opts: Dictionary) -> void:
 			if peeking and show:
 				# Kurz anheben und zum Gesicht kippen wie beim Spicken.
 				local = Transform3D(Basis(Vector3.RIGHT, 1.05), local.origin + Vector3(0, 0.07, 0.05))
-			elif seat == _viewer and i == selected:
+			elif seat == selected_seat and i == selected:
 				local.origin.y += 0.014
 			if bool(p.eliminated):
 				local.origin.y -= 0.0005
 			var target: Transform3D = root.global_transform * local
 			var mode := ""
-			if seat == _viewer and i == selected:
+			if seat == selected_seat and i == selected:
 				mode = "selected"
 			elif seat_targets.has(i):
 				mode = "target"
@@ -752,7 +753,7 @@ func _figure_reach(seat: int, a: Dictionary) -> void:
 			if c2 != null:
 				point = c2.global_position
 		"king_swap":
-			var c3 = _slot(int(a.get("opponent_seat", -1)), int(a.get("opponent_index", -1)))
+			var c3 = _slot(int(a.get("b_seat", -1)), int(a.get("b_index", -1)))
 			if c3 != null:
 				point = c3.global_position
 	if point == Vector3.INF:

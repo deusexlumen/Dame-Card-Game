@@ -203,7 +203,7 @@ func apply_action(action: Dictionary) -> Dictionary:
 		"look_card":
 			return _look_card(int(action.get("target_seat", -1)), int(action.get("hand_index", -1)))
 		"king_swap":
-			return _king_swap(int(action.get("opponent_seat", -1)), int(action.get("opponent_index", -1)), int(action.get("chosen_index", -1)))
+			return _king_swap(int(action.get("a_seat", -1)), int(action.get("a_index", -1)), int(action.get("b_seat", -1)), int(action.get("b_index", -1)))
 		"call_dame":
 			return _call_dame()
 		"end_turn":
@@ -733,7 +733,7 @@ func _played_message(base: String) -> String:
 	if str(state.turn_step) == "jack":
 		return base + ". Bube: eine verdeckte Karte ansehen, ohne Tausch."
 	if str(state.turn_step) == "king":
-		return base + ". König: eigene Karte ansehen, dann blind tauschen. Gegnerkarte bleibt ungesehen."
+		return base + ". König: zwei beliebige verdeckte Karten blind tauschen. Alle sehen den Tausch, aber nicht die Karten."
 	return base
 
 
@@ -777,16 +777,15 @@ func _has_jack_target() -> bool:
 	return false
 
 
+# Der Koenig braucht zwei verdeckte Karten, die getauscht werden duerfen (nicht von Ausgeschiedenen oder
+# vom gesperrten Ansager). Es ist egal, wem sie gehoeren, auch zwei eigene oder zwei fremde gehen.
 func _has_king_target() -> bool:
-	var me: Dictionary = current_player()
-	if _face_down_count(me) == 0:
-		return false
+	var n := 0
 	for p in state.players:
-		if int(p.seat) == int(me.seat) or bool(p.eliminated) or bool(p.locked):
+		if bool(p.eliminated) or bool(p.locked):
 			continue
-		if _face_down_count(p) > 0:
-			return true
-	return false
+		n += _face_down_count(p)
+	return n >= 2
 
 
 func _look_card(target_seat: int, hand_index: int) -> Dictionary:
@@ -830,73 +829,75 @@ func _look_card(target_seat: int, hand_index: int) -> Dictionary:
 	return _ok("Bube: verdeckte Karte angesehen. Kein Tausch.")
 
 
-func _king_swap(opponent_seat: int, opponent_index: int, chosen_index: int) -> Dictionary:
-	# Buxe, nicht README: eigene verdeckte Karte ansehen, dann blind tauschen.
-	# Die gegnerische Karte wird weder vorher noch nachher gezeigt.
+# Koenig (CONCEPT_DECISIONS 14): zwei beliebige verdeckte Karten blind tauschen, ohne eine anzusehen.
+# Alle sehen, DASS getauscht wurde und zwischen welchen Kartenplaetzen, nie welche Karten es sind.
+func _king_swap(a_seat: int, a_index: int, b_seat: int, b_index: int) -> Dictionary:
 	if str(state.turn_step) != "king":
 		return _fail("König: Tausch ist jetzt nicht dran")
-	var me_seat := int(state.current_index)
-	if opponent_seat < 0 or opponent_seat >= seat_count() or opponent_seat == me_seat:
-		return _fail("König tauscht blind mit einer gegnerischen Karte")
-	if bool(state.players[opponent_seat].locked):
-		return _fail("Karten des Ansagers sind gelockt")
-	if bool(state.players[opponent_seat].eliminated):
-		return _fail("Spieler ist ausgeschieden")
-	var me: Dictionary = state.players[me_seat]
-	var opp: Dictionary = state.players[opponent_seat]
-	var my_hand: Array = me.hand
-	var opp_hand: Array = opp.hand
-	if chosen_index < 0 or chosen_index >= my_hand.size():
-		return _fail("Keine eigene Karte gewählt")
-	if opponent_index < 0 or opponent_index >= opp_hand.size():
-		return _fail("Keine gegnerische Karte")
-	var chosen_card: Dictionary = my_hand[chosen_index]
-	var opp_card: Dictionary = opp_hand[opponent_index]
-	if bool(chosen_card.face_up) or bool(opp_card.face_up):
+	for sd in [a_seat, b_seat]:
+		if sd < 0 or sd >= seat_count():
+			return _fail("Ungültiger Platz")
+		if bool(state.players[sd].eliminated):
+			return _fail("Spieler ist ausgeschieden")
+		if bool(state.players[sd].locked):
+			return _fail("Karten des Ansagers sind gelockt")
+	var hand_a: Array = state.players[a_seat].hand
+	var hand_b: Array = state.players[b_seat].hand
+	if a_index < 0 or a_index >= hand_a.size() or b_index < 0 or b_index >= hand_b.size():
+		return _fail("Keine Karte gewählt")
+	if a_seat == b_seat and a_index == b_index:
+		return _fail("König tauscht zwei verschiedene Karten")
+	var card_a: Dictionary = hand_a[a_index]
+	var card_b: Dictionary = hand_b[b_index]
+	if bool(card_a.face_up) or bool(card_b.face_up):
 		return _fail("König tauscht nur verdeckte Karten")
-	var seen_id := str(chosen_card.id)
-	var seen_rank := str(chosen_card.rank)
-	var seen_suit := str(chosen_card.suit)
-	state.last_look = {
-		"id": seen_id,
-		"rank": seen_rank,
-		"suit": seen_suit,
-		"seat": me_seat,
-		"index": chosen_index,
-		"face_up": false,
-		"own": true,
-	}
-	state.last_look_by = me_seat
-	# Der Tauschende weiss, wohin seine angesehene Karte wandert.
-	if not me.seen_ids.has(seen_id):
-		me.seen_ids.append(seen_id)
-	my_hand[chosen_index] = opp_card
-	opp_hand[opponent_index] = chosen_card
-	opp_card.face_up = false
-	chosen_card.face_up = false
-	# Beide neuen Besitzer sehen die eingetauschte Karte nicht.
-	opp_card.unseen = true
-	chosen_card.unseen = true
-	_forget_known_index(me, chosen_index)
-	_forget_known_index(opp, opponent_index)
+	# Wissen folgt der Karte: Die Plaetze sind oeffentlich, wer eine der beiden Karten kannte, weiss auch,
+	# wo sie jetzt liegt. Das gilt fuer das eigene Wissen ueber die eigene Hand (known) und fuer das Wissen
+	# ueber fremde Karten (seen_ids).
+	var knowers_a := _knowers_of(card_a, a_seat, a_index)
+	var knowers_b := _knowers_of(card_b, b_seat, b_index)
+	_forget_known_index(state.players[a_seat], a_index)
+	_forget_known_index(state.players[b_seat], b_index)
+	hand_a[a_index] = card_b
+	hand_b[b_index] = card_a
+	card_a.face_up = false
+	card_b.face_up = false
+	_learn_position(knowers_a, card_a, b_seat, b_index)
+	_learn_position(knowers_b, card_b, a_seat, a_index)
+	state.last_look = null
+	state.last_look_by = -1
 	state.last_king_swap = {
-		"look_own_id": seen_id,
-		"look_rank": seen_rank,
-		"look_suit": seen_suit,
-		"from_seat": me_seat,
-		"from_index": chosen_index,
-		"to_seat": opponent_seat,
-		"to_index": opponent_index,
-		"blind_unseen": true,
-		"self_face_up": bool(my_hand[chosen_index].face_up),
-		"opp_face_up": bool(opp_hand[opponent_index].face_up),
+		"by": int(state.current_index),
+		"a_seat": a_seat, "a_index": a_index,
+		"b_seat": b_seat, "b_index": b_index,
 	}
-	if bool(my_hand[chosen_index].face_up) or bool(opp_hand[opponent_index].face_up):
-		return _fail("König hat eine Karte offen gelassen")
-	if str(opp_hand[opponent_index].id) != seen_id:
-		return _fail("König hat die angesehene eigene Karte nicht getauscht")
 	state.turn_step = "extra"
-	return _ok("König: eigene Karte angesehen und blind getauscht. Beide bleiben verdeckt.")
+	return _ok("König: %s (Karte %d) und %s (Karte %d) wurden blind getauscht." % [
+		str(state.players[a_seat].name), a_index + 1, str(state.players[b_seat].name), b_index + 1])
+
+
+# Seats, die den Inhalt dieser Karte kennen (Besitzer ueber known, alle anderen ueber seen_ids).
+func _knowers_of(card: Dictionary, owner_seat: int, index: int) -> Array:
+	var out: Array = []
+	for p in state.players:
+		var seat := int(p.seat)
+		if seat == owner_seat:
+			if p.known.has(index):
+				out.append(seat)
+		elif p.seen_ids.has(str(card.id)):
+			out.append(seat)
+	return out
+
+
+# Nach dem Tausch: Besitzer kennt die Karte an ihrem neuen Platz, alle anderen wissen, wo sie liegt.
+func _learn_position(knowers: Array, card: Dictionary, new_seat: int, new_index: int) -> void:
+	for seat in knowers:
+		var p: Dictionary = state.players[int(seat)]
+		if int(seat) == new_seat:
+			if not p.known.has(new_index):
+				p.known.append(new_index)
+		elif not p.seen_ids.has(str(card.id)):
+			p.seen_ids.append(str(card.id))
 
 
 func _forget_known_index(player: Dictionary, index: int) -> void:

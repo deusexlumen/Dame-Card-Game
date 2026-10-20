@@ -308,7 +308,7 @@ func _auto_turn(rules, call_from_round: int) -> bool:
 	if str(rules.state.turn_step) == "jack":
 		rules.apply_action({"type": "look_card", "seat": seat, "target_seat": target, "hand_index": 0})
 	elif str(rules.state.turn_step) == "king":
-		rules.apply_action({"type": "king_swap", "seat": seat, "opponent_seat": king_target, "opponent_index": 0, "chosen_index": 0})
+		rules.apply_action({"type": "king_swap", "seat": seat, "a_seat": seat, "a_index": 0, "b_seat": seat, "b_index": 1})
 	var e: Dictionary = rules.apply_action({"type": "end_turn", "seat": seat})
 	if not bool(e.ok):
 		t.expect(false, "Zugende scheitert Sitz %d Schritt %s: %s" % [seat, str(rules.state.turn_step), str(e.reason)])

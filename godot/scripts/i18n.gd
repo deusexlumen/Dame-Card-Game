@@ -152,7 +152,6 @@ const EN := {
 	"Gerät an %s weitergeben.\nNiemand sonst schaut hin.": "Pass the device to %s.\nNobody else looks.",
 	"Ich bin %s – Karten zeigen [Enter]": "I am %s – show cards [Enter]",
 	"Nicht bereit": "Not ready",
-	"König: angesehen %s, dann blind getauscht.": "King: looked at %s, then swapped blind.",
 	"Erst eine eigene Karte wählen.": "Pick one of your own cards first.",
 	"Zeit abgelaufen – Strafkarte, Zug beendet.": "Time is up – penalty card, turn ended.",
 	"Stapel (%d)": "Deck (%d)",
@@ -174,8 +173,6 @@ const EN := {
 	" Oder rufe Dame [D].": " Or call Dame [D].",
 	"Klicke eine eigene Karte zum Tauschen oder lege die gezogene ab [A].": "Click one of your cards to swap, or discard the drawn card [A].",
 	"Bube: Klicke eine verdeckte Karte zum Ansehen.": "Jack: click a face-down card to look at it.",
-	"König: Wähle eine eigene Karte (du siehst sie, dann wird sie getauscht).": "King: pick one of your cards (you see it, then it is swapped).",
-	"König: Wähle jetzt eine Karte eines Gegners.": "King: now pick an opponent's card.",
 	"Gleicher Rang wie die Ablage? Karte klicken (falsch = Strafkarte). Sonst Zug beenden [Enter].": "Same rank as the discard? Click the card (wrong = penalty card). Otherwise end turn [Enter].",
 	"Vom Stapel ziehen": "Draw from deck",
 	"Ablage nehmen": "Take discard",
@@ -272,11 +269,15 @@ const EN := {
 	"Nur eine verdeckte Karte": "Only a face-down card",
 	"Bube: verdeckte Karte angesehen. Kein Tausch.": "Jack: looked at a face-down card. No swap.",
 	"König: Tausch ist jetzt nicht dran": "King: you cannot swap now",
-	"König tauscht blind mit einer gegnerischen Karte": "King swaps blind with an opponent's card",
+	"König tauscht zwei verschiedene Karten": "King swaps two different cards",
+	"Keine Karte gewählt": "No card chosen",
+	". König: Tausche zwei beliebige verdeckte Karten blind. Alle sehen den Tausch, aber nicht die Karten.": ". King: swap any two face-down cards blind. Everyone sees the swap, but not the cards.",
+	"König: Tippe die erste Karte an, irgendeine, auch eine eigene. Du siehst sie nicht.": "King: tap the first card, any card, also one of yours. You do not see it.",
+	"König: Jetzt die zweite Karte. Beide werden blind getauscht, alle sehen den Tausch, aber nicht die Karten.": "King: now the second card. Both are swapped blind; everyone sees the swap, but not the cards.",
+	"König: %s (Karte %d) und %s (Karte %d) wurden blind getauscht.": "King: %s (card %d) and %s (card %d) were swapped blind.",
 	"Keine eigene Karte gewählt": "No own card chosen",
 	"Keine gegnerische Karte": "No opponent card",
 	"König tauscht nur verdeckte Karten": "King only swaps face-down cards",
-	"König: eigene Karte angesehen und blind getauscht. Beide bleiben verdeckt.": "King: looked at own card and swapped blind. Both stay face down.",
 	"%s: Zeit abgelaufen. Genau eine Strafkarte.": "%s: time is up. Exactly one penalty card.",
 	"Zeit abgelaufen – Strafkarte für %s.": "Time is up – penalty card for %s.",
 	"Raum öffnen": "Open room",
@@ -347,7 +348,6 @@ const PREFIXES := {
 }
 const SUFFIXES := {
 	". Bube: eine verdeckte Karte ansehen, ohne Tausch.": ". Jack: look at a face-down card, no swap.",
-	". König: eigene Karte ansehen, dann blind tauschen. Gegnerkarte bleibt ungesehen.": ". King: look at your own card, then swap blind. The opponent's card stays unseen.",
 }
 
 

@@ -21,7 +21,7 @@ Ass 1 · Zwei bis Zehn nach Augen · Bube 10 · König 10 · Dame 0
 
 [b]Sonderkarten (beim Ablegen)[/b]
 [b]Bube:[/b] Sieh dir eine beliebige verdeckte Karte an – deine oder eine fremde. Kein Tausch.
-[b]König:[/b] Sieh dir eine eigene verdeckte Karte an und tausche sie dann blind gegen eine Karte eines Gegners. Beide bleiben verdeckt.
+[b]König:[/b] Tausche zwei beliebige verdeckte Karten blind, ohne eine anzusehen. Es ist egal, wem sie gehören: zwei fremde, zwei eigene oder eine eigene und eine fremde. Alle sehen, dass getauscht wurde und zwischen welchen Kartenplätzen, aber nicht, welche Karten es sind.
 [b]Dame:[/b] Wer eine Dame ablegt, bekommt eine Strafkarte. Die Dame ist 0 Punkte wert: Wer sie von der Ablage nehmen kann, tut gut daran. Einen Zwang dazu gibt es nicht.
 Ass und Zehn haben keine Sonderwirkung.
 
@@ -63,7 +63,7 @@ Ace 1 · Two to Ten by pips · Jack 10 · King 10 · Queen 0
 
 [b]Special cards (when discarded)[/b]
 [b]Jack:[/b] Look at any face-down card – yours or someone else's. No swap.
-[b]King:[/b] Look at one of your face-down cards, then swap it blind with an opponent's card. Both stay face down.
+[b]King:[/b] Swap any two face-down cards blind, without looking at either. It does not matter who owns them: two of someone else's, two of yours, or one of each. Everyone sees that a swap happened and between which card positions, but not which cards they are.
 [b]Queen:[/b] Whoever discards a queen gets a penalty card. The queen is worth 0 points: whoever can take it from the discard pile does well to. Nobody is forced to.
 Ace and Ten have no special effect.
 

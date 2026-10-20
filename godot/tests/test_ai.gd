@@ -60,7 +60,7 @@ func _check_drawn_card_privacy() -> void:
 		if step == "jack":
 			rules.apply_action({"type": "look_card", "seat": 0, "target_seat": 0, "hand_index": 2})
 		elif step == "king":
-			rules.apply_action({"type": "king_swap", "seat": 0, "opponent_seat": 1, "opponent_index": 0, "chosen_index": 0})
+			rules.apply_action({"type": "king_swap", "seat": 0, "a_seat": 0, "a_index": 0, "b_seat": 1, "b_index": 0})
 	rules.apply_action({"type": "end_turn", "seat": 0})
 	rules.apply_action({"type": "draw_discard", "seat": 1})
 	var watch: Dictionary = DameViewScript.for_viewer(rules, 0)

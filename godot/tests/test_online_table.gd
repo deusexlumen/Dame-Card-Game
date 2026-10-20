@@ -313,8 +313,8 @@ func _input(tb, seat: int, action: Dictionary) -> void:
 		"look_card":
 			tb._on_card(int(action.target_seat), int(action.hand_index))
 		"king_swap":
-			tb._on_card(seat, int(action.chosen_index))
-			tb._on_card(int(action.opponent_seat), int(action.opponent_index))
+			tb._on_card(int(action.a_seat), int(action.a_index))
+			tb._on_card(int(action.b_seat), int(action.b_index))
 		"call_dame":
 			_key(tb, KEY_D)
 		"end_turn":

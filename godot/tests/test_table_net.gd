@@ -277,8 +277,8 @@ func _input(action: Dictionary) -> void:
 		"look_card":
 			table._on_card(int(action.target_seat), int(action.hand_index))
 		"king_swap":
-			table._on_card(GUEST_SEAT, int(action.chosen_index))
-			table._on_card(int(action.opponent_seat), int(action.opponent_index))
+			table._on_card(int(action.a_seat), int(action.a_index))
+			table._on_card(int(action.b_seat), int(action.b_index))
 		"call_dame":
 			if guest_inputs % 2 == 0:
 				table.call_dame()

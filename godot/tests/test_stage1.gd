@@ -131,7 +131,7 @@ func _check_bube_look(own: bool) -> void:
 	print("FACT bube target=%s look_id=%s look_rank=%s look_suit=%s seat=%d index=%d face_up=false swapped=false positions_unchanged=%s seats=%d" % [target_word, look_id, look_rank, look_suit, target_seat, target_index, str(unchanged and stayed_down).to_lower(), rules.state.players.size()])
 
 
-func _check_king_swap() -> void:
+func _king_game():
 	var rules = DameRulesScript.new()
 	rules.start_match({
 		"ai_seat": 2,
@@ -146,64 +146,100 @@ func _check_king_swap() -> void:
 			{"suit": "hearts", "rank": "3"},
 		],
 	})
+	rules.apply_action({"type": "draw_deck", "seat": 0})
+	rules.apply_action({"type": "discard_drawn", "seat": 0})
+	return rules
+
+
+func _king(rules, a_seat: int, a_index: int, b_seat: int, b_index: int) -> Dictionary:
+	return rules.apply_action({"type": "king_swap", "seat": 0, "a_seat": a_seat, "a_index": a_index, "b_seat": b_seat, "b_index": b_index})
+
+
+# Koenig (CONCEPT_DECISIONS 14): zwei beliebige verdeckte Karten blind tauschen, nichts ansehen.
+func _check_king_swap() -> void:
+	var rules = _king_game()
 	_expect(rules.state.players.size() == 4, "König: nicht vier Plaetze")
-	var draw_r: Dictionary = rules.apply_action({"type": "draw_deck", "seat": 0})
-	_expect(bool(draw_r.ok) and str(rules.state.drawn_card.rank) == "K", "König wurde nicht gezogen")
-	var disc_r: Dictionary = rules.apply_action({"type": "discard_drawn", "seat": 0})
-	_expect(bool(disc_r.ok), "König ablegen fehlgeschlagen: " + str(disc_r.reason))
 	_expect(str(rules.state.turn_step) == "king", "König oeffnet nicht den Tauschschritt")
 	_expect(str(rules.top_discard().rank) == "K" and bool(rules.top_discard().face_up), "König liegt nicht offen auf der Ablage")
-	var early: Dictionary = rules.apply_action({"type": "end_turn", "seat": 0})
-	_expect(not bool(early.ok), "König-Zug ohne Tausch war beendet")
-	var own_before: Dictionary = rules.state.players[0].hand[1]
-	var opp_before: Dictionary = rules.state.players[2].hand[0]
-	var own_id := str(own_before.id)
-	var opp_id := str(opp_before.id)
-	var opp_rank := str(opp_before.rank)
-	var opp_suit := str(opp_before.suit)
-	_expect(bool(own_before.face_up) == false and bool(opp_before.face_up) == false, "König-Karten waren schon offen")
-	var others_before := _layout_except(rules, [0, 2])
-	var swapped: Dictionary = rules.apply_action({
-		"type": "king_swap",
-		"seat": 0,
-		"opponent_seat": 2,
-		"opponent_index": 0,
-		"chosen_index": 1,
-	})
-	_expect(bool(swapped.ok), "Königstausch fehlgeschlagen: " + str(swapped.reason))
-	var now_own: Dictionary = rules.state.players[0].hand[1]
-	var now_opp: Dictionary = rules.state.players[2].hand[0]
-	var own_moved := str(now_opp.id) == own_id and str(now_own.id) == opp_id
-	var both_down := bool(now_own.face_up) == false and bool(now_opp.face_up) == false
-	_expect(own_moved, "König hat die beiden Karten nicht getauscht")
-	_expect(both_down, "König hat eine Karte offen gelassen")
-	_expect(_layout_except(rules, [0, 2]) == others_before, "König hat unbeteiligte Haende veraendert")
-	_expect(str(rules.state.players[0].hand[0].id) != own_id and str(rules.state.players[0].hand[0].rank) == "4", "eigene Nebenkarte verschoben")
-	var own_rank := str(own_before.rank)
-	var own_suit := str(own_before.suit)
-	_expect(rules.state.last_look != null and str(rules.state.last_look.id) == own_id, "König hat die eigene Karte nicht gemerkt")
-	_expect(str(rules.state.last_look.rank) == own_rank and str(rules.state.last_look.suit) == own_suit, "König-Blick zeigt nicht die eigene Karte")
-	_expect(int(rules.state.last_look.seat) == 0 and int(rules.state.last_look.index) == 1, "König hat nicht die eigene Position angesehen")
-	_expect(bool(rules.state.last_look.face_up) == false, "König-Blick ist nicht verdeckt gemerkt")
-	_expect(str(rules.state.last_look.id) != opp_id, "König hat die Gegnerkarte offengelegt")
-	_expect(not rules.state.players[0].known.has(1), "König zeigt die getauschte Gegnerkarte als bekannt")
+	_expect(not bool(rules.apply_action({"type": "end_turn", "seat": 0}).ok), "König-Zug ohne Tausch war beendet")
+	# Ungueltige Wahl: dieselbe Karte, ungueltiger Platz oder Index, gesperrter oder ausgeschiedener Platz.
+	_expect(not bool(_king(rules, 1, 0, 1, 0).ok), "König tauscht eine Karte mit sich selbst")
+	_expect(not bool(_king(rules, 9, 0, 1, 0).ok), "König mit ungueltigem Platz")
+	_expect(not bool(_king(rules, 1, 7, 2, 0).ok), "König mit ungueltigem Index")
+	rules.state.players[3].locked = true
+	_expect(not bool(_king(rules, 3, 0, 1, 0).ok), "König tauscht eine Karte des gesperrten Ansagers")
+	rules.state.players[3].locked = false
+	rules.state.players[3].eliminated = true
+	_expect(not bool(_king(rules, 1, 0, 3, 0).ok), "König tauscht eine Karte eines Ausgeschiedenen")
+	rules.state.players[3].eliminated = false
+	_expect(str(rules.state.turn_step) == "king" and rules.state.players[1].penalty_cards.is_empty(), "ungueltige Königswahl aendert den Zustand")
+
+	# Zwei fremde Karten untereinander tauschen (der Koenig selbst fasst nichts an).
+	var id_a := str(rules.state.players[1].hand[0].id)
+	var id_b := str(rules.state.players[2].hand[3].id)
+	var others_before := _layout_except(rules, [1, 2])
+	var swapped := _king(rules, 1, 0, 2, 3)
+	_expect(bool(swapped.ok), "Königstausch fremder Karten fehlgeschlagen: " + str(swapped.reason))
+	_expect(str(rules.state.players[2].hand[3].id) == id_a and str(rules.state.players[1].hand[0].id) == id_b, "König hat die beiden Karten nicht getauscht")
+	_expect(not bool(rules.state.players[1].hand[0].face_up) and not bool(rules.state.players[2].hand[3].face_up), "König hat eine Karte offen gelassen")
+	_expect(_layout_except(rules, [1, 2]) == others_before, "König hat unbeteiligte Haende veraendert")
+	_expect(str(rules.state.turn_step) == "extra", "König-Zug nicht im Extra-Schritt")
+	# Oeffentlich: Plaetze ja, Karten nie. Niemand hat etwas angesehen.
+	var swap_info: Dictionary = rules.state.last_king_swap
+	_expect(int(swap_info.a_seat) == 1 and int(swap_info.a_index) == 0 and int(swap_info.b_seat) == 2 and int(swap_info.b_index) == 3, "öffentliche Tauschplätze falsch")
+	_expect(rules.state.last_look == null, "König hat eine Karte angesehen")
 	var view: Dictionary = DameViewScript.for_viewer(rules, 0)
-	var self_cards: Array = []
+	_expect(view.private_look == null, "Sicht zeigt dem König eine Karte")
+	var public_blob := str(rules.state.last_king_swap) + "|" + str(rules.state.last_action) + "|" + str(rules.state.log) + "|" + str(view)
+	_expect(id_a not in public_blob.replace("hand_index", "") and id_b not in public_blob, "Kartenidentitaet wurde veroeffentlicht")
 	for entry in view.players:
-		if str(entry.role) == "self":
-			self_cards = entry.cards
-	_expect(self_cards.size() > 1 and str(self_cards[1].rank) == "", "Sicht zeigt die ungesehene Karte")
-	_expect(view.private_look != null and str(view.private_look.id) == own_id, "private Sicht zeigt nicht die eigene Karte")
-	_expect(str(view.private_look.id) != opp_id, "private Sicht nennt die Gegnerkarte")
-	var public_blob := str(rules.state.last_look) + "|" + str(rules.state.last_king_swap) + "|" + str(rules.state.last_action) + "|" + str(view.private_look)
-	_expect(opp_id not in public_blob, "Gegneridentitaet wurde gespeichert oder gezeigt")
-	_expect(opp_rank not in public_blob and opp_suit not in public_blob, "Gegnerrang oder -farbe wurde gezeigt")
-	_expect(bool(rules.state.last_king_swap.blind_unseen), "blinder Tausch nicht markiert")
+		if bool(entry.is_self):
+			continue
+		for card in entry.cards:
+			_expect(str(card.rank) == "", "Sicht des Königs zeigt eine fremde Karte")
 	_expect(int(rules.state.queen_penalties_given) == 0, "König hat eine Damenstrafe erzeugt")
 	_expect(str(rules.top_discard().rank) == "K", "Königstausch hat die Ablage ersetzt")
-	var fact := "FACT koenig look_own_id=%s look_rank=%s look_suit=%s seat=0 index=1 moved_to=2:0 face_up=false blind_from=2:0 blind_unseen=true blind_identity_printed=false both_face_down=%s swapped=%s seats=%d" % [own_id, own_rank, own_suit, str(both_down).to_lower(), str(own_moved).to_lower(), rules.state.players.size()]
-	_expect(opp_id not in fact and opp_rank not in fact and opp_suit not in fact, "FACT nennt die Gegnerkarte")
+	var fact := "FACT koenig swapped=1:0<->2:3 blind=true looked=false seats=%d" % rules.state.players.size()
+	_expect(id_a not in fact and id_b not in fact, "FACT nennt eine Karte")
 	print(fact)
+
+	# Zwei eigene Karten tauschen ist erlaubt, ebenso eine eigene gegen eine fremde.
+	var own = _king_game()
+	var own_before := [str(own.state.players[0].hand[0].id), str(own.state.players[0].hand[2].id)]
+	_expect(bool(_king(own, 0, 0, 0, 2).ok), "König tauscht zwei eigene Karten nicht")
+	_expect(str(own.state.players[0].hand[0].id) == own_before[1] and str(own.state.players[0].hand[2].id) == own_before[0], "eigener Tausch falsch")
+	var mixed = _king_game()
+	_expect(bool(_king(mixed, 2, 1, 0, 1).ok), "König tauscht fremd gegen eigen nicht")
+	# Nur noch ein tauschbares Paar: kein König-Schritt, wenn weniger als zwei Karten tauschbar sind.
+	var few = _king_game()
+	few.state.turn_step = "extra"
+	for sd in [1, 2, 3]:
+		few.state.players[sd].locked = true
+	few.state.players[0].hand = [few.state.players[0].hand[0]]
+	_expect(not few._has_king_target(), "König-Schritt trotz nur einer tauschbaren Karte")
+
+	# Wissen folgt der Karte: Plaetze sind oeffentlich, die Karten bleiben unbekannt.
+	var k = _king_game()
+	var p0 = k.state.players[0]
+	var mine := str(p0.hand[1].id)
+	p0.known = [1]
+	k.state.players[2].known = []
+	k.state.players[1].seen_ids.append(mine)   # Platz 1 kennt Platz 0s Karte (z. B. durch einen Buben)
+	_expect(bool(_king(k, 0, 1, 2, 0).ok), "Wissenstest: Tausch scheitert")
+	_expect(not p0.known.has(1), "Besitzer kennt den neuen Inhalt seines Platzes")
+	_expect(k.state.players[0].seen_ids.has(mine), "Wer die Karte kannte, weiss nicht, wohin sie gewandert ist")
+	var v0: Dictionary = DameViewScript.for_viewer(k, 0)
+	_expect(str(v0.players[2].cards[0].rank) != "", "Platz 0 sieht seine alte Karte nicht bei Platz 2")
+	var v1: Dictionary = DameViewScript.for_viewer(k, 1)
+	_expect(str(v1.players[2].cards[0].rank) != "", "Dritter, der die Karte kannte, verliert sie")
+	var v2: Dictionary = DameViewScript.for_viewer(k, 2)
+	_expect(str(v2.players[2].cards[0].rank) == "", "Neuer Besitzer sieht die eingetauschte Karte")
+	_expect(str(v2.players[0].cards[1].rank) == "", "Platz 2 sieht Platz 0s neue Karte")
+	# Eigener Tausch innerhalb der Hand: das Wissen wandert mit.
+	var s2 = _king_game()
+	s2.state.players[0].known = [0]
+	_expect(bool(_king(s2, 0, 0, 0, 3).ok), "Wissenstest: eigener Tausch scheitert")
+	_expect(s2.state.players[0].known == [3], "bekannte eigene Karte wanderte nicht mit")
 
 
 func _check_plain_ace_ten() -> void:
@@ -264,7 +300,7 @@ func _check_plain_ace_ten() -> void:
 		_expect(rules.state.drawn_card == null, label + " laesst eine gezogene Karte liegen")
 	var denied_look: Dictionary = rules.apply_action({"type": "look_card", "seat": 2, "target_seat": 0, "hand_index": 0})
 	_expect(not bool(denied_look.ok), "Ass/Zehn hat nachtraeglich einen Bube-Blick erlaubt")
-	var denied_swap: Dictionary = rules.apply_action({"type": "king_swap", "seat": 2, "opponent_seat": 0, "opponent_index": 0, "chosen_index": 0})
+	var denied_swap: Dictionary = rules.apply_action({"type": "king_swap", "seat": 2, "a_seat": 0, "a_index": 0, "b_seat": 1, "b_index": 0})
 	_expect(not bool(denied_swap.ok), "Ass/Zehn hat nachtraeglich einen Königstausch erlaubt")
 	for forbidden in ["USE_JACK_EFFECT", "USE_KING_EFFECT", "USE_ACE_EFFECT", "USE_TEN_EFFECT"]:
 		var denied: Dictionary = rules.apply_action({"type": forbidden, "seat": 2})
@@ -408,8 +444,9 @@ func _resolve_special(rules, seat: int) -> void:
 		var swapped: Dictionary = rules.apply_action({
 			"type": "king_swap",
 			"seat": seat,
-			"opponent_seat": (seat + 1) % 4,
-			"opponent_index": 0,
-			"chosen_index": 0,
+			"a_seat": seat,
+			"a_index": 0,
+			"b_seat": seat,
+			"b_index": 1,
 		})
 		_expect(bool(swapped.ok), "Koenigstausch im Rundentest fehlgeschlagen: " + str(swapped.reason))

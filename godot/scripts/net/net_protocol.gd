@@ -15,7 +15,7 @@ const PLAYER_ACTIONS := {
 	"discard_drawn": [],
 	"discard_extra": ["hand_index"],
 	"look_card": ["target_seat", "hand_index"],
-	"king_swap": ["opponent_seat", "opponent_index", "chosen_index"],
+	"king_swap": ["a_seat", "a_index", "b_seat", "b_index"],
 	"call_dame": [],
 	"end_turn": [],
 	"peek_ready": [],
