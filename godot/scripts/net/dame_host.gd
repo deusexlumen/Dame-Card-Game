@@ -262,11 +262,14 @@ func _try_any_target(seat: int) -> bool:
 			if step == "jack":
 				if bool(_apply_public({"type": "look_card", "seat": seat, "target_seat": int(p.seat), "hand_index": i}).get("ok", false)):
 					return true
-			elif int(p.seat) != seat:
-				for mine in range(rules.state.players[seat].hand.size()):
-					var a := {"type": "king_swap", "seat": seat, "opponent_seat": int(p.seat), "opponent_index": i, "chosen_index": mine}
-					if bool(_apply_public(a).get("ok", false)):
-						return true
+			else:
+				for q in rules.state.players:
+					if bool(q.eliminated):
+						continue
+					for j in range(q.hand.size()):
+						var a := {"type": "king_swap", "seat": seat, "a_seat": int(p.seat), "a_index": i, "b_seat": int(q.seat), "b_index": j}
+						if bool(_apply_public(a).get("ok", false)):
+							return true
 	return false
 
 

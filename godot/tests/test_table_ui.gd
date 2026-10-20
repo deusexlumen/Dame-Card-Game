@@ -119,7 +119,7 @@ func _resolve_powers(table) -> void:
 		table._on_card(1, 0)
 	elif step == "king":
 		table._on_card(0, 0)
-		table._on_card(1, 0)
+		table._on_card(0, 1)
 
 
 # Ein Menschenzug ueber die Tisch-API: ziehen, ablegen, Sonderkarten, beenden.

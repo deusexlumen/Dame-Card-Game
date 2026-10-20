@@ -42,7 +42,7 @@ Ass 1 · Zwei bis Zehn nach Augen · Bube 10 · König 10 · Dame 0
 
 [b]Sonderkarten[/b]
 [b]Bube:[/b] Sieh dir eine beliebige verdeckte Karte an, deine oder eine fremde.
-[b]König:[/b] Sieh dir eine eigene Karte an und tausche sie blind mit einer Karte eines Gegners.
+[b]König:[/b] Tausche zwei beliebige verdeckte Karten blind. Alle sehen den Tausch, aber nicht die Karten.
 [b]Dame:[/b] Wer sie ablegt, bekommt eine Strafkarte. Sie ist 0 Punkte wert, einen Zwang, sie zu nehmen, gibt es nicht.
 
 [b]Dame rufen[/b]
@@ -62,7 +62,7 @@ Ace 1 · Two to Ten by pips · Jack 10 · King 10 · Queen 0
 
 [b]Special cards[/b]
 [b]Jack:[/b] Look at any face-down card, yours or someone else's.
-[b]King:[/b] Look at one of your cards and swap it blind with an opponent's card.
+[b]King:[/b] Swap any two face-down cards blind. Everyone sees the swap, but not the cards.
 [b]Queen:[/b] Whoever discards it gets a penalty card. It is worth 0 points; nobody is forced to take it.
 
 [b]Calling Dame[/b]
@@ -104,7 +104,8 @@ var pending_owner = null
 var handoff_pending := false
 var spectating := false
 var selected := -1
-var king_own := -1
+# Koenig: erste gewaehlte Karte (x = Platz, y = Index), y < 0 = noch keine.
+var king_a := Vector2i(-1, -1)
 
 var _view: Dictionary = {}
 # Ergebnis der letzten eigenen Aktion (Host antwortet synchron).
@@ -925,7 +926,8 @@ func _sync_3d() -> void:
 		"face": _face_for,
 		"peek": func(seat: int, i: int) -> bool: return int(_reveal_until.get("%d:%d" % [seat, i], 0)) > Time.get_ticks_msec(),
 		"targets": targets,
-		"selected": king_own if king_own >= 0 else selected,
+		"selected": king_a.y if king_a.y >= 0 else selected,
+		"selected_seat": king_a.x if king_a.y >= 0 else viewer_seat,
 		"drawn_face": _drawn_view.shows_face(),
 		"deck_target": _deck_view.targetable,
 		"discard_target": _discard_view.targetable,
@@ -1017,7 +1019,7 @@ func _begin_handoff(seat: int) -> void:
 	handoff_pending = true
 	spectating = false
 	selected = -1
-	king_own = -1
+	king_a = Vector2i(-1, -1)
 	_reveal_until.clear()
 	# Erst alle Gesichter weg, dann die Abdeckung zeigen.
 	for sv in _seats.values():
@@ -1126,7 +1128,7 @@ func _on_result(msg: Dictionary) -> void:
 	_last_result = {"ok": bool(msg.get("ok", false)), "reason": str(msg.get("reason", ""))}
 	if bool(_last_result.ok):
 		selected = -1
-		king_own = -1
+		king_a = Vector2i(-1, -1)
 		return
 	_toast_text(str(_last_result.reason))
 	if bool(msg.get("changed", false)):
@@ -1177,12 +1179,40 @@ func _on_view(view: Dictionary, action: Dictionary) -> void:
 			_table3d_queue_hook.call(action)
 		if not _quiet:
 			_feedback_from(before, view, action)
+			if str(action.get("type", "")) == "king_swap":
+				_announce_king_swap(action)
 			var seat := int(action.get("seat", -1))
 			if seat >= 0 and seat == viewer_seat:
 				_after_own_action(action)
 	if session.is_authority():
 		_save()
 	_after_change()
+
+
+# Der Koenig-Tausch ist fuer alle sichtbar: Hinweis mit den Kartenplaetzen und kurzes Aufleuchten beider
+# Karten (im 3D-Tisch gleiten sie zusaetzlich ueber den Tisch). Welche Karten es sind, erfaehrt niemand.
+func _announce_king_swap(action: Dictionary) -> void:
+	var a_seat := int(action.get("a_seat", -1))
+	var b_seat := int(action.get("b_seat", -1))
+	if a_seat < 0 or b_seat < 0 or a_seat >= _view.players.size() or b_seat >= _view.players.size():
+		return
+	var name_a := str(_view.players[a_seat].name)
+	var name_b := str(_view.players[b_seat].name)
+	_toast_text(tr("König: %s (Karte %d) und %s (Karte %d) wurden blind getauscht.") % [name_a, int(action.get("a_index", 0)) + 1, name_b, int(action.get("b_index", 0)) + 1])
+	_sound("flip1")
+	call_deferred("_flash_cards", [[a_seat, int(action.get("a_index", -1))], [b_seat, int(action.get("b_index", -1))]])
+
+
+func _flash_cards(list: Array) -> void:
+	if not bool(_setting("animations")):
+		return
+	for pair in list:
+		var sv = _seats.get(int(pair[0]))
+		if sv == null:
+			continue
+		var cv = sv.card_at(int(pair[1]))
+		if cv != null:
+			cv.flash()
 
 
 func _after_own_action(action: Dictionary) -> void:
@@ -1193,9 +1223,7 @@ func _after_own_action(action: Dictionary) -> void:
 		"look_card":
 			_reveal(int(action.target_seat), int(action.hand_index), REVEAL_PEEK_MS)
 		"king_swap":
-			var look = _view.get("private_look")
-			if look != null:
-				_toast_text(tr("König: angesehen %s, dann blind getauscht.") % _card_name(look))
+			pass
 
 
 static func _penalties_in(view: Dictionary) -> int:
@@ -1325,14 +1353,18 @@ func _on_card(seat: int, index: int) -> void:
 		"jack":
 			act({"type": "look_card", "target_seat": seat, "hand_index": index})
 		"king":
-			if seat == viewer_seat:
-				king_own = index
-				selected = index
+			# Zwei beliebige verdeckte Karten, auch fremde oder zwei eigene. Nichts wird angesehen.
+			var here := Vector2i(seat, index)
+			if king_a.y < 0:
+				king_a = here
+				selected = index if seat == viewer_seat else -1
 				_refresh()
-			elif king_own >= 0:
-				act({"type": "king_swap", "opponent_seat": seat, "opponent_index": index, "chosen_index": king_own})
+			elif king_a == here:
+				king_a = Vector2i(-1, -1)
+				selected = -1
+				_refresh()
 			else:
-				_toast_text("Erst eine eigene Karte wählen.")
+				act({"type": "king_swap", "a_seat": king_a.x, "a_index": king_a.y, "b_seat": seat, "b_index": index})
 		"extra":
 			if seat == viewer_seat:
 				act({"type": "discard_extra", "hand_index": index})
@@ -1342,9 +1374,10 @@ func select(index: int) -> void:
 	var sv = _seats.get(viewer_seat)
 	if sv == null or index < 0 or index >= sv.cards().size():
 		return
+	if str(_view.get("turn_step", "")) == "king" and _human_turn():
+		_on_card(viewer_seat, index)
+		return
 	selected = index
-	if str(_view.get("turn_step", "")) == "king":
-		king_own = index
 	_refresh()
 
 
@@ -1449,8 +1482,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_reveal_until.clear()
 			_refresh()
 		KEY_ESCAPE:
-			if king_own >= 0 or selected >= 0:
-				king_own = -1
+			if king_a.y >= 0 or selected >= 0:
+				king_a = Vector2i(-1, -1)
 				selected = -1
 				_refresh()
 			else:
@@ -1860,9 +1893,7 @@ func _targets_for(seat: int, data: Dictionary) -> Array:
 		"jack":
 			return all
 		"king":
-			if own:
-				return all
-			if king_own >= 0 and not bool(data.locked):
+			if not bool(data.locked):
 				return all
 	return out
 
@@ -1875,8 +1906,8 @@ func _refresh() -> void:
 	for seat in _seats:
 		var data: Dictionary = _view.players[seat]
 		var sel := selected if seat == viewer_seat else -1
-		if seat == viewer_seat and king_own >= 0:
-			sel = king_own
+		if king_a.y >= 0:
+			sel = king_a.y if seat == king_a.x else -1
 		_seats[seat].animate = bool(_setting("animations"))
 		_seats[seat].update(data, _face_for, _targets_for(seat, data), sel)
 	_place_seats()
@@ -1974,9 +2005,9 @@ func _prompt_text() -> String:
 		"jack":
 			return "Bube: Klicke eine verdeckte Karte zum Ansehen."
 		"king":
-			if king_own < 0:
-				return "König: Wähle eine eigene Karte (du siehst sie, dann wird sie getauscht)."
-			return "König: Wähle jetzt eine Karte eines Gegners."
+			if king_a.y < 0:
+				return tr("König: Tippe die erste Karte an, irgendeine, auch eine eigene. Du siehst sie nicht.")
+			return tr("König: Jetzt die zweite Karte. Beide werden blind getauscht, alle sehen den Tausch, aber nicht die Karten.")
 		"extra":
 			return "Gleicher Rang wie die Ablage? Karte klicken (falsch = Strafkarte). Sonst Zug beenden [Enter]."
 	return ""
@@ -1999,9 +2030,9 @@ func _update_actions() -> void:
 		"play":
 			_action_button("Gezogene ablegen", func() -> void: act({"type": "discard_drawn"}), true)
 		"king":
-			if king_own >= 0:
+			if king_a.y >= 0:
 				_action_button("Auswahl aufheben", func() -> void:
-					king_own = -1
+					king_a = Vector2i(-1, -1)
 					selected = -1
 					_refresh(), true)
 		"extra":

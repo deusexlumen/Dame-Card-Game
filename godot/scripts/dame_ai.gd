@@ -113,8 +113,7 @@ func fallback_action(rules, seat: int) -> Dictionary:
 				for card in p.cards:
 					return {"type": "look_card", "seat": seat, "target_seat": int(p.seat), "hand_index": int(card.index)}
 		"king":
-			for p in view.players:
-				if bool(p.is_self) or bool(p.eliminated) or bool(p.locked) or p.cards.is_empty():
-					continue
-				return {"type": "king_swap", "seat": seat, "opponent_seat": int(p.seat), "opponent_index": 0, "chosen_index": 0}
+			var cards: Array = DamePolicyScript._king_all_cards(view)
+			if cards.size() >= 2:
+				return DamePolicyScript._king_action(seat, cards[0], cards[1])
 	return {"type": "end_turn", "seat": seat}

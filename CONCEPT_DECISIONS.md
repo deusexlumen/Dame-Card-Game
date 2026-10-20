@@ -38,7 +38,7 @@ Es gibt keine "Schnappreaktion" anderer Spieler außerhalb ihres Zuges.
 ## 6. Sonderkarten (Godot-Fassung, verbindlich)
 
 - **Bube:** Beim Ablegen eine beliebige verdeckte Karte ansehen (eigene oder fremde). Kein Tausch.
-- **König:** Eine eigene verdeckte Karte ansehen, dann blind mit einer gegnerischen Karte tauschen. Die Gegnerkarte bleibt ungesehen, beide liegen danach verdeckt.
+- **König:** Überholt durch §14: zwei beliebige verdeckte Karten blind tauschen.
 - **Ass und Zehn:** Keine Sonderwirkung.
 - **Dame-Ansage:** Ansager gewinnt nur mit strikt weniger Punkten als jeder andere. Gleichstand = falsch.
 - **Safe Phase:** Die ersten zwei Umläufe jeder Ausgabe. Keine Dame-Ansage.
@@ -133,3 +133,14 @@ Das Spiel lebt davon, Informationen zu beschaffen und sich zu merken. Darum begi
 - Wirft jemand außerhalb seines Zugs die **letzte** Karte mit, ruft er damit automatisch Dame. Der laufende Zug des anderen zählt als dessen letzter Zug.
 - **KI:** wirft nur mit sicherem Wissen mit (bekannte Karte, gleicher Rang, keine Dame), „Einfach“ nie, und bewusst langsamer, als ein Mensch reagieren kann.
 - Offen: Die Reaktionszeit der KI nach Schwierigkeit feintunen, Mitwerfen im Hot-Seat (heute nur im eigenen Zug).
+
+## 14. König: zwei beliebige Karten blind tauschen (Entscheidung 2026-10-20, verbindlich, ersetzt die Königsregel in §6)
+
+- Wer einen König ablegt, tauscht **zwei beliebige verdeckte Karten**. Es ist egal, wem sie gehören: zwei fremde untereinander, zwei eigene oder eine eigene und eine fremde. Es müssen zwei verschiedene Karten sein.
+- **Nichts wird angesehen.** Weder der Tauschende noch sonst jemand sieht eine der beiden Karten.
+- **Öffentlich:** Alle sehen, **dass** getauscht wurde und **zwischen welchen Kartenplätzen** (Spieler und Kartennummer). Niemand erfährt, **welche Karten** es sind. Angezeigt wird das mit Hinweis im Bild, Protokollzeile, Ton, Aufleuchten der beiden Karten und im 3D-Tisch gleiten die beiden Karten über den Tisch.
+- **Wissen folgt der Karte:** Die Kartenplätze sind öffentlich, also weiß, wer eine der beiden Karten vorher kannte (eigene Startkarte, Bube), auch, wo sie jetzt liegt. Der neue Besitzer kennt die eingetauschte Karte nicht.
+- Karten von Ausgeschiedenen und vom gesperrten Ansager (nach „Dame“) dürfen nicht getauscht werden. Gibt es keine zwei tauschbaren Karten, entfällt der König-Schritt.
+- **KI:** gibt ihre schlechteste bekannte (sonst eine unbekannte) eigene Karte ab und holt sich eine fremde, „Schwer“ bevorzugt bekannte niedrige Karten oder tauscht beim Führenden. „Einfach“ tauscht zufällig. Sind alle Gegner gesperrt, tauscht sie zwei eigene Karten.
+- Offen, noch nicht entschieden: ein **Joker** als zusätzliche Karte (Fähigkeiten und Wert noch nicht festgelegt).
+

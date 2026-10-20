@@ -148,8 +148,8 @@ func _check_seat_authority() -> void:
 
 
 func _check_public_actions() -> void:
-	var a := Protocol.public_action({"type": "king_swap", "opponent_seat": 2, "opponent_index": 1, "chosen_index": 0, "rank": "K", "id": "x"}, 1)
-	t.expect(a.keys().size() == 5 and int(a.seat) == 1 and not a.has("rank") and not a.has("id"), "Aktion traegt fremde Felder")
+	var a := Protocol.public_action({"type": "king_swap", "a_seat": 2, "a_index": 1, "b_seat": 0, "b_index": 0, "rank": "K", "id": "x"}, 1)
+	t.expect(a.keys().size() == 6 and int(a.seat) == 1 and not a.has("rank") and not a.has("id"), "Aktion traegt fremde Felder")
 	t.expect(Protocol.public_action({"type": "timeout_penalty", "seat": 0, "card": {}}, 0).keys().size() == 2, "Systemaktion traegt Zusatzfelder")
 	var b := Protocol.public_action({"type": "draw_deck", "seat": 2}, 0)
 	t.expect(int(b.seat) == 0 and b.keys().size() == 2, "Seat aus Aktion statt Parameter")
@@ -272,7 +272,7 @@ func _candidates(view: Dictionary) -> Array:
 					continue
 				for c in p.cards:
 					for mine in me.cards:
-						out.append({"type": "king_swap", "opponent_seat": int(p.seat), "opponent_index": int(c.index), "chosen_index": int(mine.index)})
+						out.append({"type": "king_swap", "a_seat": int(view.viewer_seat), "a_index": int(mine.index), "b_seat": int(p.seat), "b_index": int(c.index)})
 	out.append({"type": "end_turn"})
 	return out
 

@@ -310,7 +310,6 @@
 "id": "clubs-2-27",
 "rank": "2",
 "suit": "clubs",
-&"unseen": true,
 "value": 2
 }, {
 "face_up": true,
@@ -387,7 +386,6 @@
 "id": "diamonds-10-22",
 "rank": "10",
 "suit": "diamonds",
-&"unseen": true,
 "value": 10
 }, {
 "face_up": true,
@@ -412,7 +410,7 @@
 "penalty_cards": [],
 "score": 17,
 "seat": 3,
-"seen_ids": [],
+"seen_ids": ["clubs-2-27"],
 "total_score": 41
 }],
 "power_effects": false,
