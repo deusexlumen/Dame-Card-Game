@@ -1,12 +1,12 @@
 name: Deploy to GitHub Pages
 
-# Pages zeigt nur den Godot-Web-Build. Der React-Code bleibt im Repo, wird aber nicht mehr veroeffentlicht.
+# Archiviert (2026-10-20): DAME lebt in deusexlumen/latte-app.
+# Pages zeigt nur noch eine Weiterleitung zur Latte-App, damit alte Links funktionieren.
 on:
   push:
     branches: [main]
-  # PRs bauen und testen den Pages-Build, veroeffentlicht wird nur von main.
   pull_request:
-    paths: ['.github/workflows/deploy.yml']
+    paths: ['.github/workflows/deploy.yml', 'pages-redirect/**']
   workflow_dispatch:
 
 permissions:
@@ -18,57 +18,16 @@ concurrency:
   group: 'pages'
   cancel-in-progress: false
 
-env:
-  GODOT_VERSION: 4.7.2
-
 jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 9
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: 'pnpm'
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Install Godot and export templates
-        run: |
-          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
-          unzip -q godot.zip
-          echo "GODOT_BIN=$PWD/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
-          curl -sSL -o templates.tpz https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
-          mkdir -p ~/.local/share/godot/export_templates
-          unzip -q templates.tpz -d tpl
-          mv tpl/templates ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
-      - name: Import project
-        run: $GODOT_BIN --headless --path godot --import || true
-      - name: WebRTC-Erweiterung laden
-        run: node scripts/fetch-webrtc.mjs
-      - name: WebRTC-Erweiterung pruefen
-        run: |
-          $GODOT_BIN --headless --path godot --import || true
-          $GODOT_BIN --headless --path godot --script res://tools/webrtc_probe.gd | tee probe.log
-          grep -q WEBRTC_OK probe.log
-      - name: Headless tests
-        timeout-minutes: 10
-        run: node scripts/godot-test.mjs
-        env:
-          DAME_REQUIRE_WEBRTC: "1"
-      - name: Export
-        run: node scripts/godot-export.mjs --skip-smoke
-      - name: Web smoke test
-        run: |
-          pnpm exec playwright install --with-deps chromium
-          pnpm exec playwright test -c playwright.godot.config.ts
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
-          path: build/web
+          path: pages-redirect
 
   deploy:
     if: github.event_name != 'pull_request'
