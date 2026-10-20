@@ -142,5 +142,13 @@ Das Spiel lebt davon, Informationen zu beschaffen und sich zu merken. Darum begi
 - **Wissen folgt der Karte:** Die Kartenplätze sind öffentlich, also weiß, wer eine der beiden Karten vorher kannte (eigene Startkarte, Bube), auch, wo sie jetzt liegt. Der neue Besitzer kennt die eingetauschte Karte nicht.
 - Karten von Ausgeschiedenen und vom gesperrten Ansager (nach „Dame“) dürfen nicht getauscht werden. Gibt es keine zwei tauschbaren Karten, entfällt der König-Schritt.
 - **KI:** gibt ihre schlechteste bekannte (sonst eine unbekannte) eigene Karte ab und holt sich eine fremde, „Schwer“ bevorzugt bekannte niedrige Karten oder tauscht beim Führenden. „Einfach“ tauscht zufällig. Sind alle Gegner gesperrt, tauscht sie zwei eigene Karten.
-- Offen, noch nicht entschieden: ein **Joker** als zusätzliche Karte (Fähigkeiten und Wert noch nicht festgelegt).
+- Der Joker ist in §15 festgelegt (Joker-Modus).
 
+## 15. Spielmodi (Richtung vom 2026-10-20, verbindlich; Umsetzung folgt)
+
+- **Das Grundspiel bleibt das Hauptspiel** und ist immer der Standard. Alle Modi sind optionale Abwandlungen, die im Aufbau gewählt werden (neben „Hardcore“, das es schon gibt). Ohne Wahl ändert sich keine Regel.
+- **Joker-Modus:** Zwei Joker pro Stapel. Der Joker wiederholt beim Ablegen die Wirkung der **Karte, die darunter liegt** (Bube, König usw.), liegt nichts Wirksames darunter, passiert nichts. Er ist wenige Punkte wert (etwa 0 bis 5, genau beim Bauen festlegen), er lässt sich **nicht mitwerfen** (§13) und kostet abgelegt keine Strafkarte. Eigene Kartenbilder (`godot/tools/assets/gen_cards.py`), KI und Regeltext werden mitgebaut.
+- **Custom-Modus:** Regeln frei einstellbar, auch die Kartenzahl: Handgröße, Anzahl Stapel und Joker, Strafkarten pro Fehler, Merkphase (Dauer, Anzahl ansehbarer Karten), Mitwerfen an/aus, Sonderkarten an/aus. Der Host schickt die Einstellungen als Teil der Tischkonfiguration; alle Mitspieler sehen vor dem Start, was gilt.
+- **Chaos-Modus:** Zufall statt Ordnung: gemischte Regelparameter pro Runde (zum Beispiel zufällige Handgröße, zufällige Sonderwirkung je Rang). Die geltenden Regeln der Runde werden **offen angesagt**, damit es sich lustig und nicht ungerecht anfühlt. Seed kommt vom Host, damit alle dasselbe sehen.
+- Umsetzung: ein Modus ist eine benannte Gruppe von Regelschaltern in der Tischkonfiguration (`DameRules`), keine eigene Spiellogik. Der Custom-Modus ist die offene Form derselben Schalter, Joker- und Chaos-Modus sind Voreinstellungen davon. Reihenfolge: Schalter einführen, Joker, Custom, Chaos.
+- Offen (beim Bauen mit dem Nutzer abstimmen): genaue Joker-Punkte, Regelrahmen des Chaos-Modus (was darf zufällig werden), ob Wertung in Modi mit anderer Kartenzahl getrennt zählt.
