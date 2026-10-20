@@ -16,6 +16,7 @@ func run(ctx) -> void:
 	_check_joker_copies_jack_and_king()
 	_check_joker_no_effect_and_no_throw_in()
 	_check_save_roundtrip()
+	_check_joker_table_and_art()
 
 
 func _hands() -> Array:
@@ -136,3 +137,22 @@ func _check_save_roundtrip() -> void:
 	var copy = DameRulesScript.new()
 	t.expect(copy.from_dict(r.to_dict()), "Joker-Spielstand laesst sich nicht laden: %s" % copy.zone_error)
 	t.expect(str(copy.state.mode) == "joker" and int(copy.state.hand_size) == 5, "Modus geht beim Speichern verloren")
+
+
+func _check_joker_table_and_art() -> void:
+	# Joker-Partie am Tisch: KI-Spiel laeuft ohne Fehler durch, Kartenbild und Name existieren.
+	var art = load("res://scripts/ui/card_art.gd")
+	var joker := {"rank": "JK", "suit": "joker", "value": 3}
+	for skin in ["klassisch", "vierfarben", "jumbo", "noir"]:
+		t.expect(art.face(joker, skin, "de") != null, "Joker-Kartenbild fehlt im Skin %s" % skin)
+	t.expect(DameRulesScript.card_label(joker) == "Joker", "Joker-Name falsch")
+	var r = _new({"ai_seats": [0, 1, 2, 3], "mode": "joker", "seed": 7})
+	var ai = load("res://scripts/dame_ai.gd").new(3)
+	var guard := 0
+	while guard < 4000 and str(r.state.phase) != "round_end" and str(r.state.phase) != "game_over":
+		guard += 1
+		if not ai.complete_turn(r):
+			t.expect(false, "KI-Zug im Joker-Modus scheitert: %s" % ai.last_error)
+			break
+	t.expect(guard < 4000, "Joker-Partie endet nicht")
+	t.expect(r.assert_zones(), "Zonen nach Joker-Partie: %s" % r.zone_error)

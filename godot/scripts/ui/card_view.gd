@@ -77,6 +77,8 @@ func describe() -> String:
 	if not shows_face():
 		return tr("Verdeckte Karte")
 	var rank := str(card.rank)
+	if rank == "JK":
+		return tr("Joker (%d Punkte)") % int(card.value)
 	var name := str(RANK_NAMES.get(rank, rank))
 	return tr("%s %s (%d Punkte)") % [tr(SUIT_NAMES.get(str(card.suit), "")), tr(name), int(card.value)]
 

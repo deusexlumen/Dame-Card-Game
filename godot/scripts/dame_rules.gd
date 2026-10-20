@@ -1099,6 +1099,8 @@ const RANK_NAMES := {"J": "Bube", "Q": "Dame", "K": "König", "A": "Ass"}
 
 static func card_label(card: Dictionary) -> String:
 	var rank := str(card.rank)
+	if rank == JOKER_RANK:
+		return "Joker"
 	return "%s %s" % [SUIT_NAMES.get(str(card.suit), "?"), RANK_NAMES.get(rank, rank)]
 
 
