@@ -43,7 +43,7 @@ Ass 1 · Zwei bis Zehn nach Augen · Bube 10 · König 10 · Dame 0
 [b]Sonderkarten[/b]
 [b]Bube:[/b] Sieh dir eine beliebige verdeckte Karte an, deine oder eine fremde.
 [b]König:[/b] Sieh dir eine eigene Karte an und tausche sie blind mit einer Karte eines Gegners.
-[b]Dame:[/b] Wer sie ablegt, bekommt eine Strafkarte. Eine offene Dame muss der nächste Spieler nehmen.
+[b]Dame:[/b] Wer sie ablegt, bekommt eine Strafkarte. Sie ist 0 Punkte wert, einen Zwang, sie zu nehmen, gibt es nicht.
 
 [b]Dame rufen[/b]
 Ab Runde 3 zu Beginn deines Zuges (D), wenn du glaubst, die wenigsten Punkte zu haben. Alle anderen haben noch genau einen Zug. Nur mit strikt weniger Punkten liegst du richtig, sonst startest du die nächste Ausgabe mit 5 Karten.
@@ -63,7 +63,7 @@ Ace 1 · Two to Ten by pips · Jack 10 · King 10 · Queen 0
 [b]Special cards[/b]
 [b]Jack:[/b] Look at any face-down card, yours or someone else's.
 [b]King:[/b] Look at one of your cards and swap it blind with an opponent's card.
-[b]Queen:[/b] Whoever discards it gets a penalty card. An open queen must be taken by the next player.
+[b]Queen:[/b] Whoever discards it gets a penalty card. It is worth 0 points; nobody is forced to take it.
 
 [b]Calling Dame[/b]
 From round 3, at the start of your turn (D), if you think you have the fewest points. Everyone else gets exactly one more turn. You are only right with strictly fewer points; otherwise you start the next deal with 5 cards.
@@ -1882,7 +1882,7 @@ func _refresh() -> void:
 	_place_seats()
 	# Stapel, Ablage, gezogene Karte.
 	_deck_view.set_card({"known": false} if int(_view.deck_count) > 0 else {}, false)
-	_deck_view.targetable = _human_turn() and str(_view.turn_step) == "draw" and not bool(_view.must_take_queen)
+	_deck_view.targetable = _human_turn() and str(_view.turn_step) == "draw"
 	_deck_label.text = tr("Stapel (%d)") % int(_view.deck_count)
 	var top = _view.discard_top
 	var top_changed := var_to_str(top) != var_to_str(_discard_view.card if not _discard_view.card.is_empty() else null)
@@ -1965,8 +1965,6 @@ func _prompt_text() -> String:
 		return tr("%s ist am Zug.") % name + hint
 	match str(_view.turn_step):
 		"draw":
-			if bool(_view.must_take_queen):
-				return "Offene Dame! Du musst sie von der Ablage nehmen."
 			var t := "Ziehe vom Stapel [Leertaste] oder nimm die Ablage."
 			if bool(_view.can_call_dame):
 				t += " Oder rufe Dame [D]."
@@ -1993,7 +1991,7 @@ func _update_actions() -> void:
 	var step := str(_view.turn_step)
 	match step:
 		"draw":
-			_action_button("Vom Stapel ziehen", _on_deck, not bool(_view.must_take_queen) and int(_view.deck_count) + int(_view.discard_count) > 1)
+			_action_button("Vom Stapel ziehen", _on_deck, int(_view.deck_count) + int(_view.discard_count) > 1)
 			_action_button("Ablage nehmen", func() -> void: act({"type": "draw_discard"}), _view.discard_top != null)
 			_action_button("Dame rufen", call_dame, bool(_view.can_call_dame))
 			if int(_view.deck_count) == 0 and int(_view.discard_count) == 0:

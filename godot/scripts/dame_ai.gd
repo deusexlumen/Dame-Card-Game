@@ -101,7 +101,7 @@ func fallback_action(rules, seat: int) -> Dictionary:
 		"draw":
 			if int(view.deck_count) == 0 and int(view.discard_count) == 0:
 				return {"type": "end_turn", "seat": seat}
-			if bool(view.must_take_queen) or int(view.deck_count) == 0:
+			if int(view.deck_count) == 0:
 				return {"type": "draw_discard", "seat": seat}
 			return {"type": "draw_deck", "seat": seat}
 		"play":

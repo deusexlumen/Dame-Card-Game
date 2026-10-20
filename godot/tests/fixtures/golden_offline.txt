@@ -239,7 +239,7 @@
 "value": 8
 },
 "last_round_false_call": false,
-"log": ["Zug beendet. Am Zug: Gegenüber", "Gegenüber hat Dame gerufen. Jeder andere Spieler hat noch genau einen Zug.", "Rechts zieht vom Stapel.", "Rechts tauscht und legt Pik 8 ab", "Zug beendet. Am Zug: Spieler", "Spieler zieht vom Stapel.", "Spieler tauscht und legt Herz 4 ab", "Zug beendet. Am Zug: Links", "Links zieht vom Stapel.", "Links legt Herz Bube ab. Bube: eine verdeckte Karte ansehen, ohne Tausch.", "Bube: verdeckte Karte angesehen. Kein Tausch.", "Gegenüber hat Dame richtig gerufen.", "Spielende. Links gewinnt mit 20 Punkten.", "Letzter Zug nach der Ansage. Karten aufgedeckt."],
+"log": ["Zug beendet. Am Zug: Gegenüber", "Gegenüber hat Dame gerufen. Jeder andere Spieler hat noch genau einen Zug.", "Rechts zieht vom Stapel.", "Rechts tauscht und legt Pik 8 ab", "Zug beendet. Am Zug: Spieler", "Spieler zieht vom Stapel.", "Spieler tauscht und legt Herz 4 ab", "Zug beendet. Am Zug: Links", "Links zieht vom Stapel.", "Links legt Herz Bube ab. Bube: eine verdeckte Karte ansehen, ohne Tausch.", "Bube: verdeckte Karte angesehen. Kein Tausch.", "Gegenüber hat Dame richtig gerufen.", "Spielende. Links gewinnt mit 26 Punkten.", "Letzter Zug nach der Ansage. Karten aufgedeckt."],
 "peek_phase": false,
 "phase": "game_over",
 "players": [{
@@ -282,7 +282,7 @@
 "score": 29,
 "seat": 0,
 "seen_ids": [],
-"total_score": 76
+"total_score": 70
 }, {
 "deal_penalties": 0,
 "difficulty": "medium",
@@ -330,7 +330,7 @@
 "score": 10,
 "seat": 1,
 "seen_ids": ["diamonds-10-22"],
-"total_score": 20
+"total_score": 26
 }, {
 "deal_penalties": 1,
 "difficulty": "medium",
@@ -413,10 +413,10 @@
 "score": 17,
 "seat": 3,
 "seen_ids": [],
-"total_score": 37
+"total_score": 41
 }],
 "power_effects": false,
-"queen_penalties_given": 6,
+"queen_penalties_given": 5,
 "round": 6,
 "round_start_index": 2,
 "safe_phase": false,
@@ -607,12 +607,6 @@
 "rank": "2",
 "suit": "clubs",
 "value": 2
-}, {
-"face_up": false,
-"id": "diamonds-9-21",
-"rank": "9",
-"suit": "diamonds",
-"value": 9
 }],
 "discard": [{
 "face_up": true,
@@ -676,13 +670,19 @@
 "value": 1
 }, {
 "face_up": true,
+"id": "spades-Q-50",
+"rank": "Q",
+"suit": "spades",
+"value": 0
+}, {
+"face_up": true,
 "id": "hearts-9-8",
 "rank": "9",
 "suit": "hearts",
 "value": 9
 }],
 "drawn_card": null,
-&"drawn_from": "discard",
+&"drawn_from": "deck",
 "false_call_penalties_given": 0,
 "last_action": "Letzter Zug nach der Ansage. Karten aufgedeckt.",
 "last_king_swap": null,
@@ -703,7 +703,7 @@
 "value": 10
 },
 "last_round_false_call": false,
-"log": ["Zug beendet. Am Zug: Links", "Links zieht vom Stapel.", "Links tauscht und legt Pik Ass ab", "Zug beendet. Am Zug: Rechts", "Rechts hat Dame gerufen. Jeder andere Spieler hat noch genau einen Zug.", "Spieler zieht vom Stapel.", "Dame offen. Genau eine Strafkarte.", "Spieler tauscht und legt Pik Dame ab", "Zug beendet. Am Zug: Links", "Links nimmt Pik Dame von der Ablage.", "Links tauscht und legt Herz 9 ab", "Rechts hat Dame richtig gerufen.", "Spielende. Rechts gewinnt mit 23 Punkten.", "Letzter Zug nach der Ansage. Karten aufgedeckt."],
+"log": ["Zug beendet. Am Zug: Links", "Links zieht vom Stapel.", "Links tauscht und legt Pik Ass ab", "Zug beendet. Am Zug: Rechts", "Rechts hat Dame gerufen. Jeder andere Spieler hat noch genau einen Zug.", "Spieler zieht vom Stapel.", "Dame offen. Genau eine Strafkarte.", "Spieler tauscht und legt Pik Dame ab", "Zug beendet. Am Zug: Links", "Links zieht vom Stapel.", "Links tauscht und legt Herz 9 ab", "Rechts hat Dame richtig gerufen.", "Spielende. Rechts gewinnt mit 23 Punkten.", "Letzter Zug nach der Ansage. Karten aufgedeckt."],
 "peek_phase": false,
 "phase": "game_over",
 "players": [{
@@ -746,7 +746,7 @@
 "score": 33,
 "seat": 0,
 "seen_ids": [],
-"total_score": 62
+"total_score": 67
 }, {
 "deal_penalties": 0,
 "difficulty": "medium",
@@ -765,10 +765,10 @@
 "value": 10
 }, {
 "face_up": true,
-"id": "spades-Q-50",
-"rank": "Q",
-"suit": "spades",
-"value": 0
+"id": "diamonds-9-21",
+"rank": "9",
+"suit": "diamonds",
+"value": 9
 }, {
 "face_up": true,
 "id": "hearts-8-7",
@@ -784,10 +784,10 @@
 "peek_ready": true,
 "peeked": [],
 "penalty_cards": [],
-"score": 24,
+"score": 33,
 "seat": 1,
 "seen_ids": [],
-"total_score": 52
+"total_score": 60
 }, {
 "deal_penalties": 0,
 "difficulty": "medium",

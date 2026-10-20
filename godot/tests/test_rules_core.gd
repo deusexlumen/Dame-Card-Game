@@ -288,7 +288,7 @@ func _auto_turn(rules, call_from_round: int) -> bool:
 	var n: int = rules.seat_count()
 	if rules.can_call_dame() and int(rules.state.round) >= call_from_round:
 		return bool(rules.apply_action({"type": "call_dame", "seat": seat}).ok)
-	var draw_type := "draw_discard" if rules.must_take_queen() else "draw_deck"
+	var draw_type := "draw_deck"
 	var d: Dictionary = rules.apply_action({"type": draw_type, "seat": seat})
 	if not bool(d.ok):
 		t.expect(false, "Ziehen scheitert: " + str(d.reason))

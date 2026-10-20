@@ -377,7 +377,7 @@ func _play_one(rules, ai) -> void:
 		_expect(done, "KI beendet den Zug nicht: " + str(ai.last_error))
 		_expect(rules.state.drawn_card == null or int(rules.state.current_index) != seat, "KI laesst eine gezogene Karte liegen")
 		return
-	var draw_type := "draw_discard" if rules.must_take_queen() else "draw_deck"
+	var draw_type := "draw_deck"
 	var draw_r: Dictionary = rules.apply_action({"type": draw_type, "seat": seat})
 	_expect(bool(draw_r.ok), "Ziehen fehlgeschlagen Sitz %d: %s" % [seat, draw_r.reason])
 	if rules.state.drawn_card != null and str(rules.state.drawn_card.rank) == "Q":

@@ -69,11 +69,7 @@ func _human_step(table, counters: Dictionary) -> void:
 	var opp := (seat + 1) % int(table.rules.seat_count())
 	match str(table.rules.state.turn_step):
 		"draw":
-			# Offene Dame auf der Ablage erzwingt das Nehmen von dort.
-			if table.rules.must_take_queen():
-				table._on_discard()
-			else:
-				table._on_deck()
+			table._on_deck()
 		"play":
 			table._on_card(seat, int(table.rules.state.deal) % 4)
 		"jack":

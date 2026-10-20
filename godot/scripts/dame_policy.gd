@@ -43,8 +43,6 @@ static func _choose_draw(view: Dictionary, me: Dictionary, difficulty: String, r
 	var seat := int(view.viewer_seat)
 	if bool(view.can_call_dame) and _should_call(view, difficulty):
 		return {"type": "call_dame", "seat": seat}
-	if bool(view.must_take_queen):
-		return {"type": "draw_discard", "seat": seat}
 	var top = view.discard_top
 	if top == null:
 		return {"type": "draw_deck", "seat": seat}

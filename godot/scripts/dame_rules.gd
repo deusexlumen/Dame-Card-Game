@@ -216,17 +216,6 @@ func apply_action(action: Dictionary) -> Dictionary:
 			return _fail("Unbekannte Aktion")
 
 
-func must_take_queen() -> bool:
-	if str(state.turn_step) != "draw":
-		return false
-	if bool(state.safe_phase):
-		return false
-	if str(state.phase) == "round_end" or str(state.phase) == "game_over":
-		return false
-	var top = top_discard()
-	return top != null and str(top.rank) == "Q"
-
-
 func can_call_dame() -> bool:
 	if bool(state.safe_phase):
 		return false
@@ -365,8 +354,6 @@ func _draw(from_discard: bool) -> Dictionary:
 		return _fail("Ziehen ist jetzt nicht dran")
 	if state.drawn_card != null:
 		return _fail("Es liegt schon eine gezogene Karte")
-	if must_take_queen() and not from_discard:
-		return _fail("Zwangszug: die offene Dame muss genommen werden")
 	var card = null
 	if from_discard:
 		if state.discard.is_empty():
@@ -931,12 +918,10 @@ func _timeout_penalty() -> Dictionary:
 
 # Online, Funkloch (CONCEPT_DECISIONS §11 Stufe 1): Spieler setzt aus.
 # Hand bleibt unveraendert, nichts wird gezogen, kein Effekt, keine Strafkarte.
-# Nur vor dem Ziehen. Ein Dame-Zwangszug laeuft regulaer ueber den Host.
+# Nur vor dem Ziehen.
 func _skip_turn() -> Dictionary:
 	if str(state.turn_step) != "draw" or state.drawn_card != null:
 		return _fail("Aussetzen nur vor dem Ziehen")
-	if must_take_queen():
-		return _fail("Zwangszug: die offene Dame muss genommen werden")
 	_log("%s ist nicht da und setzt aus." % _who())
 	state.turn_step = "extra"
 	return _end_turn()

@@ -128,10 +128,7 @@ func _human_turn(table, call_from_round: int) -> void:
 		table.call_dame()
 		table.run_ai_until_human()
 		return
-	if table.rules.must_take_queen():
-		table._on_discard()
-	else:
-		table._on_deck()
+	table._on_deck()
 	table._on_drawn()
 	_resolve_powers(table)
 	table.end_turn()
@@ -353,10 +350,7 @@ func _check_single_animation_path() -> void:
 
 # Ein eigener Zug ueber die Tisch-API: ziehen, ablegen, Sonderkarten, beenden.
 func _finish_turn(table) -> void:
-	if table.rules.must_take_queen():
-		table._on_discard()
-	else:
-		table._on_deck()
+	table._on_deck()
 	table._on_drawn()
 	_resolve_powers(table)
 	table.end_turn()

@@ -78,7 +78,6 @@ static func for_viewer(rules: RefCounted, viewer_seat: int, absence: Dictionary 
 		"discard_top": _card(top, -1, true) if top != null else null,
 		"discard_count": state.discard.size(),
 		"deck_count": state.deck.size(),
-		"must_take_queen": rules.must_take_queen(),
 		"can_call_dame": is_my_turn and rules.can_call_dame(),
 		"dame_caller_index": int(state.dame_caller_index),
 		"dame_turns_left": int(state.dame_turns_left),

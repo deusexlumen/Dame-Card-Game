@@ -18,7 +18,7 @@ Diese wird aus dem Nachziehstapel gezogen und verdeckt an die Auslage angehängt
 ## 3. Sichtbarkeit der Dame
 
 **Entscheidung:** Eine abgelegte Dame liegt immer **offen** auf dem Ablagestapel.  
-Sie ist damit für alle Spieler sichtbar und löst den Zwangszug für den nächsten Spieler aus (außer in Safe Phase / Rundenende).
+Sie ist damit für alle Spieler sichtbar. **Seit 2026-10-20 gibt es keinen Zwangszug mehr** (vom Nutzer klargestellt): Die Dame ist 0 Punkte wert, sie von der Ablage zu nehmen ist erlaubt und meist klug, aber nie Pflicht.
 
 ## 4. Mitwerfen identischer Karten
 
@@ -41,7 +41,7 @@ Es gibt keine "Schnappreaktion" anderer Spieler außerhalb ihres Zuges.
 - **König:** Eine eigene verdeckte Karte ansehen, dann blind mit einer gegnerischen Karte tauschen. Die Gegnerkarte bleibt ungesehen, beide liegen danach verdeckt.
 - **Ass und Zehn:** Keine Sonderwirkung.
 - **Dame-Ansage:** Ansager gewinnt nur mit strikt weniger Punkten als jeder andere. Gleichstand = falsch.
-- **Safe Phase:** Die ersten zwei Umläufe jeder Ausgabe. Keine Ansage, kein Dame-Zwangszug.
+- **Safe Phase:** Die ersten zwei Umläufe jeder Ausgabe. Keine Dame-Ansage.
 
 ## 7. Spielende
 
