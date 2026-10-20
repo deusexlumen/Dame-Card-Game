@@ -22,11 +22,11 @@ Ass 1 · Zwei bis Zehn nach Augen · Bube 10 · König 10 · Dame 0
 [b]Sonderkarten (beim Ablegen)[/b]
 [b]Bube:[/b] Sieh dir eine beliebige verdeckte Karte an – deine oder eine fremde. Kein Tausch.
 [b]König:[/b] Sieh dir eine eigene verdeckte Karte an und tausche sie dann blind gegen eine Karte eines Gegners. Beide bleiben verdeckt.
-[b]Dame:[/b] Wer eine Dame ablegt, bekommt eine Strafkarte. Eine offene Dame auf der Ablage muss der nächste Spieler nehmen.
+[b]Dame:[/b] Wer eine Dame ablegt, bekommt eine Strafkarte. Die Dame ist 0 Punkte wert: Wer sie von der Ablage nehmen kann, tut gut daran. Einen Zwang dazu gibt es nicht.
 Ass und Zehn haben keine Sonderwirkung.
 
 [b]Safe Phase[/b]
-In den ersten zwei Runden jeder Ausgabe darf niemand „Dame“ rufen, und die offene Dame zwingt niemanden.
+In den ersten zwei Runden jeder Ausgabe darf niemand „Dame“ rufen.
 
 [b]Dame rufen[/b]
 Ab Runde 3 darfst du zu Beginn deines Zuges „Dame“ rufen, wenn du glaubst, die wenigsten Punkte zu haben. Deine Karten sind dann gesperrt, jeder andere hat noch genau einen Zug. Danach wird aufgedeckt.
@@ -64,11 +64,11 @@ Ace 1 · Two to Ten by pips · Jack 10 · King 10 · Queen 0
 [b]Special cards (when discarded)[/b]
 [b]Jack:[/b] Look at any face-down card – yours or someone else's. No swap.
 [b]King:[/b] Look at one of your face-down cards, then swap it blind with an opponent's card. Both stay face down.
-[b]Queen:[/b] Whoever discards a queen gets a penalty card. An open queen on the discard must be taken by the next player.
+[b]Queen:[/b] Whoever discards a queen gets a penalty card. The queen is worth 0 points: whoever can take it from the discard pile does well to. Nobody is forced to.
 Ace and Ten have no special effect.
 
 [b]Safe phase[/b]
-In the first two rounds of every deal nobody may call “Dame”, and the open queen forces nobody.
+In the first two rounds of every deal nobody may call “Dame”.
 
 [b]Calling Dame[/b]
 From round 3 you may call “Dame” at the start of your turn if you think you have the fewest points. Your cards are then locked and everyone else gets exactly one more turn. Then all cards are revealed.

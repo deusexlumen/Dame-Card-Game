@@ -181,13 +181,11 @@ func timeout_turn(ai) -> Dictionary:
 # ---- Abwesenheit (CONCEPT_DECISIONS §11) --------------------------------
 
 # Stufe 1: Platz ist weg, die Wartezeit ist um. Vor dem Ziehen aussetzen (keine Strafkarte),
-# mitten im Zug neutral zu Ende spielen. Ein Dame-Zwangszug laeuft regulaer.
+# mitten im Zug neutral zu Ende spielen.
 func absent_turn(ai, seat: int) -> Dictionary:
 	if int(rules.state.current_index) != seat:
 		return {"ok": false}
 	if str(rules.state.turn_step) == "draw" and rules.state.drawn_card == null:
-		if rules.must_take_queen():
-			return _forced_queen(ai, seat)
 		var skip := {"type": "skip_turn", "seat": seat}
 		if bool(rules.apply_action(skip).get("ok", false)):
 			_dispatch(_broadcast({"type": "skip_turn", "seat": seat}))
@@ -204,8 +202,6 @@ func absent_turn(ai, seat: int) -> Dictionary:
 func machine_step(ai, seat: int) -> Dictionary:
 	if int(rules.state.current_index) != seat:
 		return {"ok": false}
-	if str(rules.state.turn_step) == "draw" and rules.state.drawn_card == null and rules.must_take_queen():
-		return _forced_queen(ai, seat)
 	var drawn = rules.state.drawn_card
 	if drawn != null and str(drawn.rank) == "Q" and str(rules.state.turn_step) == "play":
 		return _apply_public({"type": "swap", "seat": seat, "hand_index": worst_known_slot(seat)})
@@ -234,15 +230,6 @@ func worst_known_slot(seat: int) -> int:
 			best_value = int(player.hand[i].value)
 			best = i
 	return best
-
-
-func _forced_queen(ai, seat: int) -> Dictionary:
-	if not bool(_apply_public({"type": "draw_discard", "seat": seat}).get("ok", false)):
-		_finish_turn_safely(ai, seat)
-		return {"ok": false}
-	_apply_public({"type": "swap", "seat": seat, "hand_index": worst_known_slot(seat)})
-	_finish_turn_safely(ai, seat)
-	return {"ok": true}
 
 
 func _finish_turn_safely(ai, seat: int) -> void:

@@ -19,7 +19,7 @@ func run(ctx) -> void:
 	_check_total_reserve()
 	_check_forfeit()
 	_check_skip_turn()
-	_check_forced_queen()
+	_check_queen_not_forced()
 	_check_machine_turn()
 	_check_absence_penalty()
 	_check_absence_in_views()
@@ -115,8 +115,8 @@ func _check_skip_turn() -> void:
 	t.expect(not bool(h2.rules.apply_action({"type": "skip_turn", "seat": s2}).ok), "Aussetzen: nach dem Ziehen abgelehnt")
 
 
-func _check_forced_queen() -> void:
-	# Offene Dame auf der Ablage zwingt den naechsten Spieler: kein Aussetzen, regulaerer Zug.
+func _check_queen_not_forced() -> void:
+	# Eine offene Dame auf der Ablage zwingt niemanden: Ziehen vom Stapel ist erlaubt, Aussetzen auch.
 	var h = _host(6)
 	var seat := int(h.rules.state.current_index)
 	var q = {"id": "test-queen", "rank": "Q", "suit": "hearts", "value": 0, "face_up": true}
@@ -128,15 +128,18 @@ func _check_forced_queen() -> void:
 			break
 	q.face_up = true
 	h.rules.state.discard.append(q)
-	if not h.rules.must_take_queen():
-		t.expect(true, "Dame-Zwangszug: Aufbau nicht moeglich, uebersprungen")
-		return
+	h.rules.state.safe_phase = false
 	var ai = DameAIScript.new(5)
 	var res: Dictionary = h.absent_turn(ai, seat)
-	t.expect(bool(res.ok), "Dame-Zwangszug: ok")
-	t.expect(h.rules.assert_zones(), "Dame-Zwangszug: Zonen heil: %s" % h.rules.zone_error)
-	t.expect(int(h.rules.state.current_index) != seat, "Dame-Zwangszug: Zug beendet")
-	t.expect(h.rules.state.players[seat].penalty_cards.is_empty(), "Dame-Zwangszug: keine Strafkarte")
+	t.expect(bool(res.ok), "offene Dame: Abwesenheit ok")
+	t.expect(h.rules.assert_zones(), "offene Dame: Zonen heil: %s" % h.rules.zone_error)
+	t.expect(int(h.rules.state.current_index) != seat, "offene Dame: Zug beendet")
+	t.expect(h.rules.state.players[seat].penalty_cards.is_empty(), "offene Dame: keine Strafkarte")
+	var r = _host(4)
+	var s2 := int(r.rules.state.current_index)
+	r.rules.state.discard.append({"id": "q2", "rank": "Q", "suit": "spades", "value": 0, "face_up": true})
+	r.rules.state.safe_phase = false
+	t.expect(bool(r.rules.apply_action({"type": "draw_deck", "seat": s2}).ok), "offene Dame zwingt zum Nehmen von der Ablage")
 
 
 func _check_machine_turn() -> void:

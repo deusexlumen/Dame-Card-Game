@@ -298,7 +298,7 @@ func _fallback_input() -> void:
 		"draw":
 			if int(view.deck_count) == 0 and int(view.discard_count) == 0:
 				table.end_turn()
-			elif bool(view.must_take_queen) or int(view.deck_count) == 0:
+			elif int(view.deck_count) == 0:
 				table._on_discard()
 			else:
 				table._on_deck()

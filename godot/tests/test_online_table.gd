@@ -264,7 +264,7 @@ func _step(rng: RandomNumberGenerator, lock_checked: Array) -> bool:
 		return _sync()
 	if cur == HOST_SEAT:
 		return _table_step(host_table, HOST_SEAT, rng)
-	if not lock_checked[0] and str(guest_table._view.turn_step) == "draw" and not bool(guest_table._view.must_take_queen) and int(guest_table._view.deck_count) > 0:
+	if not lock_checked[0] and str(guest_table._view.turn_step) == "draw" and int(guest_table._view.deck_count) > 0:
 		lock_checked[0] = true
 		_check_input_lock()
 		return true
@@ -330,7 +330,7 @@ func _fallback_input(tb, seat: int) -> void:
 		"draw":
 			if int(view.deck_count) == 0 and int(view.discard_count) == 0:
 				tb.end_turn()
-			elif bool(view.must_take_queen) or int(view.deck_count) == 0:
+			elif int(view.deck_count) == 0:
 				tb._on_discard()
 			else:
 				tb._on_deck()
