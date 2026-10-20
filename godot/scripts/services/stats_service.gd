@@ -18,6 +18,8 @@ const DEFAULTS := {
 
 var path := "user://stats.json"
 var values: Dictionary = {}
+# Partien der Spielmodi (CONCEPT_DECISIONS 15), getrennt vom Grundspiel: {Modus: {"played", "won"}}.
+var mode_games: Dictionary = {}
 
 func _init(p_path: String = "user://stats.json") -> void:
 	path = p_path
@@ -31,6 +33,12 @@ func _init(p_path: String = "user://stats.json") -> void:
 			values[key] = int(v)
 		elif typeof(DEFAULTS[key]) == TYPE_STRING and typeof(v) == TYPE_STRING:
 			values[key] = v
+	var stored_modes = stored.get("mode_games", {})
+	if typeof(stored_modes) == TYPE_DICTIONARY:
+		for m in stored_modes:
+			var e = stored_modes[m]
+			if typeof(e) == TYPE_DICTIONARY:
+				mode_games[str(m)] = {"played": int(e.get("played", 0)), "won": int(e.get("won", 0))}
 
 
 # Eine gewertete Ausgabe aus Sicht des lokalen Spielers.
@@ -53,6 +61,16 @@ func record_game(won: bool) -> void:
 	_touch()
 
 
+# Eine Partie eines Spielmodus (alles ausser dem Grundspiel). Zaehlt nie in die Grundspiel-Werte.
+func record_mode_game(mode: String, won: bool) -> void:
+	var e: Dictionary = mode_games.get(mode, {"played": 0, "won": 0})
+	e.played = int(e.played) + 1
+	if won:
+		e.won = int(e.won) + 1
+	mode_games[mode] = e
+	_touch()
+
+
 func win_rate() -> float:
 	if int(values.games_played) == 0:
 		return 0.0
@@ -61,9 +79,16 @@ func win_rate() -> float:
 
 func reset() -> void:
 	values = DEFAULTS.duplicate(true)
-	JsonStoreScript.write_json(path, values)
+	mode_games = {}
+	JsonStoreScript.write_json(path, _to_store())
 
 
 func _touch() -> void:
 	values.last_played_at = Time.get_datetime_string_from_system(false, true)
-	JsonStoreScript.write_json(path, values)
+	JsonStoreScript.write_json(path, _to_store())
+
+
+func _to_store() -> Dictionary:
+	var out := values.duplicate(true)
+	out["mode_games"] = mode_games.duplicate(true)
+	return out

@@ -27,6 +27,8 @@ func build() -> void:
 	back_button.grab_focus()
 
 
+const MODE_NAMES := {"joker": "Joker-Modus", "custom": "Eigene Regeln", "chaos": "Chaos-Modus"}
+
 func refresh() -> void:
 	for c in grid.get_children():
 		grid.remove_child(c)
@@ -48,6 +50,10 @@ func refresh() -> void:
 		["Chips", str(app.profile.chips())],
 		["Zuletzt gespielt", "–" if str(v.last_played_at) == "" else str(v.last_played_at).replace("T", " ")],
 	]
+	for m in ["joker", "custom", "chaos"]:
+		var g: Dictionary = app.stats.mode_games.get(m, {})
+		if int(g.get("played", 0)) > 0:
+			entries.append([tr("Partien: %s") % tr(MODE_NAMES[m]), tr("%d gespielt, %d gewonnen") % [int(g.played), int(g.won)]])
 	for e in entries:
 		var key := label(str(e[0]), 18)
 		key.autowrap_mode = TextServer.AUTOWRAP_OFF

@@ -2179,6 +2179,10 @@ func _has_hard_ai() -> bool:
 	return false
 
 
+func _is_special_mode() -> bool:
+	return str(config.get("mode", "classic")) != "classic"
+
+
 func _record_round_once() -> void:
 	var deal := int(_view.deal)
 	if _recorded_deal == deal:
@@ -2192,6 +2196,10 @@ func _record_round_once() -> void:
 	var p: Dictionary = _view.players[me]
 	var called := int(_view.dame_caller_index) == me
 	var correct := called and not bool(_view.last_round_false_call)
+	# Spielmodi zaehlen getrennt (nur das Grundspiel fuettert Statistik und Chips).
+	if _is_special_mode():
+		_save()
+		return
 	app.stats.record_round(int(p.score), called, correct, int(p.get("deal_penalties", 0)))
 	var earned := 0
 	if app.profile.award("%s-deal-%d" % [match_id, deal], CatalogScript.REWARD_ROUND):
@@ -2214,7 +2222,10 @@ func _record_game_once() -> void:
 	if app == null or me < 0:
 		return
 	var won := int(_view.winner_index) == me
-	app.stats.record_game(won)
+	if _is_special_mode():
+		app.stats.record_mode_game(str(config.get("mode", "")), won)
+	else:
+		app.stats.record_game(won)
 	app.match_finished.emit({
 		"won": won,
 		"score": int(_view.players[me].get("total_score", 0)),
@@ -2222,7 +2233,7 @@ func _record_game_once() -> void:
 		"mode": str(config.get("mode", "")),
 		"match_id": str(match_id),
 	})
-	if won:
+	if won and not _is_special_mode():
 		var amount := CatalogScript.REWARD_WIN * (CatalogScript.HARD_MULTIPLIER if _has_hard_ai() else 1)
 		if app.profile.award("%s-win" % match_id, amount):
 			config["_chips_earned"] = int(config.get("_chips_earned", 0)) + amount

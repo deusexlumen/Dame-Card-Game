@@ -40,6 +40,10 @@ const MIN_SEATS := 2
 const MODES := ["classic", "joker", "custom", "chaos"]
 const JOKER_RANK := "JK"
 const JOKER_VALUE := 3
+# Standard-Sonderwirkungen: Rang -> Wirkung. Chaos-Modus und Custom-Modus ersetzen sie.
+const DEFAULT_EFFECTS := {"J": "jack", "K": "king"}
+const EFFECT_NAMES := {"jack": "Bube (ansehen)", "king": "König (tauschen)"}
+const EFFECT_RANKS := ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "K"]
 const SAVE_VERSION := 1
 const DIFFICULTIES := ["easy", "medium", "hard"]
 const DEFAULT_NAMES := {
@@ -76,6 +80,19 @@ func start_match(config: Dictionary = {}) -> void:
 		mode = "classic"
 	var hand_size := clampi(int(config.get("hand_size", HAND_SIZE)), 1, 8)
 	var jokers := clampi(int(config.get("jokers", 2 if mode == "joker" else 0)), 0, 4)
+	var penalty_count := clampi(int(config.get("penalty_count", PENALTY_CARD_COUNT)), 1, 3)
+	var safe_circuits := clampi(int(config.get("safe_circuits", SAFE_CIRCUITS)), 0, 6)
+	var effects: Dictionary = DEFAULT_EFFECTS.duplicate()
+	if config.get("special_effects", true) == false:
+		effects = {}
+	var chaos := {}
+	if mode == "chaos":
+		chaos = chaos_params(int(config.get("seed", 1)), 1)
+		hand_size = int(chaos.hand_size)
+		jokers = int(chaos.jokers)
+		penalty_count = int(chaos.penalty_count)
+		safe_circuits = int(chaos.safe_circuits)
+		effects = chaos.rank_effects
 	var pool := _fresh_pool(deck_count_for(seat_count), jokers)
 	var hands: Array = []
 	var preset_hands = config.get("preset_hands", null)
@@ -164,8 +181,9 @@ func start_match(config: Dictionary = {}) -> void:
 		"mode": mode,
 		"hand_size": hand_size,
 		"jokers": jokers,
-		"penalty_count": clampi(int(config.get("penalty_count", PENALTY_CARD_COUNT)), 1, 3),
-		"safe_circuits": clampi(int(config.get("safe_circuits", SAFE_CIRCUITS)), 0, 6),
+		"penalty_count": penalty_count,
+		"safe_circuits": safe_circuits,
+		"rank_effects": effects,
 		"throw_in": bool(config.get("throw_in", true)),
 		"blind": bool(config.get("blind", false)),
 		"ai_turns_finished": 0,
@@ -174,6 +192,8 @@ func start_match(config: Dictionary = {}) -> void:
 		"last_king_swap": null,
 		"log": ["%d Plätze. Ausgabe 1, Runde 1, Safe Phase." % seat_count],
 	}
+	if mode == "chaos":
+		_log(chaos_text())
 	_begin_deal_peek()
 
 
@@ -593,11 +613,54 @@ func _check_game_over() -> void:
 	_log(str(state.last_action))
 
 
+# Chaos-Modus (CONCEPT_DECISIONS 15): Regelparameter einer Ausgabe aus Seed und Ausgabe-Nummer.
+# Mitwerfen und die Dame-Regel bleiben fest. Der Host wuerfelt, alle sehen dasselbe.
+static func chaos_params(seed_value: int, deal: int) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value * 104729 + deal * 31
+	var ranks: Array = EFFECT_RANKS.duplicate()
+	for i in range(ranks.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var tmp = ranks[i]
+		ranks[i] = ranks[j]
+		ranks[j] = tmp
+	return {
+		"hand_size": rng.randi_range(3, 6),
+		"jokers": rng.randi_range(0, 2),
+		"penalty_count": rng.randi_range(1, 2),
+		"safe_circuits": rng.randi_range(0, 3),
+		"rank_effects": {str(ranks[0]): "jack", str(ranks[1]): "king"},
+	}
+
+
+# Ansage der geltenden Regeln einer Chaos-Ausgabe (offen fuer alle).
+func chaos_text() -> String:
+	var jack_rank := ""
+	var king_rank := ""
+	for rank in state.rank_effects:
+		if str(state.rank_effects[rank]) == "jack":
+			jack_rank = str(rank)
+		else:
+			king_rank = str(rank)
+	return "Chaos: %d Karten pro Hand, %d Joker, %d Strafkarte(n) pro Fehler, Schonfrist %d Runden. %s sieht an, %s tauscht." % [
+		int(state.hand_size), int(state.jokers), int(state.penalty_count), int(state.safe_circuits),
+		_rank_word(jack_rank), _rank_word(king_rank)]
+
+
+func _rank_word(rank: String) -> String:
+	return "kein Rang" if rank == "" else str(RANK_NAMES.get(rank, rank))
+
+
 func _start_next_round() -> Dictionary:
 	if str(state.phase) != "round_end":
 		return _fail("Keine abgeschlossene Runde")
 	var rng := RandomNumberGenerator.new()
 	state.deal = int(state.deal) + 1
+	if str(state.get("mode", "classic")) == "chaos":
+		var cp := chaos_params(int(state.seed), int(state.deal))
+		for key in cp:
+			state[key] = cp[key]
+		_log(chaos_text())
 	rng.seed = int(state.seed) * 7919 + int(state.deal)
 	# Strafkarten aus falscher Ansage wandern mit: aus dem neuen Blatt entfernen.
 	# Ausgeschiedene spielen nicht mehr mit, ihre Strafkarten kommen zurueck ins Blatt.
@@ -760,18 +823,19 @@ func _place_on_discard(card: Dictionary, player: Dictionary) -> void:
 	card.face_up = true
 	state.discard.append(card)
 	var rank := str(card.rank)
+	var effects: Dictionary = state.get("rank_effects", DEFAULT_EFFECTS)
+	var effect := str(effects.get(rank, ""))
 	if rank == JOKER_RANK:
-		# Joker wiederholt die Wirkung der Karte darunter (nur Bube oder Koenig, nie die Dame).
-		var below := ""
+		# Joker wiederholt die Wirkung der Karte darunter (Bube oder Koenig, nie die Dame).
+		effect = ""
 		if state.discard.size() >= 2:
-			below = str(state.discard[state.discard.size() - 2].rank)
-		rank = below if below == "J" or below == "K" else ""
+			effect = str(effects.get(str(state.discard[state.discard.size() - 2].rank), ""))
 	if rank == "Q":
 		_give_queen_penalty(player)
 		state.turn_step = "extra"
-	elif rank == "J":
+	elif effect == "jack":
 		state.turn_step = "jack" if _has_jack_target() else "extra"
-	elif rank == "K":
+	elif effect == "king":
 		state.turn_step = "king" if _has_king_target() else "extra"
 	else:
 		state.turn_step = "extra"
