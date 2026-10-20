@@ -20,6 +20,7 @@ func run(ctx) -> void:
 	_check_custom_no_effects()
 	_check_chaos()
 	_check_mode_stats()
+	_check_unlock()
 
 
 func _hands() -> Array:
@@ -216,3 +217,20 @@ func _check_mode_stats() -> void:
 	again.reset()
 	t.expect(again.mode_games.is_empty(), "Reset leert die Modus-Statistik nicht")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+func _check_unlock() -> void:
+	var st = load("res://scripts/services/stats_service.gd").new("user://test_unlock_stats.json")
+	st.reset()
+	t.expect(st.is_unlocked("classic") and not st.is_unlocked("joker") and not st.is_unlocked("chaos"), "Neue Spieler haben Modi offen")
+	t.expect(st.is_unlocked("chaos", true), "Schalter alle Modi offen wirkt nicht")
+	for _i in range(3):
+		st.record_game(false)
+	t.expect(st.is_unlocked("joker") and not st.is_unlocked("custom"), "Joker nicht nach 3 Partien offen")
+	for _i in range(7):
+		st.record_game(true)
+	t.expect(st.is_unlocked("custom") and st.is_unlocked("chaos"), "Custom und Chaos nicht nach 10 Partien offen")
+	st.record_mode_game("chaos", true)
+	t.expect(int(st.values.games_played) == 10, "Moduspartie zaehlt fuer das Freischalten")
+	st.reset()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_unlock_stats.json"))

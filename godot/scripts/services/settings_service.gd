@@ -18,6 +18,8 @@ const DEFAULTS := {
 	"turn_timer": false,
 	"turn_timer_seconds": 30,
 	"memory_aid": false,
+	# Spielmodi (CONCEPT_DECISIONS 15) sind sonst erst nach beendeten Grundspiel-Partien offen.
+	"all_modes_open": false,
 	# Hochzaehlen, wenn ein Standard geaendert wird und alte gespeicherte Werte verfallen sollen.
 	"settings_version": 2,
 	"table_3d": true,

@@ -53,6 +53,8 @@ const EN := {
 	"Joker-Modus": "Joker mode",
 	"Joker (%d Punkte)": "Joker (%d points)",
 	"Eigene Regeln": "Custom rules",
+	"%s (ab %d Partien)": "%s (from %d games)",
+	"Alle Spielmodi sofort freischalten": "Unlock all game modes right away",
 	"Partien: %s": "Games: %s",
 	"%d gespielt, %d gewonnen": "%d played, %d won",
 	"Chaos-Modus": "Chaos mode",

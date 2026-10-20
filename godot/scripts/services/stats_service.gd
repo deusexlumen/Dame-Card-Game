@@ -61,6 +61,14 @@ func record_game(won: bool) -> void:
 	_touch()
 
 
+# Freischalten (CONCEPT_DECISIONS 15): Modi werden durch beendete Grundspiel-Partien offen.
+const UNLOCK_GAMES := {"classic": 0, "joker": 3, "custom": 6, "chaos": 10}
+
+
+func is_unlocked(mode: String, all_open: bool = false) -> bool:
+	return all_open or int(values.games_played) >= int(UNLOCK_GAMES.get(mode, 0))
+
+
 # Eine Partie eines Spielmodus (alles ausser dem Grundspiel). Zaehlt nie in die Grundspiel-Werte.
 func record_mode_game(mode: String, won: bool) -> void:
 	var e: Dictionary = mode_games.get(mode, {"played": 0, "won": 0})
